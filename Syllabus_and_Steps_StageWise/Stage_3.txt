@@ -1,0 +1,104 @@
+Now Stage 3: Snowflake
+
+This is where the architecture starts becoming much closer to your Canam project.
+
+Our target is:
+
+                 STAGE 3
+
+Local/GCS Storage
+       │
+       │ JSON files
+       ▼
+Snowflake External Stage
+       │
+       │ COPY INTO
+       ▼
+Snowflake LANDING
+       │
+       ▼
+   Raw data
+
+Eventually we'll have:
+
+GCS
+ │
+ ▼
+┌──────────────────────────────┐
+│ Snowflake External Stage     │
+│                              │
+│ @ADVWORKS_DEV.LANDING_STAGE  │
+└──────────────┬───────────────┘
+               │
+               │ COPY INTO
+               ▼
+┌──────────────────────────────┐
+│ ADVWORKS_DEV                 │
+│                              │
+│ LANDING                      │
+│   ├── DIMCUSTOMER            │
+│   ├── DIMPRODUCT             │
+│   ├── DIMPRODUCTCATEGORY     │
+│   └── DIMPRODUCTSUBCATEGORY  │
+└──────────────────────────────┘
+But we'll build it incrementally
+Stage 3.1
+
+Create Snowflake account/database/environment.
+
+Stage 3.2
+
+Create:
+
+DATABASE
+SCHEMA
+WAREHOUSE
+Stage 3.3
+
+Create the LANDING tables.
+
+Stage 3.4
+
+Create a Snowflake stage.
+
+Stage 3.5
+
+Test loading one JSON file manually.
+
+Stage 3.6
+
+Load all DimCustomer batches.
+
+Stage 3.7
+
+Validate:
+
+SELECT COUNT(*)
+FROM LANDING.DIMCUSTOMER;
+
+against:
+
+18,484
+Stage 3.8
+
+Repeat for the other tables.
+
+One important architectural decision
+
+Since you don't currently have GCP access, we will not pretend the local folder is actually GCS.
+
+We'll explicitly learn the difference:
+
+Practice now:
+
+Local Storage
+     ↓
+Snowflake stage
+
+Later:
+
+GCS
+     ↓
+Snowflake external stage
+
+That distinction will be very useful in interviews.

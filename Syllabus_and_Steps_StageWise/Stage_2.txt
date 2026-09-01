@@ -1,0 +1,147 @@
+Stage 2.1 — Create a storage abstraction and simulate GCS locally.
+
+We'll build:
+
+python-ingestion/
+│
+├── config.py
+├── extract_customer.py
+│
+├── storage/
+│   ├── __init__.py
+│   └── local_storage.py
+│
+└── output/
+
+Then:
+
+SQL Server
+     ↓
+Python
+     ↓
+19 JSON batches
+     ↓
+storage.upload()
+     ↓
+local "GCS" landing zone
+
+After that we'll move to Snowflake, where you can use your existing Snowflake access if you have it, and later plug real GCS into the architecture.
+
+You have already completed the difficult part of Stage 1. Let's not wait for GCP to continue building the pipeline.
+
+###################################################################################################################################
+
+Next target
+
+We'll upgrade the current code to support:
+
+Generic table extraction — no customer-specific code.
+Centralized configuration — table, batch size, paths, etc.
+Reusable storage layer — local storage now, GCS later.
+Validation — source count vs extracted count.
+Error handling — connection, extraction, and file failures.
+Run metadata/logging — so the pipeline starts behaving like a real production pipeline.
+Clean project structure.
+
+Once Stage 2 is solid:
+
+Stage 3
+
+Local/GCS
+    │
+    ▼
+Snowflake External Stage
+    │
+    ▼
+RAW/LANDING table
+
+And we'll learn:
+
+GCS
+ ↓
+Storage Integration
+ ↓
+External Stage
+ ↓
+COPY INTO
+ ↓
+Snowflake Landing
+
+Then Stage 4 will introduce the more interesting event-driven architecture:
+
+GCS
+ │
+ │ OBJECT CREATED
+ ▼
+Pub/Sub
+ │
+ ▼
+Snowpipe
+ │
+ ▼
+Snowflake
+Your learning roadmap from here
+
+I would keep the original 9 stages, but internally break them down like this:
+
+STAGE 1 ✅
+SQL Server → Python → JSON
+                ↓
+             Local
+
+STAGE 2 🔵 CURRENT
+Dynamic Python ingestion
+       ↓
+Local storage abstraction
+       ↓
+Validation / metadata / error handling
+       ↓
+GCS-compatible design
+
+STAGE 3
+GCS → Snowflake Stage
+       ↓
+COPY INTO
+       ↓
+Landing
+
+STAGE 4
+GCS
+ ↓
+Pub/Sub
+ ↓
+Snowpipe
+ ↓
+Snowflake
+
+STAGE 5
+Airflow
+ ↓
+Orchestrate everything
+
+STAGE 6
+Terraform
+ ↓
+Infrastructure as Code
+
+STAGE 7
+dbt
+ ↓
+Landing
+ ↓
+Prepare
+ ↓
+Normalize
+ ↓
+Schematize
+ ↓
+Marketplace
+
+STAGE 8
+Azure DevOps
+ ↓
+CI/CD
+
+STAGE 9
+Production-style
+end-to-end pipeline

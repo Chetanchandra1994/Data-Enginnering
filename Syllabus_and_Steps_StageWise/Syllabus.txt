@@ -1,0 +1,45 @@
+STAGE 1
+SQL Server → Python → JSON → Local
+                ✅
+
+STAGE 1.5
+Refactor Python
+Reusable ingestion framework
+                ← NEXT
+
+STAGE 2
+Python → GCS
+
+STAGE 3
+GCS → Snowflake Stage
+
+STAGE 4
+Snowpipe + Pub/Sub
+
+STAGE 5
+Airflow orchestration
+
+STAGE 6
+Terraform infrastructure
+
+STAGE 7
+dbt transformations
+
+STAGE 8
+Azure DevOps CI/CD
+
+STAGE 9
+End-to-end production-style pipeline
+
+#################################################################
+Source Layer
+    ↓
+Extraction Layer
+    ↓
+Transformation/Serialization Layer
+    ↓
+Storage Layer
+    ↓
+Orchestration Layer
+
+#################################################################

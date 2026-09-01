@@ -1,0 +1,836 @@
+The best approach is to build it in layers, where every layer gives you something working before you move to the next.
+
+Your practice project should ultimately look like:
+
+SQL Server / PostgreSQL
+        │
+        ▼
+   Airflow on Docker
+        │
+        ▼
+ Custom ExtractionOperator
+        │
+        ▼
+   Source Connector
+        │
+        ▼
+   Batch Queue
+        │
+        ▼
+ GCS / Local Object Storage
+        │
+        ▼
+     Snowpipe
+        │
+        ▼
+    Snowflake
+        │
+        ▼
+      dbt
+        │
+        ▼
+ Bronze → Silver → Gold
+        │
+        ▼
+ Power BI / Tableau
+
+And then you'll add the infrastructure side:
+
+Terraform
+   │
+   ├── GCP
+   │    ├── GCS
+   │    ├── GKE
+   │    ├── Pub/Sub
+   │    └── Cloud SQL
+   │
+   └── Snowflake
+        ├── Database
+        ├── Schema
+        ├── Stage
+        ├── File Format
+        ├── Pipe
+        └── Tables
+First: don't recreate production exactly
+
+Your Canam environment has things like GKE, Shared VPC, Cloud SQL, PgBouncer, RabbitMQ, JayDeBeApi/JDBC, GCS Fuse, Terraform, Helm, Snowpipe, DBT, Azure Pipelines, etc.
+
+Trying to reproduce all of that immediately will teach you less because you'll spend most of your time fighting infrastructure.
+
+Instead, build this in 8 stages.
+
+Stage 1 — Build your source database
+
+Start with something simple such as AdventureWorks or your own small SQL Server database.
+
+I recommend AdventureWorks because you can create realistic tables such as:
+
+Sales.Customer
+Sales.SalesOrderHeader
+Sales.SalesOrderDetail
+Production.Product
+Production.ProductSubcategory
+Production.ProductCategory
+
+For your first pipeline, choose:
+
+Sales.Customer
+
+Create a local SQL Server instance using Docker.
+
+Your architecture initially becomes:
+
+SQL Server
+    ↓
+Python
+    ↓
+JSON
+    ↓
+Local folder
+What you need to learn
+
+Before touching Airflow, make sure you understand:
+
+SQL connection
+cursor
+execute()
+fetchmany()
+fetchall()
+column metadata
+converting rows → dictionaries
+JSON serialization
+batching
+
+For example:
+
+cursor.execute("""
+    SELECT *
+    FROM Sales.Customer
+""")
+
+while True:
+    rows = cursor.fetchmany(1000)
+
+    if not rows:
+        break
+
+    # process batch
+
+This is the fundamental idea behind your Canam JdbcSourceConnector.
+
+Stage 2 — Build your own SourceConnector framework
+
+Now reproduce the architecture from your Canam code.
+
+Create:
+
+cdp-practice/
+│
+├── airflow/
+│
+├── plugins/
+│   ├── connectors/
+│   │   ├── base_connector.py
+│   │   ├── source_connector.py
+│   │   ├── target_connector.py
+│   │   │
+│   │   └── jdbc/
+│   │       ├── jdbc_source_connector.py
+│   │       └── sqlserver_source_connector.py
+│   │
+│   └── operators/
+│       └── extraction.py
+│
+├── dags/
+│
+├── terraform/
+│
+├── dbt/
+│
+└── docker-compose.yml
+
+Don't copy your Canam code blindly.
+
+Write your own simplified version.
+
+Step 2.1 — BaseConnector
+
+Implement:
+
+class BaseConnector:
+
+    def __init__(
+        self,
+        conn_id,
+        limit=None,
+        src_system_operation="Insert"
+    ):
+        self.connection_id = conn_id
+        self.limit = limit
+        self.src_system_operation = src_system_operation
+
+        self.client = None
+        self._current_max_value = None
+        self._total_records_processed = 0
+
+Then implement:
+
+_resolve_xcom_args()
+_serialize()
+on_pipeline_success()
+on_pipeline_failure()
+close_connection()
+
+You don't need every production feature initially.
+
+Stage 3 — Build JDBC Source Connector
+
+Now reproduce the important logic from:
+
+JdbcSourceConnector
+
+Your connector should do:
+
+Build query
+   ↓
+Execute query
+   ↓
+fetchmany()
+   ↓
+Convert rows → dict
+   ↓
+Clean data
+   ↓
+Serialize JSON
+   ↓
+Return batch
+
+For example:
+
+class SQLServerSourceConnector(SourceConnector):
+
+    def extract(self, context):
+
+        if self.cursor is None:
+            self.cursor = self.conn.cursor()
+
+            query = self._build_query(context)
+
+            self.cursor.execute(query)
+
+        batch = self.cursor.fetchmany(self.limit)
+
+        if not batch:
+            return False
+
+        records = [
+            dict(zip(self.columns, row))
+            for row in batch
+        ]
+
+        self.extracted_data = self._serialize(
+            records,
+            context
+        )
+
+        return True
+
+Now you have essentially recreated the source half of the Canam ingestion framework.
+
+Stage 4 — Build the ExtractionOperator
+
+This is one of the most important parts of your project.
+
+Your Canam operator is essentially implementing:
+
+              ExtractionOperator
+                      │
+          ┌───────────┴───────────┐
+          │                       │
+      Producer                 Consumer
+          │                       │
+      Source                   Target
+          │                       │
+      extract()                save()
+          │                       │
+          ▼                       ▼
+        Queue ────────────────► Target
+
+The producer:
+
+while source.extract(context):
+
+    data = source.get_data()
+
+    queue.put(data)
+
+The consumer:
+
+while True:
+
+    data = queue.get()
+
+    if data is None:
+        break
+
+    target.save(
+        data=data,
+        context=context
+    )
+Why your Canam implementation uses a queue
+
+Because extraction and loading can overlap.
+
+For example:
+
+Time →
+
+Source:
+Batch 1 ── Batch 2 ── Batch 3 ── Batch 4
+           ↓
+Target:
+       Batch 1 ── Batch 2 ── Batch 3
+
+Instead of:
+
+Extract 1
+Load 1
+Extract 2
+Load 2
+Extract 3
+Load 3
+
+you can pipeline them.
+
+This is an important concept to understand deeply for interviews.
+
+Stage 5 — Create your GCS target
+
+Now create:
+
+GCSBucketTargetConnector
+
+Its responsibility:
+
+Receive bytes
+     ↓
+Determine filename
+     ↓
+Determine prefix
+     ↓
+Upload to GCS
+
+Your practice bucket could look like:
+
+gs://my-cdp-raw/
+
+raw/
+   SQLServer/
+       Customer/
+           fullload/
+               run_20260824/
+                   batch_001.json
+                   batch_002.json
+
+Then later:
+
+raw/
+   SQLServer/
+       Customer/
+           stream/
+               run_20260825/
+                   batch_001.json
+
+This is where you should understand the significance of your Canam:
+
+determined_prefix
+
+and:
+
+fullload
+stream
+Stage 6 — Implement Full Load vs Delta Load
+
+This is where your project becomes much more valuable.
+
+Suppose your source table has:
+
+CustomerID
+PersonID
+StoreID
+TerritoryID
+AccountNumber
+ModifiedDate
+
+Use:
+
+ModifiedDate
+
+as your delta column.
+
+First execution
+
+No XCom checkpoint exists.
+
+Therefore:
+
+XCom = NULL
+
+        ↓
+
+FULL LOAD
+
+Example:
+
+SELECT *
+FROM Customer
+
+After successful processing:
+
+MAX(ModifiedDate)
+        ↓
+XCom
+
+For example:
+
+2026-08-24 14:30:00
+Second execution
+
+Airflow retrieves:
+
+2026-08-24 14:30:00
+
+Then query:
+
+SELECT *
+FROM Customer
+WHERE ModifiedDate > '2026-08-24 14:30:00'
+
+Now:
+
+XCom exists
+       ↓
+STREAM / DELTA
+
+This is exactly the concept your _determine_prefix() and _get_last_checkpoint() are supporting.
+
+Stage 7 — Add Snowflake + Snowpipe
+
+Now you introduce the cloud warehouse.
+
+Architecture:
+
+SQL Server
+     │
+     ▼
+Airflow
+     │
+     ▼
+GCS
+     │
+     ▼
+Snowpipe
+     │
+     ▼
+Snowflake RAW
+
+Create in Snowflake:
+
+DATABASE
+   │
+   ├── RAW
+   │
+   ├── PREPARE
+   │
+   ├── NORMALIZE
+   │
+   ├── SCHEMATIZE
+   │
+   └── MARKETPLACE
+
+That will mirror the conceptual layers you described from your Canam environment.
+
+Create a JSON file format
+
+Your Canam configuration has:
+
+json_ff:
+  type: json
+
+Recreate that conceptually:
+
+CREATE FILE FORMAT raw_json_ff
+TYPE = JSON;
+
+Then:
+
+GCS
+ ↓
+External Stage
+ ↓
+File Format
+ ↓
+Snowpipe
+ ↓
+RAW table
+Stage 8 — Recreate the configuration-driven Snowpipe framework
+
+This is where you can make your practice project much closer to Canam.
+
+Instead of manually writing:
+
+CREATE PIPE customer...
+CREATE PIPE product...
+CREATE PIPE order...
+
+create YAML configuration.
+
+For example:
+
+sqlserver:
+  customer_pipe:
+    stage: sqlserver_stg
+    stage_subdir: Customer
+    file-format: json_ff
+    table: customer
+
+  product_pipe:
+    stage: sqlserver_stg
+    stage_subdir: Product
+    file-format: json_ff
+    table: product
+
+Then write Python/Terraform logic that reads this configuration and creates the required Snowflake objects.
+
+You'll start understanding why your Canam repository has:
+
+file-formats.yml
+pipes.yml
+stages.yml
+tables.yml
+
+rather than having everything hard-coded.
+
+Stage 9 — Add DBT
+
+Now your architecture becomes:
+
+SQL Server
+      ↓
+Airflow
+      ↓
+GCS
+      ↓
+Snowpipe
+      ↓
+Snowflake RAW
+      ↓
+DBT
+      ↓
+PREPARE
+      ↓
+NORMALIZE
+      ↓
+SCHEMATIZE
+      ↓
+MARKETPLACE
+
+Start with:
+
+RAW_CUSTOMER
+
+Then create:
+
+prepare_customer
+
+Then:
+
+normalized_customer
+
+Then:
+
+customer
+
+in your final marketplace layer.
+
+Learn:
+
+sources
+models
+refs
+staging models
+incremental models
+tests
+snapshots
+macros
+Jinja
+documentation
+lineage
+Stage 10 — Terraform everything
+
+Do not start with Terraform.
+
+Once you can manually create everything, destroy it, and recreate it, automate it.
+
+Start with:
+
+Terraform
+   │
+   ├── GCS bucket
+   │
+   ├── Pub/Sub
+   │
+   ├── Service Account
+   │
+   └── Snowflake objects
+
+Then move to:
+
+GKE
+
+and eventually:
+
+Airflow on GKE
+
+Your final Terraform structure can resemble:
+
+terraform/
+│
+├── backend.tf
+├── provider.tf
+├── variables.tf
+├── outputs.tf
+│
+├── buckets.tf
+├── pubsub.tf
+├── iam.tf
+├── gke.tf
+├── cloudsql.tf
+├── gcs.tf
+├── helm_release.tf
+│
+├── environments/
+│   ├── dev.tfvars
+│   ├── test.tfvars
+│   └── prod.tfvars
+
+This will make your existing Canam Terraform much easier to understand.
+
+Stage 11 — Move Airflow to Docker
+
+Before GKE, run Airflow locally.
+
+Use:
+
+Docker Compose
+
+Your local environment:
+
+Docker Compose
+│
+├── Airflow Scheduler
+├── Airflow Webserver
+├── PostgreSQL
+├── Redis/RabbitMQ
+│
+└── Your custom plugins
+
+Create your first DAG:
+
+ExtractionOperator(
+    task_id="extract_customer",
+    source=SQLServerSourceConnector(...),
+    targets=[
+        GCSConnector(...)
+    ]
+)
+
+Your goal:
+
+Trigger DAG
+     ↓
+Connect SQL Server
+     ↓
+Extract 25,000 rows
+     ↓
+Extract next 25,000
+     ↓
+...
+     ↓
+Upload JSON to GCS
+Stage 12 — Add Pub/Sub + Snowpipe automation
+
+Now make it event-driven.
+
+GCS
+ │
+ │ object created
+ ▼
+Pub/Sub
+ │
+ ▼
+Snowpipe
+ │
+ ▼
+Snowflake
+
+This is where you'll understand why your Canam architecture has things like:
+
+Pub/Sub
+Snowpipe
+GCS
+stages
+pipes
+
+together.
+
+Stage 13 — Add GKE
+
+Only now move Airflow from:
+
+Docker Compose
+
+to:
+
+GKE
+
+Then recreate the conceptual Canam infrastructure:
+
+GKE
+ │
+ ├── Airflow Scheduler
+ ├── Airflow Workers
+ ├── Webserver
+ ├── Triggerer
+ └── PgBouncer
+        │
+        ▼
+     Cloud SQL
+
+Then:
+
+GCS Fuse CSI
+      ↓
+Airflow DAG bucket
+
+This will make the Terraform code you shared much easier to understand.
+
+Stage 14 — CI/CD
+
+Finally recreate:
+
+Git
+ │
+ ▼
+Azure DevOps / GitHub Actions
+ │
+ ├── Build Airflow image
+ ├── Run tests
+ ├── Terraform plan
+ ├── Terraform apply
+ └── Deploy
+
+Your pipeline becomes:
+
+Developer
+   ↓
+Git commit
+   ↓
+CI
+   ↓
+Docker image
+   ↓
+Artifact Registry
+   ↓
+Terraform
+   ↓
+GKE
+   ↓
+Airflow
+
+The order I recommend for you
+
+Don't try to learn everything simultaneously.
+
+Follow this exact sequence:
+
+Phase	What you build	Main skill
+1	SQL Server	SQL + databases
+2	Python extractor	Python
+3	Connector framework	OOP/design
+4	ExtractionOperator	Airflow
+5	Batch processing	Data engineering
+6	Full/Delta load	Incremental ETL
+7	GCS target	GCP
+8	Snowflake	Data warehouse
+9	Snowpipe	Cloud ingestion
+10	DBT	Transformation
+11	Terraform	IaC
+12	Docker Airflow	Containers
+13	GKE	Kubernetes
+14	Pub/Sub	Event-driven architecture
+15	CI/CD	DevOps
+16	Power BI/Tableau	BI
+And most importantly: make it progressively harder
+Level 1
+SQL Server → Python → JSON
+Level 2
+SQL Server → Python → GCS
+Level 3
+SQL Server → Airflow → GCS
+Level 4
+SQL Server → Airflow → GCS → Snowpipe → Snowflake
+Level 5
+SQL Server
+ → Airflow
+ → GCS
+ → Snowpipe
+ → Snowflake
+ → DBT
+ → BI
+Level 6
+SQL Server
+      ↓
+Airflow on Docker
+      ↓
+GCS
+      ↓
+Pub/Sub
+      ↓
+Snowpipe
+      ↓
+Snowflake
+      ↓
+DBT
+      ↓
+BI
+Level 7 — production-like
+Git
+ ↓
+CI/CD
+ ↓
+Terraform
+ ↓
+GKE
+ ↓
+Airflow
+ ↓
+Custom Connector Framework
+ ↓
+GCS
+ ↓
+Pub/Sub
+ ↓
+Snowpipe
+ ↓
+Snowflake
+ ↓
+DBT
+ ↓
+BI
+
+Level 7 is the target.
+
+And because you've already worked with the real Canam architecture, I would make this more than a tutorial: we can build the project together file-by-file, using a small Customer / Product / Orders dataset first, and deliberately recreate the important patterns from your actual ExtractionOperator, SourceConnector, XCom delta logic, GCS target, Snowpipe YAML configuration, Terraform and DBT architecture.
+
+The first milestone should be Stage 1: local SQL Server + sample data + Python batch extractor. Once that works, we move to Airflow rather than trying to build the whole cloud stack at once.

@@ -1,0 +1,25 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Python virtual environment
+.venv/
+venv/
+env/
+
+# Generated output files
+python-ingestion/output/
+
+# Local storage bucket
+python-ingestion/storage_bucket/
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets and environment variables
+.env
+*.env
