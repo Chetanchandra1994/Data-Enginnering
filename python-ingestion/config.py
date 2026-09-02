@@ -21,12 +21,31 @@ TABLE_NAME = "dbo.DimCustomer"
 BATCH_SIZE = 5000
 
 
+# # --------------------------------------------------
+# # LOCAL STORAGE
+# # --------------------------------------------------
+
+# OUTPUT_FOLDER = "output"
+
+# STORAGE_FOLDER = "storage_bucket"
+
+# STORAGE_PREFIX = "raw"
+
 # --------------------------------------------------
-# LOCAL STORAGE
+# STORAGE
 # --------------------------------------------------
 
-OUTPUT_FOLDER = "output"
+# Storage backend
+# Currently supported:
+#   local
+#   gcs (will be implemented later)
+STORAGE_TYPE = "local"
 
+# Local storage
 STORAGE_FOLDER = "storage_bucket"
 
+# Common storage path
 STORAGE_PREFIX = "raw"
+
+# Local output folder
+OUTPUT_FOLDER = "output"

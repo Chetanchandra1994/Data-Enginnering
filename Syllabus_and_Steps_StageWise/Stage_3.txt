@@ -102,3 +102,58 @@ GCS
 Snowflake external stage
 
 That distinction will be very useful in interviews.
+
+What we have built so far
+
+Your pipeline is now:
+
+┌──────────────────────────┐
+│ AdventureWorksDW2022     │
+│ SQL Server               │
+│                          │
+│ dbo.DimCustomer          │
+│ 18,484 records           │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│ Stage_3_extract_customer │
+│ Python                   │
+│                          │
+│ • Connect SQL Server     │
+│ • Count source           │
+│ • Extract batches        │
+│ • Serialize JSON         │
+│ • Validate counts        │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│ storage_manager.py       │
+│                          │
+│ STORAGE_TYPE = "local"   │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│ local_storage.py         │
+│                          │
+│ Local storage simulation │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│ storage_bucket/raw/      │
+│                          │
+│ DimCustomer/             │
+└──────────────────────────┘
+
+And later:
+
+storage_manager.py
+        │
+        ├── local_storage.py
+        │
+        └── gcs_storage.py  ← later
+
+That's exactly the abstraction we wanted.
