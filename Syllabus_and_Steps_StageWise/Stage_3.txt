@@ -1,6 +1,6 @@
 Now Stage 3: Snowflake
 
-This is where the architecture starts becoming much closer to your Canam project.
+This is where the architecture starts becoming much closer to your Company project.
 
 Our target is:
 

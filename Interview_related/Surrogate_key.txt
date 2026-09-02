@@ -6,15 +6,18 @@ If an interviewer asks:
 
 A strong answer for your experience level would be:
 
-"A surrogate key is a warehouse-generated, system-managed identifier used to uniquely identify a dimension record. It is independent of the source business key. We use surrogate keys to decouple the warehouse from source-system identifiers and, importantly, to support historical tracking such as SCD Type 2. For example, the same customer business key can have multiple dimension records representing different historical versions, each with a different surrogate key. Fact tables then reference the dimension using that surrogate key."
+"A surrogate key is a warehouse-generated, system-managed identifier used to uniquely identify a dimension record. 
+It is independent of the source business key. We use surrogate keys to decouple the warehouse from source-system identifiers and, importantly, 
+to support historical tracking such as SCD Type 2. 
+For example, the same customer business key can have multiple dimension records representing different historical versions, each with a different surrogate key. 
+Fact tables then reference the dimension using that surrogate key."
 
-And if they ask:
+
 
 "Have you used surrogate keys in your project?"
 
-You can connect it directly to your Canam experience:
-
-"Yes. In our dimensional and data-product layers, we use surrogate keys in dimensions and reference those keys from fact tables. The source/business identifiers are retained separately, while the surrogate keys provide stable warehouse-level relationships and support historical dimension versions."
+"Yes. In our dimensional and data-product layers, we use surrogate keys in dimensions and reference those keys from fact tables. 
+The source/business identifiers are retained separately, while the surrogate keys provide stable warehouse-level relationships and support historical dimension versions."
 
 That's much stronger than simply saying "SK means surrogate key."
 

@@ -53,7 +53,7 @@ Terraform
         └── Tables
 First: don't recreate production exactly
 
-Your Canam environment has things like GKE, Shared VPC, Cloud SQL, PgBouncer, RabbitMQ, JayDeBeApi/JDBC, GCS Fuse, Terraform, Helm, Snowpipe, DBT, Azure Pipelines, etc.
+Your Company environment has things like GKE, Shared VPC, Cloud SQL, PgBouncer, RabbitMQ, JayDeBeApi/JDBC, GCS Fuse, Terraform, Helm, Snowpipe, DBT, Azure Pipelines, etc.
 
 Trying to reproduce all of that immediately will teach you less because you'll spend most of your time fighting infrastructure.
 
@@ -116,11 +116,11 @@ while True:
 
     # process batch
 
-This is the fundamental idea behind your Canam JdbcSourceConnector.
+This is the fundamental idea behind your Company JdbcSourceConnector.
 
 Stage 2 — Build your own SourceConnector framework
 
-Now reproduce the architecture from your Canam code.
+Now reproduce the architecture from your Company code.
 
 Create:
 
@@ -149,7 +149,7 @@ cdp-practice/
 │
 └── docker-compose.yml
 
-Don't copy your Canam code blindly.
+Don't copy your Company code blindly.
 
 Write your own simplified version.
 
@@ -235,13 +235,13 @@ class SQLServerSourceConnector(SourceConnector):
 
         return True
 
-Now you have essentially recreated the source half of the Canam ingestion framework.
+Now you have essentially recreated the source half of the Company ingestion framework.
 
 Stage 4 — Build the ExtractionOperator
 
 This is one of the most important parts of your project.
 
-Your Canam operator is essentially implementing:
+Your Company operator is essentially implementing:
 
               ExtractionOperator
                       │
@@ -277,7 +277,7 @@ while True:
         data=data,
         context=context
     )
-Why your Canam implementation uses a queue
+Why your Company implementation uses a queue
 
 Because extraction and loading can overlap.
 
@@ -341,7 +341,7 @@ raw/
                run_20260825/
                    batch_001.json
 
-This is where you should understand the significance of your Canam:
+This is where you should understand the significance of your Company:
 
 determined_prefix
 
@@ -448,11 +448,11 @@ DATABASE
    │
    └── MARKETPLACE
 
-That will mirror the conceptual layers you described from your Canam environment.
+That will mirror the conceptual layers you described from your Company environment.
 
 Create a JSON file format
 
-Your Canam configuration has:
+Your Company configuration has:
 
 json_ff:
   type: json
@@ -475,7 +475,7 @@ Snowpipe
 RAW table
 Stage 8 — Recreate the configuration-driven Snowpipe framework
 
-This is where you can make your practice project much closer to Canam.
+This is where you can make your practice project much closer to Company.
 
 Instead of manually writing:
 
@@ -502,7 +502,7 @@ sqlserver:
 
 Then write Python/Terraform logic that reads this configuration and creates the required Snowflake objects.
 
-You'll start understanding why your Canam repository has:
+You'll start understanding why your Company repository has:
 
 file-formats.yml
 pipes.yml
@@ -614,7 +614,7 @@ terraform/
 │   ├── test.tfvars
 │   └── prod.tfvars
 
-This will make your existing Canam Terraform much easier to understand.
+This will make your existing Company Terraform much easier to understand.
 
 Stage 11 — Move Airflow to Docker
 
@@ -674,7 +674,7 @@ Snowpipe
  ▼
 Snowflake
 
-This is where you'll understand why your Canam architecture has things like:
+This is where you'll understand why your Company architecture has things like:
 
 Pub/Sub
 Snowpipe
@@ -694,7 +694,7 @@ to:
 
 GKE
 
-Then recreate the conceptual Canam infrastructure:
+Then recreate the conceptual Company infrastructure:
 
 GKE
  │
@@ -831,6 +831,6 @@ BI
 
 Level 7 is the target.
 
-And because you've already worked with the real Canam architecture, I would make this more than a tutorial: we can build the project together file-by-file, using a small Customer / Product / Orders dataset first, and deliberately recreate the important patterns from your actual ExtractionOperator, SourceConnector, XCom delta logic, GCS target, Snowpipe YAML configuration, Terraform and DBT architecture.
+And because you've already worked with the real Company architecture, I would make this more than a tutorial: we can build the project together file-by-file, using a small Customer / Product / Orders dataset first, and deliberately recreate the important patterns from your actual ExtractionOperator, SourceConnector, XCom delta logic, GCS target, Snowpipe YAML configuration, Terraform and DBT architecture.
 
 The first milestone should be Stage 1: local SQL Server + sample data + Python batch extractor. Once that works, we move to Airflow rather than trying to build the whole cloud stack at once.
