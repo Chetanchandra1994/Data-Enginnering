@@ -1,0 +1,50 @@
+{{ config(
+    materialized='table',
+    schema='SCHEMATIZE'
+) }}
+
+WITH date_spine AS (
+
+    SELECT
+        DATEADD(
+            DAY,
+            SEQ4(),
+            '2010-01-01'::DATE
+        ) AS DATE_VALUE
+
+    FROM TABLE(
+        GENERATOR(
+            ROWCOUNT => 10000
+        )
+    )
+)
+
+SELECT
+    DATE_VALUE AS DATE_KEY,
+    DATE_VALUE AS FULL_DATE,
+
+    YEAR(DATE_VALUE) AS YEAR,
+    QUARTER(DATE_VALUE) AS QUARTER,
+    MONTH(DATE_VALUE) AS MONTH,
+    MONTHNAME(DATE_VALUE) AS MONTH_NAME,
+
+    DAY(DATE_VALUE) AS DAY,
+    DAYOFWEEK(DATE_VALUE) AS DAY_OF_WEEK,
+    DAYNAME(DATE_VALUE) AS DAY_NAME,
+
+    WEEKOFYEAR(DATE_VALUE) AS WEEK_OF_YEAR,
+
+    -- CASE
+    --     WHEN DAYOFWEEK(DATE_VALUE) IN (1, 7)
+    --         THEN FALSE
+    --     ELSE TRUE
+    -- END AS IS_WEEKDAY
+    CASE
+        WHEN DAYOFWEEK(DATE_VALUE) IN (0, 6)
+            THEN FALSE
+        ELSE TRUE
+    END AS IS_WEEKDAY
+
+FROM date_spine
+
+WHERE DATE_VALUE <= '2037-05-19'

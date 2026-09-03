@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+
+  - name: snowflake_prepare
+    database: ADVWORKS_DEV
+    schema: PREPARE
+
+    tables:
+
+      - name: DIMCUSTOMER_PREPARE
+
+      - name: DIMPRODUCT_PREPARE

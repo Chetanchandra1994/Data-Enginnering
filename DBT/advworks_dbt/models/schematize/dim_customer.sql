@@ -1,0 +1,60 @@
+{{ config(
+    materialized='table',
+    schema='SCHEMATIZE'
+) }}
+
+SELECT
+
+    CUSTOMER_KEY,
+
+    CUSTOMER_ALTERNATE_KEY,
+
+    FIRST_NAME,
+
+    MIDDLE_NAME,
+
+    LAST_NAME,
+
+    FULL_NAME,
+
+    BIRTH_DATE,
+
+    GENDER,
+
+    MARITAL_STATUS,
+
+    EMAIL_ADDRESS,
+
+    YEARLY_INCOME,
+
+    TOTAL_CHILDREN,
+
+    NUMBER_CHILDREN_AT_HOME,
+
+    ENGLISH_EDUCATION,
+
+    ENGLISH_OCCUPATION,
+
+    HOUSE_OWNER_FLAG,
+
+    NUMBER_CARS_OWNED,
+
+    ADDRESS_LINE1,
+
+    ADDRESS_LINE2,
+
+    PHONE,
+
+    DATE_FIRST_PURCHASE,
+
+    COMMUTE_DISTANCE,
+
+    GEOGRAPHY_KEY,
+
+    SOURCE_FILE,
+
+    CREATED_TIMESTAMP,
+
+    UPDATED_TIMESTAMP
+
+FROM {{ ref('dim_customer_normalize') }}

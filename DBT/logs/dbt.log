@@ -1,0 +1,58 @@
+[0m23:44:20.073876 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x0000025FB8D96C30>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x0000025FB72794F0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x0000025FB87647D0>]}
+
+
+============================== 23:44:20.078110 | 7774642a-d015-48c0-b290-b183aa4f9cd8 ==============================
+[0m23:44:20.078110 [info ] [MainThread]: Running with dbt=1.12.3
+[0m23:44:20.079109 [debug] [MainThread]: running dbt with arguments {'static_parser': 'True', 'no_print': 'None', 'version_check': 'True', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'target_path': 'None', 'maximum_seed_size_mib': '1', 'printer_width': '80', 'write_json': 'True', 'introspect': 'True', 'log_cache_events': 'False', 'empty': 'None', 'cache_selected_only': 'False', 'log_format': 'default', 'debug': 'False', 'fail_fast': 'False', 'partial_parse': 'True', 'send_anonymous_usage_stats': 'True', 'quiet': 'False', 'warn_error': 'None', 'profiles_dir': 'C:\\Users\\Admin\\.dbt', 'indirect_selection': 'eager', 'hints_enabled': 'True', 'invocation_command': 'dbt init advworks_dbt', 'use_experimental_parser': 'False', 'use_colors': 'True', 'log_path': 'logs'}
+[0m23:44:20.097014 [info ] [MainThread]: Creating dbt configuration folder at C:\Users\Admin\.dbt
+[0m23:44:20.100016 [debug] [MainThread]: Starter project path: C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\.venv\Lib\site-packages\dbt\include\starter_project
+[0m23:44:20.121283 [info ] [MainThread]: Setting up your profile.
+[0m23:44:40.662456 [debug] [MainThread]: Snowflake adapter: Setting snowflake.connector to ERROR (file logging only)
+[0m23:44:40.662456 [debug] [MainThread]: Snowflake adapter: Setting botocore to ERROR (file logging only)
+[0m23:44:40.663456 [debug] [MainThread]: Snowflake adapter: Setting boto3 to ERROR (file logging only)
+[0m23:49:22.824669 [error] [MainThread]: [[31mERROR[0m]: Encountered an error:
+
+[0m23:49:22.826668 [error] [MainThread]: Traceback (most recent call last):
+  File "C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\.venv\Lib\site-packages\dbt\cli\requires.py", line 198, in wrapper
+    result, success = func(*args, **kwargs)
+                      ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\.venv\Lib\site-packages\dbt\cli\requires.py", line 144, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\.venv\Lib\site-packages\dbt\cli\main.py", line 504, in init
+    results = task.run()
+              ^^^^^^^^^^
+  File "C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\.venv\Lib\site-packages\dbt\task\init.py", line 363, in run
+    self.setup_profile(profile_name)
+  File "C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\.venv\Lib\site-packages\dbt\task\init.py", line 265, in setup_profile
+    self.create_profile_from_target(adapter, profile_name=profile_name)
+  File "C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\.venv\Lib\site-packages\dbt\task\init.py", line 182, in create_profile_from_target
+    self.create_profile_from_profile_template(profile_template, profile_name)
+  File "C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\.venv\Lib\site-packages\dbt\task\init.py", line 166, in create_profile_from_profile_template
+    target = self.generate_target_from_input(prompts, initial_target)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\.venv\Lib\site-packages\dbt\task\init.py", line 116, in generate_target_from_input
+    numeric_choice = click.prompt(prompt_msg, type=click.INT)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\.venv\Lib\site-packages\click\termui.py", line 262, in prompt
+    value = prompt_func(prompt)
+            ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\.venv\Lib\site-packages\click\termui.py", line 245, in prompt_func
+    raise Abort() from None
+click.exceptions.Abort
+
+[0m23:49:22.827670 [debug] [MainThread]: Command `dbt init` failed at 23:49:22.827670 after 302.86 seconds
+[0m23:49:22.828668 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x0000025FB93FF680>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x0000025FBC1F2840>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x0000025FBB4C9DC0>]}
+[0m23:49:22.828668 [debug] [MainThread]: Flushing usage events
+[0m23:49:24.607838 [debug] [MainThread]: An error was encountered while trying to flush usage events
+[0m23:49:33.878041 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x0000014C23C82DE0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x0000014C23C83050>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x0000014C23C80AA0>]}
+
+
+============================== 23:49:33.882042 | 286f751a-d13b-4fab-a3e2-8b8c8b6daf10 ==============================
+[0m23:49:33.882042 [info ] [MainThread]: Running with dbt=1.12.3
+[0m23:49:33.882042 [debug] [MainThread]: running dbt with arguments {'version_check': 'True', 'no_print': 'None', 'static_parser': 'True', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'maximum_seed_size_mib': '1', 'target_path': 'None', 'printer_width': '80', 'write_json': 'True', 'empty': 'None', 'log_cache_events': 'False', 'introspect': 'True', 'cache_selected_only': 'False', 'fail_fast': 'False', 'debug': 'False', 'log_format': 'default', 'profiles_dir': 'C:\\Users\\Admin\\.dbt', 'send_anonymous_usage_stats': 'True', 'quiet': 'False', 'warn_error': 'None', 'partial_parse': 'True', 'invocation_command': 'dbt init advworks_dbt', 'hints_enabled': 'True', 'use_colors': 'True', 'use_experimental_parser': 'False', 'indirect_selection': 'eager', 'log_path': 'logs'}
+[0m23:49:33.903044 [info ] [MainThread]: A project called advworks_dbt already exists here.
+[0m23:49:33.904042 [debug] [MainThread]: Command `dbt init` succeeded at 23:49:33.904042 after 0.14 seconds
+[0m23:49:33.904042 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x0000014C21CFC470>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x0000014C1FAFC1D0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x0000014C219935C0>]}
+[0m23:49:33.905042 [debug] [MainThread]: Flushing usage events
+[0m23:49:35.482913 [debug] [MainThread]: An error was encountered while trying to flush usage events
