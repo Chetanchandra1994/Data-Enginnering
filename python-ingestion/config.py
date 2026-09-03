@@ -8,10 +8,17 @@ SQL_SERVER = r"CHETAN\SQLSERVER2022"
 DATABASE = "AdventureWorksDW2022"
 
 # Table we want to ingest
-TABLE_NAME = "dbo.DimCustomer"
+#TABLE_NAME = "dbo.DimCustomer"
 #TABLE_NAME = "dbo.DimProduct"
 #TABLE_NAME = "dbo.DimProductCategory"
 #TABLE_NAME = "dbo.DimProductSubcategory"
+TABLE_NAME = "dbo.FactInternetSales"
+
+# Deterministic ordering for batch extraction
+ORDER_BY_COLUMNS = [
+    "SalesOrderNumber",
+    "SalesOrderLineNumber"
+]
 
 
 # --------------------------------------------------
@@ -49,3 +56,4 @@ STORAGE_PREFIX = "raw"
 
 # Local output folder
 OUTPUT_FOLDER = "output"
+
