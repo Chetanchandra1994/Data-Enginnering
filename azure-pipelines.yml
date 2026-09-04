@@ -5,10 +5,18 @@ pool:
   vmImage: 'ubuntu-latest'
 
 stages:
+
+  # ============================================================
+  # CI VALIDATION
+  # ============================================================
   - stage: Validate
     displayName: "CI Validation"
 
     jobs:
+
+      # --------------------------------------------------------
+      # Python Validation
+      # --------------------------------------------------------
       - job: PythonValidation
         displayName: "Python Validation"
 
@@ -20,14 +28,14 @@ stages:
               versionSpec: '3.11'
 
           - script: |
-              python -m pip install --upgrade pip
-              pip install -r python-ingestion/requirements.txt
-            displayName: "Install Python dependencies"
-
-          - script: |
+              python --version
               python -m compileall python-ingestion
             displayName: "Validate Python code"
 
+
+      # --------------------------------------------------------
+      # dbt Validation
+      # --------------------------------------------------------
       - job: DBTValidation
         displayName: "dbt Validation"
 
@@ -39,15 +47,37 @@ stages:
               versionSpec: '3.11'
 
           - script: |
+              python --version
               python -m pip install --upgrade pip
-              pip install -r DBT/advworks_dbt/requirements.txt
+              pip install dbt-core dbt-snowflake
             displayName: "Install dbt"
 
           - script: |
+              mkdir -p ~/.dbt
+              printf '%s\n' \
+              'advworks_dbt:' \
+              '  target: dev' \
+              '  outputs:' \
+              '    dev:' \
+              '      type: snowflake' \
+              '      account: dummy' \
+              '      user: dummy' \
+              '      password: dummy' \
+              '      role: ACCOUNTADMIN' \
+              '      database: ADVWORKS_DEV' \
+              '      warehouse: ETL_WH_DEV' \
+              '      schema: PREPARE' \
+              '      threads: 4' \
+              > ~/.dbt/profiles.yml
+
               cd DBT/advworks_dbt
               dbt parse
             displayName: "Run dbt parse"
 
+
+      # --------------------------------------------------------
+      # Terraform Validation
+      # --------------------------------------------------------
       - job: TerraformValidation
         displayName: "Terraform Validation"
 
@@ -55,10 +85,12 @@ stages:
           - checkout: self
 
           - script: |
-              wget -q https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip
-              unzip -o terraform_1.15.8_linux_amd64.zip
-              sudo mv terraform /usr/local/bin/terraform
-              terraform version
+              curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o terraform.zip
+              unzip -o terraform.zip
+              mkdir -p "$HOME/bin"
+              mv terraform "$HOME/bin/terraform"
+              echo "##vso[task.prependpath]$HOME/bin"
+              "$HOME/bin/terraform" version
             displayName: "Install Terraform"
 
           - script: |

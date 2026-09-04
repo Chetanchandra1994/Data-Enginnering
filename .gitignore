@@ -7,6 +7,9 @@ __pycache__/
 venv/
 env/
 
+
+
+
 # Terraform
 terraform/.terraform/
 terraform/*.tfstate
@@ -14,6 +17,7 @@ terraform/*.tfstate.*
 terraform/*.tfplan
 terraform/crash.log
 terraform/crash.*.log
+terraform/snowflake_passphrase.txt
 
 # Terraform variable files containing secrets
 *.auto.tfvars
@@ -21,7 +25,7 @@ terraform/crash.*.log
 
 # Generated output files
 python-ingestion/output/
-
+python-ingestion/storage/
 # Local storage bucket
 python-ingestion/storage_bucket/
 
