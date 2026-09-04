@@ -1,3 +1,4 @@
+```yaml
 trigger:
   - main
 
@@ -7,18 +8,14 @@ pool:
 stages:
 
   # ============================================================
-  # CI VALIDATION
+  # STAGE 1 — PYTHON VALIDATION
   # ============================================================
-  - stage: Validate
-    displayName: "CI Validation"
+  - stage: Python
+    displayName: "1. Python Validation"
 
     jobs:
-
-      # --------------------------------------------------------
-      # Python Validation
-      # --------------------------------------------------------
       - job: PythonValidation
-        displayName: "Python Validation"
+        displayName: "Validate Python Code"
 
         steps:
           - checkout: self
@@ -26,18 +23,27 @@ stages:
           - task: UsePythonVersion@0
             inputs:
               versionSpec: '3.11'
+            displayName: "Set Python 3.11"
 
           - script: |
               python --version
               python -m compileall python-ingestion
-            displayName: "Validate Python code"
+            displayName: "Compile Python Code"
 
 
-      # --------------------------------------------------------
-      # dbt Validation
-      # --------------------------------------------------------
+  # ============================================================
+  # STAGE 2 — DBT VALIDATION
+  # Runs only after Python succeeds
+  # ============================================================
+  - stage: DBT
+    displayName: "2. dbt Validation"
+
+    dependsOn: Python
+    condition: succeeded()
+
+    jobs:
       - job: DBTValidation
-        displayName: "dbt Validation"
+        displayName: "Validate dbt Project"
 
         steps:
           - checkout: self
@@ -45,6 +51,7 @@ stages:
           - task: UsePythonVersion@0
             inputs:
               versionSpec: '3.11'
+            displayName: "Set Python 3.11"
 
           - script: |
               python --version
@@ -54,6 +61,7 @@ stages:
 
           - script: |
               mkdir -p ~/.dbt
+
               printf '%s\n' \
               'advworks_dbt:' \
               '  target: dev' \
@@ -72,38 +80,65 @@ stages:
 
               cd DBT/advworks_dbt
               dbt parse
-            displayName: "Run dbt parse"
+            displayName: "Run dbt Parse"
 
 
-      # --------------------------------------------------------
-      # Terraform Validation
-      # --------------------------------------------------------
+  # ============================================================
+  # STAGE 3 — TERRAFORM VALIDATION
+  # Runs only after dbt succeeds
+  # ============================================================
+  - stage: Terraform
+    displayName: "3. Terraform Validation"
+
+    dependsOn: DBT
+    condition: succeeded()
+
+    jobs:
       - job: TerraformValidation
-        displayName: "Terraform Validation"
+        displayName: "Validate Terraform Code"
 
         steps:
           - checkout: self
 
+          # ----------------------------------------------------
+          # Install Terraform
+          # ----------------------------------------------------
           - script: |
-              curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o terraform.zip
-              unzip -o terraform.zip
-              mkdir -p "$HOME/bin"
-              mv terraform "$HOME/bin/terraform"
-              echo "##vso[task.prependpath]$HOME/bin"
-              "$HOME/bin/terraform" version
+              curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
+
+              rm -rf /tmp/terraform-install
+              mkdir -p /tmp/terraform-install
+
+              unzip -o /tmp/terraform.zip -d /tmp/terraform-install
+
+              chmod +x /tmp/terraform-install/terraform
+
+              echo "##vso[task.prependpath]/tmp/terraform-install"
+
+              /tmp/terraform-install/terraform version
             displayName: "Install Terraform"
 
+          # ----------------------------------------------------
+          # Terraform Format Check
+          # ----------------------------------------------------
           - script: |
               cd terraform
               terraform fmt -check -recursive
-            displayName: "Terraform format check"
+            displayName: "Terraform Format Check"
 
+          # ----------------------------------------------------
+          # Terraform Init
+          # ----------------------------------------------------
           - script: |
               cd terraform
               terraform init -backend=false
-            displayName: "Terraform init"
+            displayName: "Terraform Init"
 
+          # ----------------------------------------------------
+          # Terraform Validate
+          # ----------------------------------------------------
           - script: |
               cd terraform
               terraform validate
-            displayName: "Terraform validate"
+            displayName: "Terraform Validate"
+```
