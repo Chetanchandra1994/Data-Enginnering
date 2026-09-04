@@ -7,9 +7,6 @@ pool:
 
 stages:
 
-  # ============================================================
-  # STAGE 1 — PYTHON VALIDATION
-  # ============================================================
   - stage: Python
     displayName: "1. Python Validation"
 
@@ -31,10 +28,6 @@ stages:
             displayName: "Compile Python Code"
 
 
-  # ============================================================
-  # STAGE 2 — DBT VALIDATION
-  # Runs only after Python succeeds
-  # ============================================================
   - stage: DBT
     displayName: "2. dbt Validation"
 
@@ -61,32 +54,27 @@ stages:
 
           - script: |
               mkdir -p ~/.dbt
-
               printf '%s\n' \
-              'advworks_dbt:' \
-              '  target: dev' \
-              '  outputs:' \
-              '    dev:' \
-              '      type: snowflake' \
-              '      account: dummy' \
-              '      user: dummy' \
-              '      password: dummy' \
-              '      role: ACCOUNTADMIN' \
-              '      database: ADVWORKS_DEV' \
-              '      warehouse: ETL_WH_DEV' \
-              '      schema: PREPARE' \
-              '      threads: 4' \
-              > ~/.dbt/profiles.yml
+                'advworks_dbt:' \
+                '  target: dev' \
+                '  outputs:' \
+                '    dev:' \
+                '      type: snowflake' \
+                '      account: dummy' \
+                '      user: dummy' \
+                '      password: dummy' \
+                '      role: ACCOUNTADMIN' \
+                '      database: ADVWORKS_DEV' \
+                '      warehouse: ETL_WH_DEV' \
+                '      schema: PREPARE' \
+                '      threads: 4' \
+                > ~/.dbt/profiles.yml
 
               cd DBT/advworks_dbt
               dbt parse
             displayName: "Run dbt Parse"
 
 
-  # ============================================================
-  # STAGE 3 — TERRAFORM VALIDATION
-  # Runs only after dbt succeeds
-  # ============================================================
   - stage: Terraform
     displayName: "3. Terraform Validation"
 
@@ -100,43 +88,26 @@ stages:
         steps:
           - checkout: self
 
-          # ----------------------------------------------------
-          # Install Terraform
-          # ----------------------------------------------------
           - script: |
               curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
-
               rm -rf /tmp/terraform-install
               mkdir -p /tmp/terraform-install
-
               unzip -o /tmp/terraform.zip -d /tmp/terraform-install
-
               chmod +x /tmp/terraform-install/terraform
-
               echo "##vso[task.prependpath]/tmp/terraform-install"
-
               /tmp/terraform-install/terraform version
             displayName: "Install Terraform"
 
-          # ----------------------------------------------------
-          # Terraform Format Check
-          # ----------------------------------------------------
           - script: |
               cd terraform
               terraform fmt -check -recursive
             displayName: "Terraform Format Check"
 
-          # ----------------------------------------------------
-          # Terraform Init
-          # ----------------------------------------------------
           - script: |
               cd terraform
               terraform init -backend=false
             displayName: "Terraform Init"
 
-          # ----------------------------------------------------
-          # Terraform Validate
-          # ----------------------------------------------------
           - script: |
               cd terraform
               terraform validate
