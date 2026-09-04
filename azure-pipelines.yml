@@ -54,9 +54,12 @@ stages:
         steps:
           - checkout: self
 
-          - task: TerraformInstaller@1
-            inputs:
-              terraformVersion: '1.15.8'
+          - script: |
+              wget -q https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip
+              unzip -o terraform_1.15.8_linux_amd64.zip
+              sudo mv terraform /usr/local/bin/terraform
+              terraform version
+            displayName: "Install Terraform"
 
           - script: |
               cd terraform
