@@ -111,3 +111,36 @@ stages:
               cd terraform
               terraform validate
             displayName: 'Terraform Validate'
+
+  - stage: TerraformPlanDev
+    displayName: '4. Terraform Plan - DEV'
+
+    dependsOn: Terraform
+    condition: succeeded()
+
+    jobs:
+      - job: TerraformPlan
+        displayName: 'Create Terraform Plan for DEV'
+
+        steps:
+          - checkout: self
+
+          - script: |
+              curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
+              rm -rf /tmp/terraform-install
+              mkdir -p /tmp/terraform-install
+              unzip -o /tmp/terraform.zip -d /tmp/terraform-install
+              chmod +x /tmp/terraform-install/terraform
+              echo "##vso[task.prependpath]/tmp/terraform-install"
+              /tmp/terraform-install/terraform version
+            displayName: 'Install Terraform'
+
+          - script: |
+              cd terraform
+              terraform init -backend=false
+            displayName: 'Terraform Init'
+
+          - script: |
+              cd terraform
+              terraform plan -var-file=environments/dev.tfvars -out=tfplan
+            displayName: 'Terraform Plan - DEV'
