@@ -1,0 +1,57 @@
+DBT/
+└── advworks_dbt/
+    ├── models/
+    │   ├── prepare/
+    │   │   ├── sources.yml
+    │   │   ├── dim_customer_prepare.sql
+    │   │   ├── dim_product_prepare.sql
+    │   │   └── fact_internet_sales_prepare.sql
+    │   │
+    │   ├── normalize/
+    │   │   ├── dim_customer_normalize.sql
+    │   │   ├── dim_product_normalize.sql
+    │   │   └── fact_internet_sales_normalize.sql
+    │   │
+    │   ├── schematize/
+    │   │   ├── dim_customer.sql
+    │   │   ├── dim_product.sql
+    │   │   ├── dim_date.sql
+    │   │   └── fact_internet_sales.sql
+    │   │
+    │   └── marketplace/
+    │       └── sales_customer_product.sql
+    │
+    ├── macros/
+    │   ├── generate_schema_name.sql
+    │   └── data_quality.sql
+    │
+    ├── tests/
+    │   ├── fact_order_line_unique.sql
+    │   ├── fact_customer_integrity.sql
+    │   ├── fact_product_integrity.sql
+    │   └── fact_date_integrity.sql
+    │
+    ├── dbt_project.yml
+    └── README.md
+
+
+    /*
+
+                    DBT
+                     │
+             ┌───────┴────────┐
+             │                │
+           MODELS            TESTS
+             │                │
+             │                ▼
+             │          data_quality.sql
+             │                │
+             │       ┌────────┼────────┐
+             │       │        │        │
+             │       ▼        ▼        ▼
+             │     NULL    UNIQUE   ORPHAN
+             │
+             ▼
+        MARKETPLACE
+
+*/
