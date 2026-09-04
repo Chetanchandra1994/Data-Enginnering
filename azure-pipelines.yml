@@ -1,4 +1,3 @@
-```yaml
 trigger:
   - main
 
@@ -8,11 +7,11 @@ pool:
 stages:
 
   - stage: Python
-    displayName: "1. Python Validation"
+    displayName: '1. Python Validation'
 
     jobs:
       - job: PythonValidation
-        displayName: "Validate Python Code"
+        displayName: 'Validate Python Code'
 
         steps:
           - checkout: self
@@ -20,23 +19,23 @@ stages:
           - task: UsePythonVersion@0
             inputs:
               versionSpec: '3.11'
-            displayName: "Set Python 3.11"
+            displayName: 'Set Python 3.11'
 
           - script: |
               python --version
               python -m compileall python-ingestion
-            displayName: "Compile Python Code"
+            displayName: 'Compile Python Code'
 
 
   - stage: DBT
-    displayName: "2. dbt Validation"
+    displayName: '2. dbt Validation'
 
     dependsOn: Python
     condition: succeeded()
 
     jobs:
       - job: DBTValidation
-        displayName: "Validate dbt Project"
+        displayName: 'Validate dbt Project'
 
         steps:
           - checkout: self
@@ -44,46 +43,46 @@ stages:
           - task: UsePythonVersion@0
             inputs:
               versionSpec: '3.11'
-            displayName: "Set Python 3.11"
+            displayName: 'Set Python 3.11'
 
           - script: |
               python --version
               python -m pip install --upgrade pip
               pip install dbt-core dbt-snowflake
-            displayName: "Install dbt"
+            displayName: 'Install dbt'
 
           - script: |
               mkdir -p ~/.dbt
-              printf '%s\n' \
-                'advworks_dbt:' \
-                '  target: dev' \
-                '  outputs:' \
-                '    dev:' \
-                '      type: snowflake' \
-                '      account: dummy' \
-                '      user: dummy' \
-                '      password: dummy' \
-                '      role: ACCOUNTADMIN' \
-                '      database: ADVWORKS_DEV' \
-                '      warehouse: ETL_WH_DEV' \
-                '      schema: PREPARE' \
-                '      threads: 4' \
-                > ~/.dbt/profiles.yml
+              cat > ~/.dbt/profiles.yml <<'EOF'
+              advworks_dbt:
+                target: dev
+                outputs:
+                  dev:
+                    type: snowflake
+                    account: dummy
+                    user: dummy
+                    password: dummy
+                    role: ACCOUNTADMIN
+                    database: ADVWORKS_DEV
+                    warehouse: ETL_WH_DEV
+                    schema: PREPARE
+                    threads: 4
+              EOF
 
               cd DBT/advworks_dbt
               dbt parse
-            displayName: "Run dbt Parse"
+            displayName: 'Run dbt Parse'
 
 
   - stage: Terraform
-    displayName: "3. Terraform Validation"
+    displayName: '3. Terraform Validation'
 
     dependsOn: DBT
     condition: succeeded()
 
     jobs:
       - job: TerraformValidation
-        displayName: "Validate Terraform Code"
+        displayName: 'Validate Terraform Code'
 
         steps:
           - checkout: self
@@ -96,20 +95,19 @@ stages:
               chmod +x /tmp/terraform-install/terraform
               echo "##vso[task.prependpath]/tmp/terraform-install"
               /tmp/terraform-install/terraform version
-            displayName: "Install Terraform"
+            displayName: 'Install Terraform'
 
           - script: |
               cd terraform
               terraform fmt -check -recursive
-            displayName: "Terraform Format Check"
+            displayName: 'Terraform Format Check'
 
           - script: |
               cd terraform
               terraform init -backend=false
-            displayName: "Terraform Init"
+            displayName: 'Terraform Init'
 
           - script: |
               cd terraform
               terraform validate
-            displayName: "Terraform Validate"
-```
+            displayName: 'Terraform Validate'
