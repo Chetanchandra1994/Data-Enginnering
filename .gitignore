@@ -7,6 +7,18 @@ __pycache__/
 venv/
 env/
 
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfplan
+terraform/crash.log
+terraform/crash.*.log
+
+# Terraform variable files containing secrets
+*.auto.tfvars
+*.auto.tfvars.json
+
 # Generated output files
 python-ingestion/output/
 

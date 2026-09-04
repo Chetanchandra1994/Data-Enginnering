@@ -1,0 +1,47 @@
+STAGE 7 — TERRAFORM
+
+Our objective is to take what you manually created in Snowflake and make it reproducible infrastructure-as-code.
+
+We'll eventually be able to do:
+
+terraform init
+       ↓
+terraform validate
+       ↓
+terraform plan
+       ↓
+terraform apply
+       ↓
+Snowflake infrastructure created
+
+Our target:
+
+Data-pipeline-end-to-end/
+│
+├── DBT/
+│   └── advworks_dbt/
+│
+├── terraform/
+│   ├── environments/
+│   │   └── dev.tfvars
+│   │
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   └── versions.tf
+│
+├── python-ingestion/
+├── source-db/
+└── README.md
+
+And Terraform will eventually manage:
+
+ADVWORKS_DEV
+│
+├── ETL_WH_DEV
+│
+├── LANDING
+├── PREPARE
+├── NORMALIZE
+├── SCHEMATIZE
+└── MARKETPLACE

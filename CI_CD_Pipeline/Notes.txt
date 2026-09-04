@@ -1,0 +1,272 @@
+Step 1 — Understand what happens in a real company
+
+Suppose tomorrow you add a new table:
+
+SalesOrderHeader
+
+You modify:
+
+python-ingestion/
+DBT/
+terraform/
+
+You commit:
+
+git add .
+git commit -m "Add SalesOrderHeader pipeline"
+git push
+
+Azure DevOps sees the push and starts the pipeline.
+
+The pipeline asks:
+
+Python
+
+Does the Python code work?
+
+dbt
+
+Is the dbt project valid?
+Do dependencies compile?
+Do tests pass?
+
+Terraform
+
+Is the Terraform syntax valid?
+Is the configuration structurally valid?
+What infrastructure would change?
+
+If something fails:
+
+Git
+ ↓
+Azure Pipeline
+ ↓
+❌ FAIL
+
+The code should not be promoted.
+
+If everything passes:
+
+Git
+ ↓
+Azure Pipeline
+ ↓
+✅ PASS
+ ↓
+Eligible for deployment
+
+That's CI.
+
+Step 2 — Our actual pipeline
+
+Eventually we'll have:
+
+                 Git
+                  │
+                  ▼
+           Pull Request
+                  │
+                  ▼
+        ┌─────────────────┐
+        │       CI        │
+        ├─────────────────┤
+        │ Python          │
+        │ dbt             │
+        │ Terraform       │
+        │ Tests           │
+        └────────┬────────┘
+                 │
+               PASS
+                 │
+                 ▼
+              DEV
+                 │
+             approval
+                 │
+                 ▼
+              TEST
+                 │
+             approval
+                 │
+                 ▼
+            PRE-PROD
+                 │
+             approval
+                 │
+                 ▼
+              PROD
+
+Later we'll make the environments correspond to:
+
+DEV
+ADVWORKS_DEV
+
+TEST
+ADVWORKS_TEST
+
+PRE-PROD
+ADVWORKS_PREPROD
+
+PROD
+ADVWORKS_PROD
+
+And the same Terraform/dbt code gets promoted through environments using environment-specific configuration.
+
+Our Data flow is:
+
+SQL Server
+    ↓
+Python
+    ↓
+GCS
+    ↓
+Pub/Sub
+    ↓
+Snowpipe
+    ↓
+Snowflake
+    ↓
+LANDING
+    ↓
+PREPARE
+    ↓
+NORMALIZE
+    ↓
+SCHEMATIZE
+    ↓
+MARKETPLACE
+
+Now we're adding the software delivery layer around it:
+
+                         ┌──────────────────────┐
+                         │     Azure Repos      │
+                         │       Git            │
+                         └──────────┬───────────┘
+                                    │
+                              Pull Request
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │   CI Pipeline        │
+                         │                      │
+                         │ • Terraform validate │
+                         │ • Terraform plan     │
+                         │ • dbt parse/build    │
+                         │ • SQL/Python tests   │
+                         └──────────┬───────────┘
+                                    │
+                                  Merge
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │   DEV Deployment     │
+                         └──────────┬───────────┘
+                                    │
+                              Approval/Gate
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │   TEST Deployment    │
+                         └──────────┬───────────┘
+                                    │
+                              Approval/Gate
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │  PRE-PROD Deployment │
+                         └──────────┬───────────┘
+                                    │
+                              Approval/Gate
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │   PROD Deployment    │
+                         └──────────────────────┘
+
+This is exactly the kind of thing one does in a Data Engineering Job.   
+
+And we'll make it realistic
+
+We'll simulate a real change such as:
+
+"Business requests a new DimProduct attribute / new table."
+
+You'll make the change in Git:
+
+feature/new-product-table
+        ↓
+Pull Request
+        ↓
+Code Review
+        ↓
+CI validation
+        ↓
+DEV
+        ↓
+TEST
+        ↓
+PRE-PROD
+        ↓
+PROD
+
+We'll learn why each stage exists, not just copy an Azure YAML file.
+
+We'll cover:
+
+Azure Repos / Git branching
+Pull requests
+CI vs CD
+Azure Pipelines
+pipeline YAML
+variables and variable groups
+DEV/TEST/PRE-PROD/PROD environments
+approvals and gates
+service connections
+secrets
+Terraform plan/apply
+dbt deployment
+Python deployment
+artifact creation
+promotion between environments
+environment-specific configuration
+rollback
+deployment failures
+state management
+database migration strategy
+production safety
+CI/CD interview scenarios
+One important architectural distinction
+
+We'll keep ownership clean:
+
+Component	Managed by
+Snowflake DB/Warehouse/Schemas/Stages/etc.	Terraform
+Transformation SQL	dbt
+Python ingestion code	Git + CI/CD
+Airflow DAGs	Git + CI/CD
+Pipeline definition	Azure DevOps
+Secrets	Azure secure mechanisms
+Data	Snowflake/GCS
+
+This prevents us from creating a messy project where Terraform, dbt and Azure Pipelines all try to manage the same objects.
+
+Goal:
+Azure DevOps CI/CD — from zero to a working DEV → TEST → PRE-PROD → PROD deployment pipeline.
+
+GitHub
+   ↓
+Azure DevOps Pipeline
+   ↓
+CI
+   ├── Python validation
+   ├── dbt parse
+   ├── dbt compile
+   ├── dbt test
+   └── Terraform validate
+        ↓
+CD
+   ├── Terraform Plan
+   ├── Approval
+   ├── Terraform Apply
+   └── dbt Build + Test

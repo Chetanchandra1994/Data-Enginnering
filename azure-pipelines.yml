@@ -1,0 +1,74 @@
+trigger:
+  - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+  - stage: Validate
+    displayName: "CI Validation"
+
+    jobs:
+      - job: PythonValidation
+        displayName: "Python Validation"
+
+        steps:
+          - checkout: self
+
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.11'
+
+          - script: |
+              python -m pip install --upgrade pip
+              pip install -r python-ingestion/requirements.txt
+            displayName: "Install Python dependencies"
+
+          - script: |
+              python -m compileall python-ingestion
+            displayName: "Validate Python code"
+
+      - job: DBTValidation
+        displayName: "dbt Validation"
+
+        steps:
+          - checkout: self
+
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.11'
+
+          - script: |
+              python -m pip install --upgrade pip
+              pip install -r DBT/advworks_dbt/requirements.txt
+            displayName: "Install dbt"
+
+          - script: |
+              cd DBT/advworks_dbt
+              dbt parse
+            displayName: "Run dbt parse"
+
+      - job: TerraformValidation
+        displayName: "Terraform Validation"
+
+        steps:
+          - checkout: self
+
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: '1.15.8'
+
+          - script: |
+              cd terraform
+              terraform fmt -check -recursive
+            displayName: "Terraform format check"
+
+          - script: |
+              cd terraform
+              terraform init -backend=false
+            displayName: "Terraform init"
+
+          - script: |
+              cd terraform
+              terraform validate
+            displayName: "Terraform validate"

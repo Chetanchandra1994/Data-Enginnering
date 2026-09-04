@@ -1,0 +1,18 @@
+Terraform structure should conceptually be:
+
+main.tf
+│
+├── Snowflake provider
+│
+├── Database
+│   └── ADVWORKS_DEV
+│
+├── Warehouse
+│   └── ETL_WH_DEV
+│
+└── Schemas
+    ├── LANDING
+    ├── PREPARE
+    ├── NORMALIZE
+    ├── SCHEMATIZE
+    └── MARKETPLACE
