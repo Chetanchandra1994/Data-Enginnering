@@ -135,6 +135,12 @@ stages:
             displayName: 'Download Snowflake Private Key'
 
           - script: |
+              echo "Secure file path: $(snowflakeKey.secureFilePath)"
+              test -f "$(snowflakeKey.secureFilePath)"
+              echo "Secure key file exists."
+            displayName: 'Verify Snowflake Key File'
+
+          - script: |
               curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
               rm -rf /tmp/terraform-install
               mkdir -p /tmp/terraform-install
@@ -151,8 +157,15 @@ stages:
 
           - script: |
               cd terraform
-              terraform plan -var-file=environments/dev.tfvars -out=tfplan
+              terraform plan -var-file=environments/dev.tfvars -var="snowflake_private_key_path=$(snowflakeKey.secureFilePath)" -out=tfplan
             displayName: 'Terraform Plan - DEV'
             env:
-              TF_VAR_snowflake_private_key: $(SNOWFLAKE_PRIVATE_KEY)
               TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
+
+          # - script: |
+          #     cd terraform
+          #     terraform plan -var-file=environments/dev.tfvars -out=tfplan
+          #   displayName: 'Terraform Plan - DEV'
+          #   env:
+          #     TF_VAR_snowflake_private_key: $(SNOWFLAKE_PRIVATE_KEY)
+          #     TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
