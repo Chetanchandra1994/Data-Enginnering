@@ -26,6 +26,12 @@ resource "snowflake_warehouse" "etl" {
   scaling_policy    = "STANDARD"
 
   enable_query_acceleration = false
+
+  lifecycle {
+    ignore_changes = [
+      query_acceleration_max_scale_factor
+    ]
+  }
 }
 
 resource "snowflake_schema" "landing" {
