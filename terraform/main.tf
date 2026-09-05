@@ -15,7 +15,7 @@ resource "snowflake_database" "advworks" {
 
 resource "snowflake_warehouse" "etl" {
   name           = var.snowflake_warehouse
-  warehouse_size = "SMALL"
+  warehouse_size = "XSMALL"
   warehouse_type = "STANDARD"
 
   auto_suspend = 60
