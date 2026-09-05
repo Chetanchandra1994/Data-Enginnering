@@ -1,6 +1,7 @@
 
 trigger:
-  - main
+  #- main
+  - none
 
 pool:
   vmImage: 'ubuntu-latest'

@@ -1,0 +1,33 @@
+Before introducing TEST/PRE-PROD/PROD, we need to understand the fundamental:
+
+Plan → Approval → Apply
+
+workflow.
+
+We'll therefore add:
+
+Terraform Plan - DEV
+        ↓
+Terraform Apply - DEV
+
+with an approval mechanism between them.
+
+Important concept
+
+terraform plan is safe/read-only.
+
+terraform plan
+
+asks:
+
+"What would happen if I applied my configuration?"
+
+terraform apply actually changes Snowflake infrastructure.
+
+terraform apply
+
+asks:
+
+"Make the real infrastructure match my Terraform configuration."
+
+That's why production pipelines generally don't automatically jump from Plan → Apply.   

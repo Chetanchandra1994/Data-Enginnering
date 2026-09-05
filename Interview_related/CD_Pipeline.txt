@@ -1,0 +1,81 @@
+Understand what we have vs. what we need
+
+Current pipeline
+GitHub
+   ↓
+Azure DevOps
+   ↓
+Python Validation       ✅
+   ↓
+dbt Validation          ✅
+   ↓
+Terraform Validation    ✅
+   ↓
+Google WIF              ✅
+   ↓
+Terraform Init          ✅
+   ↓
+Terraform Plan - DEV    ✅
+
+This is currently CI + deployment planning, but we aren't actually changing infrastructure yet.
+
+Target
+
+We'll build:
+
+GitHub
+   ↓
+CI Validation
+   ├── Python
+   ├── dbt
+   └── Terraform
+        ↓
+Terraform Plan - DEV
+        ↓
+Manual Approval
+        ↓
+Terraform Apply - DEV
+        ↓
+Terraform Plan - TEST
+        ↓
+Manual Approval
+        ↓
+Terraform Apply - TEST
+
+The current pipeline has this:
+
+trigger:
+  - main
+
+That means:
+
+git push
+   ↓
+automatic pipeline
+   ↓
+validation
+   ↓
+terraform plan
+
+That's good for CI.
+
+For CD, we'll eventually introduce Azure DevOps Environments and approvals:
+
+DEV
+TEST
+PRE-PROD
+PROD
+
+For example:
+
+Terraform Plan - DEV
+        ↓
+       DEV
+   [Approval]
+        ↓
+Terraform Apply - DEV
+
+The approval should be configured in Azure DevOps, not hard-coded into YAML.
+
+Pipeline YAML defines what the deployment does.
+Azure DevOps Environments can control who is allowed to deploy.
