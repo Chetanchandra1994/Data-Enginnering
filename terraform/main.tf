@@ -35,35 +35,35 @@ resource "snowflake_warehouse" "etl" {
 }
 
 resource "snowflake_schema" "landing" {
-  database            = var.snowflake_database
+  database            = snowflake_database.advworks.name
   name                = "LANDING"
   is_transient        = "false"
   with_managed_access = "false"
 }
 
 resource "snowflake_schema" "prepare" {
-  database            = var.snowflake_database
+  database            = snowflake_database.advworks.name
   name                = "PREPARE"
   is_transient        = "false"
   with_managed_access = "false"
 }
 
 resource "snowflake_schema" "normalize" {
-  database            = var.snowflake_database
+  database            = snowflake_database.advworks.name
   name                = "NORMALIZE"
   is_transient        = "false"
   with_managed_access = "false"
 }
 
 resource "snowflake_schema" "schematize" {
-  database            = var.snowflake_database
+  database            = snowflake_database.advworks.name
   name                = "SCHEMATIZE"
   is_transient        = "false"
   with_managed_access = "false"
 }
 
 resource "snowflake_schema" "marketplace" {
-  database            = var.snowflake_database
+  database            = snowflake_database.advworks.name
   name                = "MARKETPLACE"
   is_transient        = "false"
   with_managed_access = "false"
