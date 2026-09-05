@@ -173,17 +173,16 @@ stages:
 
   - stage: TerraformPlanDev
     displayName: '5. Terraform Plan - DEV'
-
     dependsOn: GoogleAuth
     condition: succeeded()
-
     jobs:
       - job: TerraformPlan
         displayName: 'Create Terraform Plan for DEV'
-
         steps:
+
           - checkout: self
 
+          # Download Snowflake private key
           - task: DownloadSecureFile@1
             name: snowflakeKey
             inputs:
@@ -196,6 +195,7 @@ stages:
               echo "Secure key file exists."
             displayName: 'Verify Snowflake Key File'
 
+          # Install Terraform
           - script: |
               curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
               rm -rf /tmp/terraform-install
@@ -206,17 +206,100 @@ stages:
               /tmp/terraform-install/terraform version
             displayName: 'Install Terraform'
 
-          - script: |
-              cd terraform
-              terraform init -backend=false
-            displayName: 'Terraform Init'
+          # Authenticate to Google Cloud using Azure DevOps WIF
+          - task: AzureCLI@2
+            displayName: 'Authenticate to Google Cloud using WIF'
+            inputs:
+              azureSubscription: 'google-cloud-wif'
+              addSpnToEnvironment: true
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                echo "$idToken" > "$(Pipeline.Workspace)/.workload_identity.jwt"
 
+                cat > "$(Pipeline.Workspace)/.workload_identity.wlconfig" <<EOF
+                {
+                  "type": "external_account",
+                  "audience": "//iam.googleapis.com/projects/776178390591/locations/global/workloadIdentityPools/azure-devops-pool/providers/azure-devops-provider",
+                  "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                  "token_url": "https://sts.googleapis.com/v1/token",
+                  "credential_source": {
+                    "file": "$(Pipeline.Workspace)/.workload_identity.jwt"
+                  },
+                  "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com:generateAccessToken"
+                }
+                EOF
+
+                export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                gcloud auth login --cred-file="$GOOGLE_APPLICATION_CREDENTIALS"
+
+                echo "Google authentication successful."
+
+                gcloud auth list
+
+          # Initialize real GCS backend
           - script: |
+              export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+              cd terraform
+              terraform init -reconfigure
+            displayName: 'Terraform Init - GCS Backend'
+
+          # Terraform plan against DEV
+          - script: |
+              export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
               cd terraform
               terraform plan -var-file=environments/dev.tfvars -var="snowflake_private_key_path=$(snowflakeKey.secureFilePath)" -out=tfplan
             displayName: 'Terraform Plan - DEV'
             env:
               TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
+
+  # - stage: TerraformPlanDev
+  #   displayName: '5. Terraform Plan - DEV'
+
+  #   dependsOn: GoogleAuth
+  #   condition: succeeded()
+
+  #   jobs:
+  #     - job: TerraformPlan
+  #       displayName: 'Create Terraform Plan for DEV'
+
+  #       steps:
+  #         - checkout: self
+
+  #         - task: DownloadSecureFile@1
+  #           name: snowflakeKey
+  #           inputs:
+  #             secureFile: 'snowflake_tf_key.p8'
+  #           displayName: 'Download Snowflake Private Key'
+
+  #         - script: |
+  #             echo "Secure file path: $(snowflakeKey.secureFilePath)"
+  #             test -f "$(snowflakeKey.secureFilePath)"
+  #             echo "Secure key file exists."
+  #           displayName: 'Verify Snowflake Key File'
+
+  #         - script: |
+  #             curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
+  #             rm -rf /tmp/terraform-install
+  #             mkdir -p /tmp/terraform-install
+  #             unzip -o /tmp/terraform.zip -d /tmp/terraform-install
+  #             chmod +x /tmp/terraform-install/terraform
+  #             echo "##vso[task.prependpath]/tmp/terraform-install"
+  #             /tmp/terraform-install/terraform version
+  #           displayName: 'Install Terraform'
+
+  #         - script: |
+  #             cd terraform
+  #             terraform init -backend=false
+  #           displayName: 'Terraform Init'
+
+  #         - script: |
+  #             cd terraform
+  #             terraform plan -var-file=environments/dev.tfvars -var="snowflake_private_key_path=$(snowflakeKey.secureFilePath)" -out=tfplan
+  #           displayName: 'Terraform Plan - DEV'
+  #           env:
+  #             TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
           # - script: |
           #     cd terraform
