@@ -1,0 +1,147 @@
+                  ┌──────────────┐
+                  │    GitHub    │
+                  │              │
+                  │ Terraform    │
+                  │ dbt          │
+                  │ Python       │
+                  └──────┬───────┘
+                         │
+                         │ Push / PR
+                         ▼
+                  ┌──────────────┐
+                  │ Azure DevOps │
+                  │              │
+                  │ CI           │
+                  │              │
+                  │ CD           │
+                  └──────┬───────┘
+                         │
+                         ▼
+                    Terraform
+                         │
+                         │ private key
+                         ▼
+                 SNOWFLAKE_JWT
+                         │
+                         ▼
+                  ┌──────────────┐
+                  │  Snowflake   │
+                  │              │
+                  │ DEV          │
+                  │ TEST         │
+                  │ PROD         │
+                  └──────────────┘
+
+
+under Azure Devops separately:
+
+    Azure DevOps
+     │
+     ├── Terraform → infrastructure
+     │
+     └── dbt       → transformations
+
+A private key is used to authenticate a Snowflake user/service account without using a Snowflake password.
+
+The authentication flow is:
+
+                 KEY PAIR
+              ┌─────────────┐
+              │             │
+              ▼             ▼
+       Private Key       Public Key
+       .p8 file          registered
+       🔐                 in Snowflake
+              │             │
+              │             │
+              └──────┬──────┘
+                     │
+                     ▼
+              Snowflake verifies
+              your identity
+
+Snowflake calls this key-pair authentication. 
+The private key stays with the client/pipeline, while the corresponding public key is registered against the Snowflake user.
+
+How to generate privatekey?
+Snowflake requires at least a 2048-bit RSA key pair for this authentication method. The official Snowflake process uses OpenSSL to generate the .p8 private key.
+
+For an unencrypted private key, the command is:
+openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out snowflake_tf_key.p8 -nocrypt
+
+Then we generated the public key from the private key
+From:
+snowflake_tf_key.p8
+
+we derive:
+snowflake_tf_key.pub
+
+using:
+openssl rsa -in snowflake_tf_key.p8 -pubout -out snowflake_tf_key.pub
+
+The relationship is:
+
+              RSA KEY PAIR
+                   │
+          ┌────────┴────────┐
+          │                 │
+          ▼                 ▼
+     PRIVATE KEY        PUBLIC KEY
+     .p8 file           .pub file
+          │                 │
+          │                 │
+          │                 └──► Snowflake
+          │
+          └──► Terraform
+
+Then we registered the public key in Snowflake
+
+This is the crucial part.
+
+We took the public key, not the private key, and associated it with your Snowflake user.
+
+Historically this can be done with:
+
+ALTER USER <your_user> SET RSA_PUBLIC_KEY='<public-key>';
+
+Snowflake now recommends named key pairs using ALTER USER ... ADD KEY PAIR.
+
+So Snowflake essentially has:
+
+Snowflake USER
+     │
+     └── Public Key
+
+while your computer has:
+
+Your PC
+   │
+   └── Private Key
+       snowflake_tf_key.p8
+
+Then Terraform uses the private key
+
+Your Terraform provider contains:
+
+authenticator = "SNOWFLAKE_JWT"
+private_key   = file(var.private_key_path)
+
+So Terraform does:
+
+Terraform
+    │
+    │ reads
+    ▼
+snowflake_tf_key.p8
+    │
+    │ proves possession of private key
+    ▼
+Snowflake
+    │
+    │ compares against registered
+    │ public key
+    ▼
+Authentication SUCCESS
+
+SNOWFLAKE_JWT is Snowflake's key-pair authentication mode where the client uses a private RSA key to authenticate, 
+and Snowflake verifies it against the public key registered to the Snowflake user.

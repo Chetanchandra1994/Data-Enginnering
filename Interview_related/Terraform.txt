@@ -1,0 +1,31 @@
+Command	                Purpose
+terraform fmt	        Format code
+terraform fmt -check	Check formatting
+terraform init	        Initialize Terraform/providers/backend
+terraform validate	    Validate Terraform configuration
+terraform plan	        Show what Terraform intends to change
+terraform apply	        Actually make the changes
+
+HashiCorp recommends using fmt and validate as part of the development/CI workflow
+
+              Azure DevOps CI
+                    │
+                    ▼
+             terraform fmt -check
+                    │
+                    ▼
+             terraform validate
+                    │
+                    ▼
+             terraform plan
+                    │
+                    ▼
+             Approval (later)
+                    │
+                    ▼
+             terraform apply
+
+Why do you use terraform fmt?
+“terraform fmt automatically formats Terraform configuration according to HashiCorp's canonical style. 
+We use it to maintain consistent, readable code, and in CI/CD we typically use terraform fmt -check 
+so that improperly formatted Terraform changes fail the pipeline.”

@@ -3,10 +3,11 @@ provider "snowflake" {
   account_name           = var.snowflake_account_name
   user                   = var.snowflake_user
   authenticator          = "SNOWFLAKE_JWT"
-  private_key            = var.snowflake_private_key
+  private_key            = file(var.snowflake_private_key_path)
   private_key_passphrase = var.snowflake_private_key_passphrase
   role                   = var.snowflake_role
 }
+
 
 resource "snowflake_database" "advworks" {
   name = var.snowflake_database

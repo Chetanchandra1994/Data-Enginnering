@@ -13,10 +13,9 @@ variable "snowflake_user" {
   type        = string
 }
 
-variable "snowflake_private_key" {
-  description = "Snowflake private key used by Terraform"
+variable "snowflake_private_key_path" {
+  description = "Path to the Snowflake private key file"
   type        = string
-  sensitive   = true
 }
 
 variable "snowflake_private_key_passphrase" {
