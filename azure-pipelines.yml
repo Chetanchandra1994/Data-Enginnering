@@ -115,10 +115,64 @@ stages:
               terraform validate
             displayName: 'Terraform Validate'
 
-  - stage: TerraformPlanDev
-    displayName: '4. Terraform Plan - DEV'
+  - stage: GoogleAuth
+    displayName: '4. Test Google Cloud WIF'
 
     dependsOn: Terraform
+    condition: succeeded()
+
+    jobs:
+      - job: GoogleAuthentication
+        displayName: 'Authenticate to Google Cloud'
+
+        steps:
+          - checkout: self
+
+          - task: AzureCLI@2
+            displayName: 'Get Azure DevOps Federated Token'
+            inputs:
+              azureSubscription: 'google-cloud-wif'
+              addSpnToEnvironment: true
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                echo "$idToken" > "$(Pipeline.Workspace)/.workload_identity.jwt"
+
+                cat > "$(Pipeline.Workspace)/.workload_identity.wlconfig" <<EOF
+                {
+                  "type": "external_account",
+                  "audience": "//iam.googleapis.com/projects/776178390591/locations/global/workloadIdentityPools/azure-devops-pool/providers/azure-devops-provider",
+                  "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                  "token_url": "https://sts.googleapis.com/v1/token",
+                  "credential_source": {
+                    "file": "$(Pipeline.Workspace)/.workload_identity.jwt"
+                  },
+                  "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com:generateAccessToken"
+                }
+                EOF
+
+          - task: Bash@3
+            displayName: 'Verify Google Cloud Authentication'
+            inputs:
+              targetType: 'inline'
+              script: |
+                export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                gcloud auth login --cred-file="$GOOGLE_APPLICATION_CREDENTIALS"
+
+                echo "Authenticated Google account:"
+                gcloud auth list
+
+                echo "Google project:"
+                gcloud config set project electric-tesla-507710-k2
+
+                echo "Testing access to GCS:"
+                gcloud storage buckets describe gs://electric-tesla-507710-k2-tfstate
+
+  - stage: TerraformPlanDev
+    displayName: '5. Terraform Plan - DEV'
+
+    dependsOn: GoogleAuth
     condition: succeeded()
 
     jobs:

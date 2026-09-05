@@ -1,3 +1,29 @@
+             CI
+              │
+       Terraform Plan
+              │
+              ▼
+          tfplan
+              │
+        Publish Artifact
+              │
+              ▼
+      ┌─────────────────┐
+      │ Azure DevOps     │
+      │ Pipeline Artifact│
+      └─────────────────┘
+              │
+              ▼
+             CD
+              │
+       Download tfplan
+              │
+              ▼
+      terraform apply tfplan
+              │
+              ▼
+        Snowflake DEV
+
 Step 1 — Understand what happens in a real company
 
 Suppose tomorrow you add a new table:

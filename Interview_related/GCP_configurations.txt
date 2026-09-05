@@ -1,0 +1,183 @@
+Do it in order :
+
+PS C:\Users\Admin> gcloud auth login
+Your browser has been opened to visit:
+
+    https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=32555940559.apps.googleusercontent.com&redirect_uri=http%3A%2F%2Flocalhost%3A8085%2F&scope=openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fappengine.admin+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fsqlservice.login+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcompute+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Faccounts.reauth&state=c1I3BElJQp8Oqy7xLqHyHHL1dvIe1Y&access_type=offline&code_challenge=Yz2YuPzX_y4NvHxoHfJc6DemKVJd8NPFLpAiYmC_ga0&code_challenge_method=S256
+
+
+You are now logged in as [bookingt7@gmail.com].
+Your current project is [bigquery-255612].  You can change this setting by running:
+  $ gcloud config set project PROJECT_ID
+
+
+Updates are available for some Google Cloud CLI components.  To install them,
+please run:
+  $ gcloud components update
+
+PS C:\Users\Admin> gcloud projects list
+PROJECT_ID                      NAME                       PROJECT_NUMBER
+electric-tesla-507710-k2        data-engineering-practice  776178390591
+project-7ef78c1c-0e70-43a1-a3f  My First Project           795767629906
+PS C:\Users\Admin> gcloud config set project electric-tesla-507710-k2
+Updated property [core/project].
+PS C:\Users\Admin> gcloud auth application-default login
+Your browser has been opened to visit:
+
+    https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com&redirect_uri=http%3A%2F%2Flocalhost%3A8085%2F&scope=openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fsqlservice.login&state=l3yyufDyHpvoSv9OKyz7RutH0mTVXA&access_type=offline&code_challenge=kNWYzxRXkFcimEVfuBkBOykZFTjFKfNmsTssMBaVXB8&code_challenge_method=S256
+
+
+Credentials saved to file: [C:\Users\Admin\AppData\Roaming\gcloud\application_default_credentials.json]
+
+These credentials will be used by any library that requests Application Default Credentials (ADC).
+
+Quota project "electric-tesla-507710-k2" was added to ADC which can be used by Google client libraries for billing and quota. Note that some services may still bill the project owning the resource.
+PS C:\Users\Admin> gcloud config get-value project
+electric-tesla-507710-k2
+PS C:\Users\Admin> gcloud storage buckets create gs://electric-tesla-507710-k2-tfstate --location=northamerica-northeast1 --uniform-bucket-level-access --public-access-prevention
+Creating gs://electric-tesla-507710-k2-tfstate/...
+PS C:\Users\Admin>
+PS C:\Users\Admin>
+PS C:\Users\Admin>
+PS C:\Users\Admin> gcloud storage buckets update gs://electric-tesla-507710-k2-tfstate --versioning
+|Updating gs://electric-tesla-507710-k2-tfstate/...
+  Completed 1
+PS C:\Users\Admin> gcloud storage buckets describe gs://electric-tesla-507710-k2-tfstate
+creation_time: 2026-09-05T10:57:16+0000
+default_storage_class: STANDARD
+location: NORTHAMERICA-NORTHEAST1
+location_type: region
+metageneration: 2
+name: electric-tesla-507710-k2-tfstate
+public_access_prevention: enforced
+satisfies_pzs: true
+soft_delete_policy:
+  effectiveTime: '2026-09-05T10:57:16.031000+00:00'
+  retentionDurationSeconds: '604800'
+storage_url: gs://electric-tesla-507710-k2-tfstate/
+uniform_bucket_level_access: true
+update_time: 2026-09-05T10:59:05+0000
+versioning_enabled: true
+PS C:\Users\Admin>
+
+################################################################################################################################
+NOTE:-  To migrate local terraform state to GCS bucket: 
+
+First add block to terraform/versions.tf, then run below command to migrate.
+
+backend "gcs" {
+  bucket = "electric-tesla-507710-k2-tfstate"
+  prefix = "terraform/state/dev"
+}
+
+(.venv) PS C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\terraform> terraform init -migrate-state
+Initializing the backend...
+Acquiring state lock. This may take a few moments...
+Do you want to copy existing state to the new backend?
+  Pre-existing state was found while migrating the previous "local" backend to the
+  newly configured "gcs" backend. No existing state was found in the newly
+  configured "gcs" backend. Do you want to copy this state to the new "gcs"
+  backend? Enter "yes" to copy and "no" to start with an empty state.
+
+  Enter a value: yes
+
+Releasing state lock. This may take a few moments...
+
+Successfully configured the backend "gcs"! Terraform will automatically
+use this backend unless the backend configuration changes.
+
+Initializing provider plugins...
+- Reusing previous version of snowflakedb/snowflake from the dependency lock file
+- Using previously-installed snowflakedb/snowflake v2.20.0
+
+
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
+################################################################################################################################
+
+Azure DevOps Ubuntu agent needs authentication to GCP so it can access that GCS state bucket.
+
+We will not use personal gcloud auth login credentials in Azure DevOps.
+
+For CI/CD, we'll create a dedicated Google Cloud service account for Terraform state access.
+
+Our architecture will become:
+
+                    GitHub
+                       │
+                       ▼
+                 Azure DevOps
+                       │
+              Terraform pipeline
+                       │
+                       ▼
+             GCP Service Account
+                       │
+                       ▼
+                  GCS Backend
+                       │
+                       ▼
+               Terraform State
+                       │
+                       ▼
+                  Snowflake
+
+Create Terraform CI service account
+
+First, let's enable the IAM API.
+
+Run this one-line PowerShell command:
+
+gcloud services enable iam.googleapis.com
+
+Then create a dedicated service account:
+
+gcloud iam service-accounts create terraform-ci --display-name="Terraform CI/CD Service Account"
+
+Verify it exists:
+
+gcloud iam service-accounts list
+
+You should see something like:
+
+terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com
+
+Grant bucket-level permissions
+
+Run this one-line PowerShell command:
+
+gcloud storage buckets add-iam-policy-binding gs://electric-tesla-507710-k2-tfstate --member="serviceAccount:terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com" --role="roles/storage.objectAdmin"
+
+This gives the CI service account permission to:
+
+read Terraform state
+write Terraform state
+update state
+delete/replace state objects when Terraform needs to
+
+It does not give the service account broad access to your entire GCP project.
+
+— Verify the permission
+
+Run:
+
+gcloud storage buckets get-iam-policy gs://electric-tesla-507710-k2-tfstate
+
+You should see something containing:
+
+role: roles/storage.objectAdmin
+members:
+- serviceAccount:terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com
+
+Next: connect Azure DevOps to GCP
+
+Now we'll connect Azure DevOps to GCP using Workload Identity Federation
+Google's current documentation specifically supports Azure DevOps pipelines using an Azure Resource Manager service connection with Workload Identity Federation 
+to obtain an OIDC token, which Google then exchanges through Workload Identity Federation.

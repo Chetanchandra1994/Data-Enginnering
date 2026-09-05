@@ -1,0 +1,92 @@
+So the situation is:
+
+LOCAL MACHINE                         AZURE DEVOPS
+
+terraform.tfstate                    No state
+       │                                  │
+       ▼                                  ▼
+Knows 7 resources                     Thinks 7 resources
+already exist                         need to be created
+       │                                  │
+       └──────────────┐   ┌───────────────┘
+                      ▼   ▼
+                 Different state
+
+Where we are
+GitHub
+   ↓
+Azure DevOps CI
+   ├── Python validation ✅
+   ├── dbt validation ✅
+   ├── Terraform validation ✅
+   └── Terraform Plan DEV ✅
+
+Your Plan says:
+
+Plan: 7 to add, 0 to change, 0 to destroy
+⚠️ We should NOT apply that plan yet
+
+The Azure DevOps agent currently has no persistent Terraform state.
+
+Your existing Snowflake objects already exist:
+
+ADVWORKS_DEV
+ETL_WH_DEV
+LANDING
+PREPARE
+NORMALIZE
+SCHEMATIZE
+MARKETPLACE
+
+But the Azure agent doesn't know about them, so Terraform thinks:
+
+"These 7 resources don't exist. I should create them."
+
+That's why it produced 7 to add.
+
+What we're going to do??????
+
+We'll move the state to a remote GCS backend:
+
+                 GitHub
+                    │
+                    ▼
+             Azure DevOps
+                    │
+          ┌─────────┴─────────┐
+          ▼                   ▼
+       Terraform           GCS State
+         Plan                 │
+          │                   │
+          └─────────┬─────────┘
+                    ▼
+                Snowflake
+
+Then Azure DevOps will see the existing 7 resources.
+
+Our desired result after configuring the state is:
+terraform plan
+Plan: 0 to add, 0 to change, 0 to destroy
+
+That is the correct checkpoint before we introduce Terraform Apply.
+
+One important learning point
+
+This is a very common real-world Terraform issue:
+Terraform doesn't determine infrastructure ownership simply by looking at Snowflake. It determines ownership through its state.
+That's why production pipelines almost never rely on a developer's local terraform.tfstate.
+
+Terraform state is what maps Terraform resources to real infrastructure.
+
+In a real company, we therefore need:
+
+             Remote Terraform State
+                     │
+                     ▼
+Git → Plan → Review → Apply
+                     │
+                     ▼
+                 Snowflake
+
+Since your architecture already uses GCP/GCS, we'll use a GCS Terraform backend. 
+The GCS backend supports remote state and state locking, and HashiCorp recommends bucket versioning for recovery.

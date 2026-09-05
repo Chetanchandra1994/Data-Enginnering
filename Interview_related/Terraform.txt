@@ -1,3 +1,22 @@
+Terraform structure should conceptually be:
+
+main.tf
+│
+├── Snowflake provider
+│
+├── Database
+│   └── ADVWORKS_DEV
+│
+├── Warehouse
+│   └── ETL_WH_DEV
+│
+└── Schemas
+    ├── LANDING
+    ├── PREPARE
+    ├── NORMALIZE
+    ├── SCHEMATIZE
+    └── MARKETPLACE
+
 Command	                Purpose
 terraform fmt	        Format code
 terraform fmt -check	Check formatting
@@ -26,6 +45,97 @@ HashiCorp recommends using fmt and validate as part of the development/CI workfl
              terraform apply
 
 Why do you use terraform fmt?
-“terraform fmt automatically formats Terraform configuration according to HashiCorp's canonical style. 
+terraform fmt automatically formats Terraform configuration according to HashiCorp's canonical style. 
 We use it to maintain consistent, readable code, and in CI/CD we typically use terraform fmt -check 
-so that improperly formatted Terraform changes fail the pipeline.”
+so that improperly formatted Terraform changes fail the pipeline.
+
+
+                 Azure DevOps
+                      │
+                      ▼
+                 Terraform
+                      │
+          ┌───────────┴───────────┐
+          │                       │
+     .tf configuration       YAML configuration
+          │                       │
+          │              ┌────────┴─────────┐
+          │              │                  │
+          │        roles.yml          databases.yml
+          │        users.yml          warehouses.yml
+          │        permissions.yml    policies.yml
+          │
+          └──────────────┬───────────────┘
+                         ▼
+                    Snowflake
+                         │
+       ┌─────────────────┼──────────────────┐
+       ▼                 ▼                  ▼
+   Databases          Schemas            Warehouses
+       │                 │
+       ▼                 ▼
+    Tables             Stages
+       │                 │
+       └──────────┬──────┘
+                  ▼
+             Security /
+             Governance
+
+
+Data-pipeline-end-to-end
+│
+├── DBT/
+│   └── advworks_dbt/
+│
+├── terraform/
+│   ├── providers.tf
+│   ├── variables.tf
+│   ├── locals.tf
+│   ├── databases.tf
+│   ├── warehouses.tf
+│   ├── schemas.tf
+│   ├── stages.tf
+│   ├── file-formats.tf
+│   ├── tables.tf
+│   ├── roles.tf
+│   ├── grants.tf
+│   │
+│   ├── config/
+│   │   ├── databases.yml
+│   │   ├── warehouses.yml
+│   │   ├── roles.yml
+│   │   └── permissions.yml
+│   │
+│   └── environments/
+│       └── dev.tfvars
+│
+├── python-ingestion/
+│
+└── README.md
+
+Then:
+
+Terraform
+   ↓
+ADVWORKS_DEV
+   ├── LANDING
+   ├── PREPARE
+   ├── NORMALIZE
+   ├── SCHEMATIZE
+   └── MARKETPLACE
+
+And eventually:
+
+Terraform
+   ↓
+GCS
+   ↓
+Snowflake Stage
+   ↓
+Snowpipe
+   ↓
+LANDING
+   ↓
+dbt
+   ↓
+MARKETPLACE
