@@ -1,6 +1,9 @@
 trigger:
   - main
 
+variables:
+  - group: snowflake-dev-secrets
+
 pool:
   vmImage: 'ubuntu-latest'
 
@@ -144,3 +147,6 @@ stages:
               cd terraform
               terraform plan -var-file=environments/dev.tfvars -out=tfplan
             displayName: 'Terraform Plan - DEV'
+            env:
+              TF_VAR_snowflake_private_key: $(SNOWFLAKE_PRIVATE_KEY)
+              TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
