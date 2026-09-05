@@ -138,7 +138,7 @@ stages:
               inlineScript: |
                 echo "$idToken" > "$(Pipeline.Workspace)/.workload_identity.jwt"
 
-                python -c "import os,base64,json; t=os.environ['idToken']; p=t.split('.')[1]; p += '='*((4-len(p)%4)%4); c=json.loads(base64.urlsafe_b64decode(p)); print('OID=' + str(c.get('oid'))); print('SUB=' + str(c.get('sub'))); print('AUD=' + str(c.get('aud'))); print('ISS=' + str(c.get('iss')))"
+                python -c "import os,base64,json; t=os.environ['idToken']; p=t.split('.')[1]; p += '='*((4-len(p)%4)%4); c=json.loads(base64.urlsafe_b64decode(p)); print('SUB=' + str(c.get('sub'))); print('AUD=' + str(c.get('aud')))"
 
                 cat > "$(Pipeline.Workspace)/.workload_identity.wlconfig" <<EOF
                 {
