@@ -109,8 +109,8 @@ stages:
               mkdir -p /tmp/terraform-install
               unzip -o /tmp/terraform.zip -d /tmp/terraform-install
               chmod +x /tmp/terraform-install/terraform
-              echo "##vso[task.prependpath]/tmp/terraform-install"
               /tmp/terraform-install/terraform version
+              echo "##vso[task.prependpath]/tmp/terraform-install"
             displayName: 'Install Terraform'
 
           - script: |
@@ -212,8 +212,8 @@ stages:
               mkdir -p /tmp/terraform-install
               unzip -o /tmp/terraform.zip -d /tmp/terraform-install
               chmod +x /tmp/terraform-install/terraform
+              /tmp/terraform-install/terraform version
               echo "##vso[task.prependpath]/tmp/terraform-install"
-              terraform version
             displayName: 'Install Terraform'
 
           - task: AzureCLI@2
@@ -324,8 +324,8 @@ stages:
                     mkdir -p /tmp/terraform-install
                     unzip -o /tmp/terraform.zip -d /tmp/terraform-install
                     chmod +x /tmp/terraform-install/terraform
+                    /tmp/terraform-install/terraform version
                     echo "##vso[task.prependpath]/tmp/terraform-install"
-                    terraform version
                   displayName: 'Install Terraform'
 
                 - script: |
@@ -407,8 +407,8 @@ stages:
               mkdir -p /tmp/terraform-install
               unzip -o /tmp/terraform.zip -d /tmp/terraform-install
               chmod +x /tmp/terraform-install/terraform
+              /tmp/terraform-install/terraform version
               echo "##vso[task.prependpath]/tmp/terraform-install"
-              terraform version
             displayName: 'Install Terraform'
 
           - script: |
@@ -521,8 +521,8 @@ stages:
                     mkdir -p /tmp/terraform-install
                     unzip -o /tmp/terraform.zip -d /tmp/terraform-install
                     chmod +x /tmp/terraform-install/terraform
+                    /tmp/terraform-install/terraform version
                     echo "##vso[task.prependpath]/tmp/terraform-install"
-                    terraform version
                   displayName: 'Install Terraform'
 
                 - script: |
@@ -605,8 +605,8 @@ stages:
               mkdir -p /tmp/terraform-install
               unzip -o /tmp/terraform.zip -d /tmp/terraform-install
               chmod +x /tmp/terraform-install/terraform
+              /tmp/terraform-install/terraform version
               echo "##vso[task.prependpath]/tmp/terraform-install"
-              terraform version
             displayName: 'Install Terraform'
 
           - script: |
@@ -719,8 +719,8 @@ stages:
                     mkdir -p /tmp/terraform-install
                     unzip -o /tmp/terraform.zip -d /tmp/terraform-install
                     chmod +x /tmp/terraform-install/terraform
+                    /tmp/terraform-install/terraform version
                     echo "##vso[task.prependpath]/tmp/terraform-install"
-                    terraform version
                   displayName: 'Install Terraform'
 
                 - script: |
