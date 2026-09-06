@@ -1,0 +1,44 @@
+For this project, let's create:
+
+gs://advworks-dev-ingestion/
+
+And eventually:
+
+advworks-dev-ingestion
+advworks-test-ingestion
+advworks-preprod-ingestion
+advworks-prod-ingestion
+
+For now, DEV only.
+
+Run this one-line PowerShell command:
+
+gcloud storage buckets create gs://advworks-dev-ingestion --project=electric-tesla-507710-k2 --location=NORTHAMERICA-NORTHEAST1 --uniform-bucket-level-access
+
+Then verify:
+
+gcloud storage ls
+
+You should see both:
+
+gs://advworks-dev-ingestion/
+gs://electric-tesla-507710-k2-tfstate/
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+First, let's verify Python can access the new bucket.
+
+Run this one-line PowerShell command:
+
+gcloud storage cp .\python-ingestion\output\fact_internet_sales\FactInternetSales_batch_001.jsonl gs://advworks-dev-ingestion/fact_internet_sales/test/
+or
+gcloud storage cp ".\python-ingestion\output\fact_internet_sales\FactInternetSales_batch_001.jsonl" "gs://advworks-dev-ingestion/fact_internet_sales/test/"
+
+Then:
+
+gcloud storage ls "gs://advworks-dev-ingestion/fact_internet_sales/test/"
+or
+gcloud storage ls gs://advworks-dev-ingestion/fact_internet_sales/test/
+
+You should see:
+gs://advworks-dev-ingestion/fact_internet_sales/test/FactInternetSales_batch_001.jsonl
