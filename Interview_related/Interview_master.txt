@@ -1,0 +1,1740 @@
+# DATA ENGINEERING INTERVIEW MASTER NOTES
+
+## Based on My End-to-End Cloud Data Pipeline Project
+
+---
+
+# 1. MY PROJECT — 60-SECOND INTERVIEW INTRODUCTION
+
+I built an end-to-end cloud-based data engineering pipeline using AdventureWorks as the source system.
+
+The source data comes from SQL Server. I use Python for extraction and batching, and the extracted data is landed into object storage. Snowflake is used as the analytical platform, with separate layers for LANDING, PREPARE, NORMALIZE, SCHEMATIZE and MARKETPLACE.
+
+I use dbt for transformations, data modeling and data quality testing. Terraform is used for infrastructure as code, and Azure DevOps is used for CI/CD. I implemented workload identity federation between Azure DevOps and Google Cloud instead of using service account JSON keys.
+
+For environment management, I implemented separate DEV and TEST Terraform states in GCS and configured Azure DevOps environments with manual approval gates.
+
+The current CI/CD flow is:
+
+GitHub → Azure DevOps → Python validation → dbt validation → Terraform validation → Terraform plan → approval → Terraform apply → Snowflake.
+
+The pipeline is designed to eventually support DEV → TEST → PRE-PROD → PROD promotion.
+
+---
+
+# 2. MY ARCHITECTURE
+
+SQL Server
+↓
+Python extraction
+↓
+Object Storage / GCS
+↓
+Snowflake ingestion
+↓
+LANDING
+↓
+PREPARE
+↓
+NORMALIZE
+↓
+SCHEMATIZE
+↓
+MARKETPLACE
+↓
+Tableau / Power BI
+
+Supporting components:
+
+Airflow
+Terraform
+dbt
+Pub/Sub
+Snowpipe
+Azure DevOps
+GitHub
+GCP IAM
+Workload Identity Federation
+
+---
+
+# 3. IMPORTANT PROJECT NUMBERS
+
+Source:
+
+DimCustomer:
+18,484 rows
+
+DimProduct:
+606 rows
+
+FactInternetSales:
+60,398 rows
+
+Fact baseline:
+
+TOTAL_SALES:
+29,358,677.2207
+
+TOTAL_PRODUCT_COST:
+17,277,793.5757
+
+TOTAL_TAX:
+2,348,694.2301
+
+TOTAL_FREIGHT:
+733,969.6091
+
+Duplicate order lines:
+0
+
+Fact rows:
+60,398
+
+Marketplace rows:
+60,398
+
+These numbers are useful in interviews because they demonstrate that I validated data instead of simply creating tables.
+
+---
+
+# 4. SQL INTERVIEW QUESTIONS
+
+## Q1. What is the difference between WHERE and HAVING?
+
+WHERE filters rows before aggregation.
+
+HAVING filters groups after aggregation.
+
+Example:
+
+SELECT CustomerID, COUNT(*)
+FROM Sales
+WHERE OrderDate >= '2025-01-01'
+GROUP BY CustomerID
+HAVING COUNT(*) > 10;
+
+Interview answer:
+
+"WHERE filters individual rows before GROUP BY, while HAVING filters aggregated groups after GROUP BY."
+
+---
+
+## Q2. INNER JOIN vs LEFT JOIN?
+
+INNER JOIN returns matching records from both tables.
+
+LEFT JOIN returns all records from the left table and matching records from the right table.
+
+In data engineering, LEFT JOIN is commonly useful for identifying missing reference data.
+
+Example:
+
+SELECT f.ProductKey
+FROM FactSales f
+LEFT JOIN DimProduct p
+ON f.ProductKey = p.ProductKey
+WHERE p.ProductKey IS NULL;
+
+This is a referential integrity check.
+
+---
+
+## Q3. What is a window function?
+
+A window function performs calculations across related rows without collapsing them into a single row.
+
+Examples:
+
+ROW_NUMBER()
+RANK()
+DENSE_RANK()
+SUM() OVER()
+LAG()
+LEAD()
+
+Example:
+
+ROW_NUMBER() OVER (
+PARTITION BY CustomerID
+ORDER BY OrderDate DESC
+)
+
+This can be used to identify the latest record for each customer.
+
+---
+
+## Q4. ROW_NUMBER vs RANK vs DENSE_RANK?
+
+ROW_NUMBER gives unique sequential numbers.
+
+RANK gives the same rank to ties and leaves gaps.
+
+DENSE_RANK gives the same rank to ties but does not leave gaps.
+
+---
+
+## Q5. How would you remove duplicates?
+
+One common approach:
+
+WITH ranked AS (
+SELECT *,
+ROW_NUMBER() OVER (
+PARTITION BY BusinessKey
+ORDER BY UpdatedAt DESC
+) AS rn
+FROM source_table
+)
+SELECT *
+FROM ranked
+WHERE rn = 1;
+
+---
+
+## Q6. What is a primary key?
+
+A column or combination of columns that uniquely identifies a row.
+
+---
+
+## Q7. What is a surrogate key?
+
+A system-generated key used instead of a business/natural key.
+
+Example:
+
+CustomerKey = 1001
+
+instead of:
+
+CustomerID = CUST123
+
+Surrogate keys are especially useful in dimensional modeling.
+
+---
+
+# 5. DATA WAREHOUSE QUESTIONS
+
+## Q8. What is a fact table?
+
+A fact table contains measurable business events.
+
+Example:
+
+FactInternetSales
+
+Measures:
+
+SalesAmount
+TaxAmount
+Freight
+OrderQuantity
+ProductCost
+
+It normally contains foreign keys to dimensions.
+
+---
+
+## Q9. What is a dimension table?
+
+A dimension provides descriptive context around business events.
+
+Examples:
+
+DimCustomer
+DimProduct
+DimDate
+
+---
+
+## Q10. Star schema vs snowflake schema?
+
+Star schema:
+
+Fact table
+↓
+Dimensions directly connected to fact
+
+It is simpler and usually better for analytical querying.
+
+Snowflake schema normalizes dimensions into additional tables.
+
+---
+
+## Q11. Why use a star schema?
+
+Because it:
+
+* simplifies BI queries
+* reduces join complexity
+* improves usability
+* works well with analytical workloads
+* makes business reporting easier
+
+---
+
+# 6. SCD QUESTIONS
+
+## Q12. What is Slowly Changing Dimension?
+
+A method of handling changes to dimension attributes over time.
+
+---
+
+## Q13. Explain SCD Type 1.
+
+Overwrite the existing value.
+
+Example:
+
+Old city:
+Toronto
+
+New city:
+Montreal
+
+Only Montreal remains.
+
+---
+
+## Q14. Explain SCD Type 2.
+
+Maintain historical versions.
+
+Example:
+
+Customer 100
+
+Toronto
+2024-01-01 → 2025-01-10
+is_current = false
+
+Montreal
+2025-01-11 → current
+is_current = true
+
+Typical columns:
+
+effective_from
+effective_to
+is_current
+
+---
+
+# 7. PYTHON DATA ENGINEERING QUESTIONS
+
+## Q15. Why did you use Python?
+
+I used Python for source extraction and orchestration-supporting logic.
+
+It allowed me to:
+
+* connect to SQL Server
+* execute queries
+* fetch records
+* batch large datasets
+* serialize records to JSON
+* write files
+* implement validation
+* integrate with cloud services
+
+---
+
+## Q16. Why batch extraction?
+
+Instead of loading 60,398 rows into memory at once, I extracted the data in batches.
+
+My batch size was 5,000.
+
+Benefits:
+
+* lower memory consumption
+* easier retry
+* smaller files
+* better scalability
+
+---
+
+## Q17. Why JSONL?
+
+JSON Lines stores one JSON object per line.
+
+Example:
+
+{"CustomerID":1,"Name":"John"}
+{"CustomerID":2,"Name":"Smith"}
+
+Advantages:
+
+* streaming friendly
+* easy to process
+* individual records are separated
+* works well with cloud ingestion
+
+---
+
+## Q18. Why did you use `default=str` with json.dumps?
+
+Some SQL Server values such as Decimal and datetime are not directly JSON serializable.
+
+Using:
+
+json.dumps(record, default=str)
+
+converts unsupported values to strings.
+
+In production, however, I would carefully control the data types rather than blindly converting everything to strings.
+
+---
+
+## Q19. How did you prevent duplicate extraction?
+
+For FactInternetSales I used deterministic ordering:
+
+SalesOrderNumber
+SalesOrderLineNumber
+
+This makes batch extraction reproducible.
+
+I also validated:
+
+* total extracted rows
+* distinct order lines
+* duplicate order lines
+
+Result:
+
+60,398 rows
+60,398 distinct order lines
+0 duplicates
+
+---
+
+# 8. DATA INGESTION QUESTIONS
+
+## Q20. Full load vs incremental load?
+
+Full load:
+
+Extract everything every time.
+
+Incremental:
+
+Extract only newly added or changed records.
+
+Full load is simpler but becomes expensive as data grows.
+
+Incremental is more scalable.
+
+---
+
+## Q21. What is CDC?
+
+Change Data Capture identifies inserts, updates and deletes from a source system.
+
+A CDC pipeline can process only changed records instead of repeatedly extracting the entire source.
+
+---
+
+## Q22. How would you implement incremental extraction?
+
+Possible strategies:
+
+WHERE LastModifiedDate > last_successful_timestamp
+
+or using:
+
+* CDC
+* SQL Server Change Tracking
+* transaction logs
+* source-specific CDC mechanisms
+
+A robust pipeline stores the last successful watermark.
+
+---
+
+## Q23. What happens if a pipeline fails halfway?
+
+I would design the pipeline to be restartable.
+
+Important techniques:
+
+* checkpoints/watermarks
+* idempotency
+* retries
+* staging areas
+* atomic writes
+* audit tables
+* dead-letter/error handling
+
+---
+
+# 9. GCS QUESTIONS
+
+## Q24. Why use object storage?
+
+Object storage is:
+
+* scalable
+* durable
+* inexpensive
+* suitable for raw data
+* decoupled from processing engines
+
+It acts as a landing zone between source systems and analytical platforms.
+
+---
+
+## Q25. What is your bucket structure?
+
+For Terraform state I used:
+
+gs://electric-tesla-507710-k2-tfstate/
+
+with separate state prefixes:
+
+terraform/state/dev
+terraform/state/test
+
+---
+
+## Q26. Why separate Terraform state?
+
+Because DEV and TEST must be independently managed.
+
+If both environments shared the same state, Terraform could potentially interpret TEST configuration as changes to DEV infrastructure.
+
+---
+
+# 10. SNOWFLAKE QUESTIONS
+
+## Q27. Why Snowflake?
+
+Snowflake is designed for analytical workloads and provides:
+
+* separation of storage and compute
+* elastic compute
+* independent virtual warehouses
+* scalable storage
+* strong SQL capabilities
+* semi-structured data support
+* data sharing
+* security controls
+
+---
+
+## Q28. What is a Snowflake virtual warehouse?
+
+A virtual warehouse is a compute cluster used to execute queries and data processing workloads.
+
+---
+
+## Q29. Why separate warehouses by environment?
+
+Example:
+
+ETL_WH_DEV
+ETL_WH_TEST
+ETL_WH_PROD
+
+This provides:
+
+* workload isolation
+* independent sizing
+* cost control
+* reduced interference
+
+---
+
+## Q30. What is auto-suspend?
+
+Snowflake suspends the warehouse after it has been idle for the configured period.
+
+My warehouse uses:
+
+auto_suspend = 60
+
+This reduces unnecessary compute cost.
+
+---
+
+## Q31. What is auto-resume?
+
+When a query arrives, Snowflake automatically resumes the suspended warehouse.
+
+---
+
+# 11. SNOWFLAKE LAYERING
+
+## Q32. Explain your Snowflake layers.
+
+### LANDING
+
+Raw source data.
+
+Minimal transformation.
+
+### PREPARE
+
+Basic typing and preparation.
+
+### NORMALIZE
+
+Cleaning and standardization.
+
+### SCHEMATIZE
+
+Dimensional modeling.
+
+### MARKETPLACE
+
+Business-consumption layer.
+
+This separation makes the pipeline easier to understand, test and maintain.
+
+---
+
+# 12. DBT QUESTIONS
+
+## Q33. Why dbt?
+
+dbt allows data transformations to be managed as code.
+
+Benefits:
+
+* version control
+* modular SQL
+* dependency management
+* testing
+* documentation
+* CI/CD integration
+
+---
+
+## Q34. What is a dbt model?
+
+A SQL transformation managed by dbt.
+
+---
+
+## Q35. What is `ref()`?
+
+`ref()` creates a dependency between dbt models.
+
+Example:
+
+{{ ref('stg_customer') }}
+
+dbt understands the dependency graph and determines execution order.
+
+---
+
+## Q36. What is a dbt test?
+
+A test validates assumptions about data.
+
+Examples:
+
+unique
+not_null
+relationships
+accepted_values
+
+---
+
+## Q37. What dbt tests did you implement?
+
+I implemented data quality checks including:
+
+* uniqueness
+* null checks
+* referential integrity
+* business/data validation
+
+All 4/4 tests passed.
+
+---
+
+## Q38. What is the dbt DAG?
+
+Example:
+
+PREPARE
+↓
+NORMALIZE
+↓
+SCHEMATIZE
+↓
+MARKETPLACE
+
+dbt uses dependencies to determine execution order.
+
+---
+
+# 13. TERRAFORM QUESTIONS
+
+## Q39. What is Terraform?
+
+Terraform is an Infrastructure as Code tool.
+
+Infrastructure is defined declaratively in configuration files.
+
+---
+
+## Q40. Why Terraform?
+
+Instead of manually creating infrastructure, I can define it as code and version it in Git.
+
+Benefits:
+
+* repeatability
+* consistency
+* reviewability
+* automation
+* environment management
+
+---
+
+## Q41. What is Terraform state?
+
+Terraform state records the relationship between Terraform configuration and real infrastructure.
+
+It allows Terraform to determine:
+
+* what already exists
+* what changed
+* what needs to be created
+* what needs to be destroyed
+
+---
+
+## Q42. Why remote state?
+
+Local state is unsafe for team/shared CI/CD environments.
+
+Remote state provides centralized state management and better collaboration.
+
+My state is stored in GCS.
+
+---
+
+## Q43. What is Terraform plan?
+
+`terraform plan` compares:
+
+desired configuration
+vs
+current state/infrastructure
+
+and shows proposed changes.
+
+---
+
+## Q44. What is Terraform apply?
+
+`terraform apply` actually makes the infrastructure changes.
+
+---
+
+## Q45. What is Terraform drift?
+
+Drift occurs when infrastructure is changed outside Terraform.
+
+Example:
+
+Terraform says:
+
+XSMALL
+
+Someone manually changes Snowflake to:
+
+SMALL
+
+Terraform detects the difference during refresh/plan.
+
+---
+
+# 14. YOUR TERRAFORM ENVIRONMENT DESIGN
+
+DEV:
+
+terraform/state/dev
+
+TEST:
+
+terraform/state/test
+
+DEV variables:
+
+ADVWORKS_DEV
+ETL_WH_DEV
+
+TEST variables:
+
+ADVWORKS_TEST
+ETL_WH_TEST
+
+This demonstrates environment isolation.
+
+---
+
+# 15. AZURE DEVOPS CI/CD QUESTIONS
+
+## Q46. Why Azure DevOps if code is in GitHub?
+
+GitHub is being used as the source control repository.
+
+Azure DevOps is being used for CI/CD.
+
+This is a valid architecture.
+
+---
+
+## Q47. What does CI mean?
+
+Continuous Integration.
+
+Every code change is automatically validated.
+
+My pipeline validates:
+
+Python
+dbt
+Terraform
+
+---
+
+## Q48. What does CD mean?
+
+Continuous Delivery/Deployment.
+
+Validated code is promoted into environments through controlled deployment stages.
+
+---
+
+## Q49. Explain your pipeline.
+
+GitHub
+↓
+Python validation
+↓
+dbt validation
+↓
+Terraform validation
+↓
+Google Cloud authentication
+↓
+Terraform Plan DEV
+↓
+DEV approval
+↓
+Terraform Apply DEV
+↓
+Terraform Plan TEST
+↓
+TEST approval
+↓
+Terraform Apply TEST
+
+---
+
+# 16. WORKLOAD IDENTITY FEDERATION
+
+## Q50. Why didn't you use a Google service account JSON key?
+
+Because long-lived service account keys create security risks.
+
+I implemented Workload Identity Federation.
+
+Azure DevOps obtains an OIDC token and Google validates the token through the configured WIF provider.
+
+Then the pipeline impersonates the Google service account.
+
+---
+
+## Q51. Explain your WIF flow.
+
+Azure DevOps
+↓
+OIDC token
+↓
+Google Workload Identity Federation
+↓
+WIF provider validates token
+↓
+Google service account impersonation
+↓
+GCP resources
+
+The pipeline does not store a long-lived Google service account private key.
+
+---
+
+## Q52. What is OIDC?
+
+OpenID Connect is an identity layer built on OAuth 2.0.
+
+In this case, Azure DevOps issues an identity token that Google trusts through WIF configuration.
+
+---
+
+## Q53. What is service account impersonation?
+
+The external identity is authorized to act as a Google service account.
+
+The pipeline receives temporary credentials rather than storing a permanent service account key.
+
+---
+
+# 17. AZURE DEVOPS ENVIRONMENT APPROVALS
+
+## Q54. Why use Azure DevOps Environments?
+
+Environments allow deployment controls such as:
+
+* approvals
+* checks
+* deployment history
+* environment-specific controls
+
+---
+
+## Q55. Why isn't the DEV environment attached to Python validation?
+
+Because Python validation is CI, not deployment.
+
+The DEV environment is associated with the deployment job:
+
+Terraform Apply - DEV
+
+---
+
+## Q56. Explain the approval flow.
+
+Terraform Plan
+↓
+Human reviews changes
+↓
+Approval
+↓
+Terraform Apply
+
+This prevents an unintended infrastructure change from automatically reaching an environment.
+
+---
+
+# 18. SECURITY QUESTIONS
+
+## Q57. Where do you store secrets?
+
+I separated secrets from source code.
+
+Examples:
+
+Snowflake private key:
+Azure DevOps Secure Files
+
+Private-key passphrase:
+Azure DevOps secret variable group
+
+Terraform state:
+Private GCS bucket
+
+---
+
+## Q58. Why shouldn't secrets be committed to Git?
+
+Because Git history can retain secrets even after a file is deleted.
+
+In my project, a Terraform passphrase file was accidentally committed.
+
+I removed it from Git history using history rewriting and force-pushed the cleaned repository.
+
+This is an excellent real-world interview story.
+
+---
+
+## Q59. What should you do if a secret is accidentally committed?
+
+Immediately:
+
+1. Revoke/rotate the secret.
+2. Remove it from the repository.
+3. Remove it from Git history.
+4. Check logs and downstream systems.
+5. Update the secret securely.
+6. Add `.gitignore` and secret scanning controls.
+
+---
+
+# 19. DATA QUALITY QUESTIONS
+
+## Q60. How do you know your pipeline is correct?
+
+I validate:
+
+* row counts
+* duplicate keys
+* null values
+* referential integrity
+* totals
+* schema
+* transformation outputs
+
+For my FactInternetSales pipeline:
+
+60,398 source rows
+60,398 target rows
+0 duplicate order lines
+
+I also compared business totals before and after transformation.
+
+---
+
+## Q61. What is referential integrity?
+
+It ensures foreign keys in a fact table correspond to valid dimension keys.
+
+Example:
+
+Every FactSales.ProductKey should exist in DimProduct.
+
+---
+
+## Q62. What happens if referential integrity fails?
+
+Depending on the business requirement:
+
+* quarantine bad records
+* fail the pipeline
+* alert the team
+* investigate source data
+* correct mappings
+
+I would not silently discard the records.
+
+---
+
+# 20. AIRFLOW QUESTIONS
+
+You haven't implemented Airflow fully yet, so answer honestly:
+
+"I have hands-on understanding of Airflow architecture and have worked with Airflow concepts, but the current practice pipeline is being implemented incrementally. The next stage of my project is orchestration with Airflow."
+
+Then know these questions.
+
+## Q63. What is Airflow?
+
+Airflow is a workflow orchestration platform.
+
+It schedules and coordinates tasks.
+
+---
+
+## Q64. What is a DAG?
+
+Directed Acyclic Graph.
+
+It represents tasks and dependencies.
+
+Example:
+
+extract
+↓
+validate
+↓
+load
+↓
+transform
+↓
+quality_check
+
+---
+
+## Q65. What is an operator?
+
+An operator defines a unit of work.
+
+Examples:
+
+PythonOperator
+BashOperator
+SQL operators
+Cloud operators
+
+---
+
+## Q66. What is XCom?
+
+XCom allows tasks to exchange small pieces of metadata.
+
+It should not be used for transferring large datasets.
+
+---
+
+## Q67. What happens when a task fails?
+
+Airflow can:
+
+* retry
+* mark failed
+* trigger downstream behavior depending on dependencies
+* send alerts
+
+---
+
+# 21. PUB/SUB QUESTIONS
+
+## Q68. Why Pub/Sub?
+
+Pub/Sub enables event-driven architecture.
+
+For example:
+
+New file arrives
+↓
+event
+↓
+Pub/Sub
+↓
+pipeline triggered
+↓
+Snowpipe ingestion
+
+---
+
+## Q69. Batch vs event-driven ingestion?
+
+Batch:
+
+Run every hour/day.
+
+Event-driven:
+
+Process when an event occurs.
+
+Event-driven systems can reduce latency and unnecessary polling.
+
+---
+
+# 22. SNOWPIPE QUESTIONS
+
+## Q70. What is Snowpipe?
+
+Snowpipe continuously loads files into Snowflake as they become available.
+
+It is useful for near-real-time file ingestion.
+
+---
+
+# 23. ERROR HANDLING
+
+## Q71. How would you design retries?
+
+Retries should be used for transient failures.
+
+Examples:
+
+network failure
+temporary cloud service issue
+temporary database connection failure
+
+Do not blindly retry permanent errors such as:
+
+invalid SQL
+bad schema
+invalid credentials
+
+---
+
+# 24. IDEMPOTENCY
+
+## Q72. What is idempotency?
+
+Running the same operation multiple times should not create incorrect duplicate results.
+
+For example:
+
+If a file is processed twice, the pipeline should not insert the same business records twice.
+
+Techniques:
+
+* unique keys
+* MERGE
+* processed-file tracking
+* deterministic file names
+* checkpoints
+* transactional loading
+
+---
+
+# 25. SCENARIO QUESTIONS
+
+## Q73. Pipeline succeeded but row count is lower than source. What do you do?
+
+I would not immediately assume the pipeline is successful.
+
+I would check:
+
+1. source count
+2. extraction count
+3. landing count
+4. transformation count
+5. rejected records
+6. filters
+7. joins
+8. duplicate removal
+9. partition/file completeness
+
+Then identify the first layer where records were lost.
+
+---
+
+## Q74. Pipeline failed after loading half the data. What do you do?
+
+I would determine whether the load is restartable.
+
+If the operation is idempotent, retry safely.
+
+If not, identify the partial batch and clean or roll back it before retrying.
+
+I would avoid blindly rerunning the entire pipeline.
+
+---
+
+## Q75. Snowflake query is slow. What do you check?
+
+I would investigate:
+
+* query profile
+* warehouse size
+* warehouse queueing
+* pruning
+* clustering
+* joins
+* large scans
+* unnecessary columns
+* transformations
+* data volume
+
+Then optimize based on evidence.
+
+---
+
+## Q76. Snowflake cost suddenly increases. What do you check?
+
+* warehouse size
+* warehouse runtime
+* auto-suspend
+* auto-resume
+* query frequency
+* long-running queries
+* concurrency
+* unused warehouses
+* ETL schedules
+
+---
+
+## Q77. Terraform says no changes, but infrastructure changed manually. Why?
+
+Possibilities include:
+
+* state/configuration mismatch
+* ignored attributes
+* provider behavior
+* refresh behavior
+* the changed attribute isn't managed by Terraform
+
+I would inspect:
+
+terraform state
+terraform refresh/plan
+provider documentation
+actual infrastructure
+
+---
+
+## Q78. TEST deployment accidentally modifies DEV. How would you prevent it?
+
+Use:
+
+* separate tfvars
+* separate Terraform state
+* environment-specific resources
+* approval gates
+* separate credentials/roles where appropriate
+* deployment validation
+
+This is exactly why I created:
+
+terraform/state/dev
+
+and:
+
+terraform/state/test
+
+---
+
+# 26. PRODUCTION SCENARIO
+
+## Q79. Developer commits code Friday evening. Should PROD deploy automatically?
+
+Not necessarily.
+
+A mature production pipeline would generally use:
+
+CI
+↓
+automated tests
+↓
+DEV
+↓
+TEST
+↓
+PRE-PROD
+↓
+approval
+↓
+PROD
+
+Production deployment should have appropriate approval/change-management controls.
+
+---
+
+# 27. DISASTER RECOVERY
+
+## Q80. What happens if Terraform state is lost?
+
+Remote state should have:
+
+* versioning
+* access control
+* backup/recovery strategy
+
+My GCS state bucket has versioning enabled.
+
+---
+
+# 28. PERFORMANCE QUESTIONS
+
+## Q81. How would you optimize a Python extraction?
+
+* batch reads
+* server-side filtering
+* incremental extraction
+* efficient queries
+* avoid loading entire dataset into memory
+* parallelism where appropriate
+* connection management
+
+---
+
+## Q82. How would you optimize SQL?
+
+* appropriate indexes on OLTP sources
+* filter early
+* avoid SELECT *
+* analyze execution plans
+* optimize joins
+* partitioning where appropriate
+* reduce unnecessary scans
+
+---
+
+# 29. SYSTEM DESIGN QUESTIONS
+
+## Q83. Design a pipeline for 1 TB/day.
+
+I would design:
+
+Source
+↓
+CDC/incremental extraction
+↓
+Cloud object storage
+↓
+event notification
+↓
+stream/file ingestion
+↓
+Snowflake raw layer
+↓
+transformation
+↓
+dimensional/semantic models
+↓
+BI
+
+Supporting:
+
+Airflow
+monitoring
+data quality
+IAM
+secrets
+CI/CD
+retry
+dead-letter handling
+audit metadata
+
+---
+
+# 30. "WHY DID YOU CHOOSE THIS TECHNOLOGY?" QUESTIONS
+
+## Python
+
+Flexible extraction and integration language.
+
+## GCS
+
+Scalable object storage and decoupling layer.
+
+## Snowflake
+
+Cloud analytical warehouse.
+
+## dbt
+
+SQL transformation and testing framework.
+
+## Terraform
+
+Infrastructure as code.
+
+## Airflow
+
+Workflow orchestration.
+
+## Pub/Sub
+
+Event-driven messaging.
+
+## Snowpipe
+
+Continuous Snowflake file ingestion.
+
+## Azure DevOps
+
+CI/CD automation.
+
+## GitHub
+
+Source control.
+
+---
+
+# 31. QUESTIONS ABOUT YOUR BIGGEST CHALLENGES
+
+## Challenge 1 — Secret accidentally committed
+
+Explain:
+
+"I discovered that a Terraform passphrase had been committed to a public repository. I removed the file from tracking and rewrote Git history to remove it completely. I also added Git ignore rules and moved secrets into Azure DevOps secret storage. I treated the exposed secret as compromised and would rotate it."
+
+This demonstrates:
+
+Security awareness
+Incident response
+Git knowledge
+
+---
+
+## Challenge 2 — WIF authentication
+
+Explain:
+
+"I initially configured an attribute condition based on a token claim that wasn't present in the Azure DevOps token. The authentication failed. I inspected the OIDC token claims, identified the mismatch, adjusted the Google WIF provider mapping, and validated the complete chain from Azure DevOps to Google service-account impersonation."
+
+This demonstrates:
+
+Cloud IAM
+OIDC
+Troubleshooting
+Security
+
+---
+
+## Challenge 3 — Terraform environment isolation
+
+Explain:
+
+"I realized that using the same Terraform state for DEV and TEST could cause environment contamination. I therefore created separate state prefixes: terraform/state/dev and terraform/state/test."
+
+This is a strong Terraform design answer.
+
+---
+
+# 32. MOST IMPORTANT INTERVIEW QUESTIONS TO MASTER FIRST
+
+Priority 1:
+
+1. Explain your project.
+2. Explain the architecture.
+3. Explain full vs incremental load.
+4. Explain CDC.
+5. Explain idempotency.
+6. Explain retry handling.
+7. Explain data quality.
+8. Explain fact vs dimension.
+9. Explain star schema.
+10. Explain SCD Type 1/2.
+11. Explain Snowflake architecture.
+12. Explain virtual warehouses.
+13. Explain dbt.
+14. Explain dbt `ref()`.
+15. Explain Terraform.
+16. Explain Terraform state.
+17. Explain Terraform plan/apply.
+18. Explain CI/CD.
+19. Explain your Azure DevOps pipeline.
+20. Explain WIF.
+21. Explain OIDC.
+22. Explain secrets management.
+23. Explain environment isolation.
+24. Explain Airflow.
+25. Explain DAGs.
+
+Priority 2:
+
+26. SQL joins
+27. Window functions
+28. CTEs
+29. ROW_NUMBER
+30. query optimization
+31. partitioning
+32. clustering
+33. Snowpipe
+34. Pub/Sub
+35. batch vs streaming
+36. monitoring
+37. alerting
+38. dead-letter queues
+39. schema evolution
+40. disaster recovery
+
+Priority 3:
+
+41. Spark
+42. Kafka
+43. Databricks
+44. Kubernetes
+45. advanced CDC
+46. distributed systems
+47. data lakehouse architecture
+48. streaming architecture
+49. advanced Snowflake optimization
+50. advanced Airflow architecture
+
+---
+
+# 33. CODING PRACTICE YOU MUST MASTER
+
+SQL:
+
+* second highest salary
+* nth highest salary
+* duplicate detection
+* remove duplicates
+* latest record per customer
+* gaps and islands
+* running total
+* rolling average
+* month-over-month growth
+* year-over-year growth
+* top N per group
+* customers with no orders
+* products never sold
+* consecutive dates
+* cumulative sales
+* duplicate business keys
+* slowly changing dimension logic
+
+Python:
+
+* read CSV
+* read JSON
+* write JSONL
+* batch processing
+* API extraction
+* pagination
+* retry logic
+* logging
+* exception handling
+* generators
+* decorators
+* multiprocessing/threading basics
+* database extraction
+* incremental extraction
+* file validation
+* duplicate detection
+
+---
+
+# 34. DAILY INTERVIEW ANSWER FORMULA
+
+For scenario questions, use:
+
+### Situation
+
+What problem existed?
+
+### Approach
+
+What did I design?
+
+### Implementation
+
+What technologies/code did I use?
+
+### Validation
+
+How did I prove it worked?
+
+### Failure handling
+
+What happens when it fails?
+
+### Result
+
+What did the implementation achieve?
+
+This makes answers sound like real engineering experience.
+
+---
+
+# 35. YOUR PROJECT'S STRONGEST INTERVIEW STORIES
+
+You currently have at least these strong stories:
+
+1. End-to-end pipeline implementation
+2. Python batch extraction
+3. JSONL ingestion
+4. Data validation
+5. Snowflake layered architecture
+6. Dimensional modeling
+7. dbt transformation
+8. dbt data quality
+9. Terraform infrastructure
+10. Terraform remote state
+11. DEV/TEST state isolation
+12. Azure DevOps CI
+13. Terraform Plan
+14. Manual deployment approval
+15. Terraform Apply
+16. Azure → Google WIF
+17. Secure file handling
+18. Secret incident and Git history cleanup
+19. Troubleshooting authentication
+20. Environment promotion architecture
+
+These should become your main interview stories.
+
+---
+
+# 36. WHAT I SHOULD SAY ABOUT MY CURRENT EXPERIENCE
+
+I should not claim that every component is already productionized.
+
+A strong and honest answer is:
+
+"I built the platform incrementally. The current implementation covers source extraction, Snowflake layered modeling, dbt transformations and testing, Terraform infrastructure, remote state, Azure DevOps CI/CD, workload identity federation and DEV/TEST promotion. I am extending the same architecture with Airflow orchestration, event-driven ingestion, monitoring, CDC and production hardening."
+
+That sounds much stronger than pretending everything is already production-grade.
+
+---
+
+# 37. MY NEXT LEARNING PRIORITIES
+
+Current:
+
+CI/CD
+↓
+Airflow
+↓
+GCS + Pub/Sub
+↓
+Snowpipe
+↓
+Incremental/CDC
+↓
+Error handling/idempotency
+↓
+Monitoring
+↓
+Security/IAM
+↓
+Performance/cost
+↓
+Production architecture
+↓
+BI
+↓
+Interview scenarios
+↓
+Mock interviews
+
+I should continue implementing these rather than stopping at Terraform.
+
+---
+
+# 38. GOLDEN RULE FOR MY INTERVIEWS
+
+Don't answer only:
+
+"Terraform is Infrastructure as Code."
+
+Instead say:
+
+"Terraform is Infrastructure as Code. In my project I used it to provision Snowflake databases, schemas and warehouses. I stored the Terraform state remotely in GCS and isolated DEV and TEST using separate state prefixes. I integrated Terraform with Azure DevOps so that every GitHub change is validated, planned and deployed through an approval-controlled pipeline."
+
+That transforms a textbook answer into an **experience-based answer**.
+
+---
+
+# 39. FINAL INTERVIEW CHECKLIST
+
+Before interviewing, I should be able to explain without notes:
+
+[ ] My architecture
+[ ] Source extraction
+[ ] Batch processing
+[ ] JSONL
+[ ] GCS
+[ ] Snowflake
+[ ] Snowflake warehouse
+[ ] Layered architecture
+[ ] Fact/dimension
+[ ] Star schema
+[ ] SCD
+[ ] dbt
+[ ] dbt tests
+[ ] Terraform
+[ ] Terraform state
+[ ] Remote state
+[ ] DEV/TEST isolation
+[ ] Git
+[ ] Azure DevOps
+[ ] CI/CD
+[ ] WIF
+[ ] OIDC
+[ ] Secrets
+[ ] Approvals
+[ ] Airflow
+[ ] DAG
+[ ] Pub/Sub
+[ ] Snowpipe
+[ ] Incremental load
+[ ] CDC
+[ ] Idempotency
+[ ] Retry
+[ ] Error handling
+[ ] Monitoring
+[ ] Data quality
+[ ] Performance
+[ ] Cost optimization
+[ ] Production architecture
+[ ] SQL coding
+[ ] Python coding
+[ ] Scenario questions
+[ ] System design

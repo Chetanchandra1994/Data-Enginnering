@@ -139,3 +139,19 @@ LANDING
 dbt
    ↓
 MARKETPLACE
+
+
+test.tfvars
+    │
+    │ snowflake_database = "ADVWORKS_TEST"
+    ▼
+variables.tf
+    │
+    │ declares var.snowflake_database
+    ▼
+main.tf
+    │
+    └── name = var.snowflake_database
+             │
+             ▼
+       ADVWORKS_TEST
