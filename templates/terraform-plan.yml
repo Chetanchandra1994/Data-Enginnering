@@ -96,6 +96,18 @@ steps:
 
 
         # --------------------------------------------------------
+        # Validate Snowflake Passphrase
+        # --------------------------------------------------------
+
+        if [ -z "$TF_VAR_snowflake_private_key_passphrase" ]; then
+          echo "ERROR: Snowflake private key passphrase was not provided."
+          exit 1
+        fi
+
+        echo "Snowflake private key passphrase is available to Terraform."
+
+
+        # --------------------------------------------------------
         # Terraform
         # --------------------------------------------------------
 
@@ -116,6 +128,8 @@ steps:
           -var-file="environments/${{ parameters.environment }}.tfvars" \
           -var="snowflake_private_key_path=/tmp/snowflake_tf_key.p8" \
           -out="$(Build.ArtifactStagingDirectory)/${{ parameters.environment }}.tfplan"
+    env:
+      TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
 
   # ============================================================
@@ -151,3 +165,6 @@ steps:
       targetPath: '$(Build.ArtifactStagingDirectory)'
       artifact: 'terraform-plan-${{ parameters.environment }}'
       publishLocation: 'pipeline'
+
+    # env:
+    #   TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)

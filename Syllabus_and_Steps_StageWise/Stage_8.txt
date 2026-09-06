@@ -1,0 +1,188 @@
+Our next major implementation path will be:
+
+SQL Server / AdventureWorks
+        │
+        ▼
+Python extraction code
+        │
+        │  change LOCAL filesystem
+        │  → GCS upload
+        ▼
+GCS Bucket
+  ├── raw/
+  │    └── customer/
+  │         └── *.jsonl
+  │
+  └── raw/
+       └── fact_internet_sales/
+            └── *.jsonl
+        │
+        ▼
+      Pub/Sub
+        │
+        │ object-created event
+        ▼
+     Snowpipe
+        │
+        ▼
+Snowflake LANDING
+        │
+        ▼
+ PREPARE → NORMALIZE
+        │
+        ▼
+ SCHEMATIZE → MARKETPLACE
+        │
+        ▼
+ Tableau / Power BI
+And importantly: we already have most of the hard parts
+
+We do not need to rewrite the ingestion framework from scratch.
+
+We already have:
+
+✅ SQL Server connection
+✅ pyodbc
+✅ deterministic extraction
+✅ batching
+✅ JSONL generation
+✅ validation
+✅ duplicate checking
+✅ Customer extraction
+✅ FactInternetSales extraction
+✅ Snowflake layers
+✅ Terraform
+✅ GCP project
+✅ GCS access
+✅ Azure DevOps CI/CD
+✅ Snowflake target architecture
+
+So the next Python change is essentially:
+
+CURRENT
+
+SQL Server
+   ↓
+Python
+   ↓
+local output/*.jsonl
+
+
+TARGET
+
+SQL Server
+   ↓
+Python
+   ↓
+GCS bucket
+   ↓
+Pub/Sub event
+   ↓
+Snowpipe
+   ↓
+Snowflake
+What we'll learn while implementing it
+
+This isn't just about making the upload work. We'll deliberately cover the Data Engineering concepts interviewers expect:
+
+GCS bucket/folder design
+GCS authentication from Python
+Uploading files programmatically
+File naming conventions
+Partition/path strategy
+Batch vs streaming ingestion
+GCS → Pub/Sub event notification
+Pub/Sub topics/subscriptions
+Snowflake external stage
+Storage integration
+Snowpipe
+COPY INTO
+Auto-ingest
+Event-driven architecture
+Duplicate file handling
+Idempotency
+Retry/error handling
+Dead-letter/error paths
+Monitoring
+Incremental ingestion
+CDC
+Security/IAM
+Cost/performance
+Production architecture
+Interview scenarios around the entire pipeline
+
+And we'll use your AdventureWorks pipeline as the concrete example throughout.
+
+The sequence I want us to follow
+
+First — finish current CI/CD refactor
+
+Terraform templates
+      ↓
+DEV
+      ↓
+TEST
+      ↓
+PRE-PROD
+      ↓
+PROD
+
+Then immediately:
+
+Phase A — GCS ingestion
+
+Existing Python extraction
+        ↓
+Modify storage layer
+        ↓
+GCS upload
+        ↓
+Validate files in GCS
+
+Phase B — Airflow
+
+Airflow DAG
+   ↓
+Extract SQL Server
+   ↓
+Create JSONL
+   ↓
+Upload GCS
+   ↓
+Validation
+
+Phase C — Pub/Sub
+
+GCS object created
+        ↓
+Pub/Sub notification
+        ↓
+Subscription
+
+Phase D — Snowpipe
+
+Pub/Sub
+   ↓
+Snowpipe auto-ingest
+   ↓
+External stage
+   ↓
+LANDING
+
+Phase E — production hardening
+
+Retry
+Idempotency
+DQ
+Monitoring
+Alerting
+IAM
+Secrets
+Incremental loads
+CDC
+Performance
+Cost
+
+Then we'll have a genuinely end-to-end Data Engineering project, rather than just individual tool exercises.
+
+And yes: we should move quickly now. The Terraform/CICD work is nearing completion; after that, GCP + Airflow + GCS + Pub/Sub + Snowpipe becomes the main track.
