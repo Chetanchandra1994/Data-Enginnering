@@ -362,3 +362,27 @@ stages:
 # ============================================================
 # 12. TERRAFORM APPLY - PROD
 # ============================================================
+
+  - stage: TerraformApplyProd
+    displayName: '12. Terraform Apply - PROD'
+
+    dependsOn: TerraformPlanProd
+    condition: succeeded()
+
+    jobs:
+    - deployment: TerraformApplyProd
+      displayName: 'Terraform Apply PROD'
+
+      environment: 'PROD'
+
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+
+              - checkout: self
+
+              - template: templates/terraform-apply.yml
+                parameters:
+                  environment: prod
+                  azureEnvironment: PROD
