@@ -265,10 +265,18 @@ stages:
           - script: |
               cd terraform
 
+              echo "============================================================"
+              echo "TERRAFORM PLAN - DEV"
+              echo "============================================================"
+
               terraform show -no-color \
                 "$(Build.ArtifactStagingDirectory)/dev.tfplan" \
-                > "$(Build.ArtifactStagingDirectory)/dev-plan.txt"
-            displayName: 'Generate Readable DEV Plan'
+                | tee "$(Build.ArtifactStagingDirectory)/dev-plan.txt"
+
+              echo "============================================================"
+              echo "END OF TERRAFORM PLAN - DEV"
+              echo "============================================================"
+            displayName: 'Display and Save DEV Terraform Plan'
 
           - task: PublishPipelineArtifact@1
             displayName: 'Publish DEV Terraform Plan'
@@ -455,10 +463,18 @@ stages:
           - script: |
               cd terraform
 
+              echo "============================================================"
+              echo "TERRAFORM PLAN - TEST"
+              echo "============================================================"
+
               terraform show -no-color \
-                "$(Build.ArtifactStagingDirectory)/test.tfplan" \
-                > "$(Build.ArtifactStagingDirectory)/test-plan.txt"
-            displayName: 'Generate Readable TEST Plan'
+              "$(Build.ArtifactStagingDirectory)/test.tfplan" \
+              | tee "$(Build.ArtifactStagingDirectory)/test-plan.txt"
+
+              echo "============================================================"
+              echo "END OF TERRAFORM PLAN - TEST"
+              echo "============================================================"
+            displayName: 'Display and Save TEST Terraform Plan'
 
           - task: PublishPipelineArtifact@1
             displayName: 'Publish TEST Terraform Plan'
@@ -645,10 +661,18 @@ stages:
           - script: |
               cd terraform
 
+              echo "============================================================"
+              echo "TERRAFORM PLAN - TEST"
+              echo "============================================================"
+
               terraform show -no-color \
-                "$(Build.ArtifactStagingDirectory)/preprod.tfplan" \
-                > "$(Build.ArtifactStagingDirectory)/preprod-plan.txt"
-            displayName: 'Generate Readable Preprod Plan'
+              "$(Build.ArtifactStagingDirectory)/preprod.tfplan" \
+              | tee "$(Build.ArtifactStagingDirectory)/preprod-plan.txt"
+
+              echo "============================================================"
+              echo "END OF TERRAFORM PLAN - TEST"
+              echo "============================================================"
+            displayName: 'Display and Save TEST Terraform Plan'
 
           - task: PublishPipelineArtifact@1
             displayName: 'Publish Preprod Terraform Plan'
