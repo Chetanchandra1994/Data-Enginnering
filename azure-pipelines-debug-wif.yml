@@ -1,18 +1,577 @@
-
 trigger:
-  #- main
-  - none
+  - main
+
+variables:
+  - group: snowflake-dev-secrets
 
 pool:
   vmImage: 'ubuntu-latest'
 
-steps:
-  - task: AzureCLI@2
-    displayName: 'Debug Azure DevOps OIDC Token'
-    inputs:
-      azureSubscription: 'google-cloud-wif'
-      addSpnToEnvironment: true
-      scriptType: 'bash'
-      scriptLocation: 'inlineScript'
-      inlineScript: |
-        python -c "import os,base64,json; t=os.environ['idToken']; p=t.split('.')[1]; p += '='*((4-len(p)%4)%4); c=json.loads(base64.urlsafe_b64decode(p)); print('SUB=' + str(c.get('sub'))); print('AUD=' + str(c.get('aud'))); print('ISS=' + str(c.get('iss'))); print('OID=' + str(c.get('oid')))"
+stages:
+
+# ============================================================
+# 1. PYTHON VALIDATION
+# ============================================================
+
+  - stage: Python
+    displayName: '1. Python Validation'
+
+    jobs:
+      - job: PythonValidation
+        displayName: 'Validate Python Code'
+
+        steps:
+          - checkout: self
+
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.11'
+            displayName: 'Set Python 3.11'
+
+          - script: |
+              python --version
+              python -m compileall python-ingestion
+            displayName: 'Compile Python Code'
+
+
+# ============================================================
+# 2. DBT VALIDATION
+# ============================================================
+
+  - stage: DBT
+    displayName: '2. dbt Validation'
+
+    dependsOn: Python
+    condition: succeeded()
+
+    jobs:
+      - job: DBTValidation
+        displayName: 'Validate dbt Project'
+
+        steps:
+          - checkout: self
+
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.11'
+            displayName: 'Set Python 3.11'
+
+          - script: |
+              python --version
+              python -m pip install --upgrade pip
+              pip install dbt-core dbt-snowflake
+            displayName: 'Install dbt'
+
+          - script: |
+              mkdir -p ~/.dbt
+
+              cat > ~/.dbt/profiles.yml <<'EOF'
+              advworks_dbt:
+                target: dev
+                outputs:
+                  dev:
+                    type: snowflake
+                    account: dummy
+                    user: dummy
+                    password: dummy
+                    role: ACCOUNTADMIN
+                    database: ADVWORKS_DEV
+                    warehouse: ETL_WH_DEV
+                    schema: PREPARE
+                    threads: 4
+              EOF
+
+              cd DBT/advworks_dbt
+              dbt parse
+            displayName: 'Run dbt Parse'
+
+
+# ============================================================
+# 3. TERRAFORM VALIDATION
+# ============================================================
+
+  - stage: Terraform
+    displayName: '3. Terraform Validation'
+
+    dependsOn: DBT
+    condition: succeeded()
+
+    jobs:
+      - job: TerraformValidation
+        displayName: 'Validate Terraform Code'
+
+        steps:
+          - checkout: self
+
+          - script: |
+              curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
+              rm -rf /tmp/terraform-install
+              mkdir -p /tmp/terraform-install
+              unzip -o /tmp/terraform.zip -d /tmp/terraform-install
+              chmod +x /tmp/terraform-install/terraform
+              echo "##vso[task.prependpath]/tmp/terraform-install"
+              /tmp/terraform-install/terraform version
+            displayName: 'Install Terraform'
+
+          - script: |
+              cd terraform
+              terraform fmt -check -recursive
+            displayName: 'Terraform Format Check'
+
+          - script: |
+              cd terraform
+              terraform init -backend=false
+            displayName: 'Terraform Init'
+
+          - script: |
+              cd terraform
+              terraform validate
+            displayName: 'Terraform Validate'
+
+
+# ============================================================
+# 4. GOOGLE CLOUD WIF VALIDATION
+# ============================================================
+
+  - stage: GoogleAuth
+    displayName: '4. Test Google Cloud WIF'
+
+    dependsOn: Terraform
+    condition: succeeded()
+
+    jobs:
+      - job: GoogleAuthentication
+        displayName: 'Authenticate to Google Cloud'
+
+        steps:
+          - checkout: self
+
+          - task: AzureCLI@2
+            displayName: 'Get Azure DevOps Federated Token'
+            inputs:
+              azureSubscription: 'google-cloud-wif'
+              addSpnToEnvironment: true
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                echo "$idToken" > "$(Pipeline.Workspace)/.workload_identity.jwt"
+
+                python -c "import os,base64,json; t=os.environ['idToken']; p=t.split('.')[1]; p += '='*((4-len(p)%4)%4); c=json.loads(base64.urlsafe_b64decode(p)); print('SUB=' + str(c.get('sub'))); print('AUD=' + str(c.get('aud')))"
+
+                cat > "$(Pipeline.Workspace)/.workload_identity.wlconfig" <<EOF
+                {
+                  "type": "external_account",
+                  "audience": "//iam.googleapis.com/projects/776178390591/locations/global/workloadIdentityPools/azure-devops-pool/providers/azure-devops-provider",
+                  "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                  "token_url": "https://sts.googleapis.com/v1/token",
+                  "credential_source": {
+                    "file": "$(Pipeline.Workspace)/.workload_identity.jwt",
+                    "format": {
+                      "type": "text"
+                    }
+                  },
+                  "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com:generateAccessToken"
+                }
+                EOF
+
+                export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                gcloud auth login --cred-file="$GOOGLE_APPLICATION_CREDENTIALS" --quiet
+
+                gcloud storage buckets describe gs://electric-tesla-507710-k2-tfstate
+
+                echo "Google Cloud WIF authentication successful."
+
+
+# ============================================================
+# 5. TERRAFORM PLAN - DEV
+# ============================================================
+
+  - stage: TerraformPlanDev
+    displayName: '5. Terraform Plan - DEV'
+
+    dependsOn: GoogleAuth
+    condition: succeeded()
+
+    jobs:
+      - job: TerraformPlanDev
+        displayName: 'Terraform Plan DEV'
+
+        steps:
+          - checkout: self
+
+          - task: DownloadSecureFile@1
+            name: snowflakeKey
+            displayName: 'Download Snowflake Private Key'
+            inputs:
+              secureFile: 'snowflake_tf_key.p8'
+
+          - script: |
+              curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
+              rm -rf /tmp/terraform-install
+              mkdir -p /tmp/terraform-install
+              unzip -o /tmp/terraform.zip -d /tmp/terraform-install
+              chmod +x /tmp/terraform-install/terraform
+              echo "##vso[task.prependpath]/tmp/terraform-install"
+              terraform version
+            displayName: 'Install Terraform'
+
+          - task: AzureCLI@2
+            displayName: 'Authenticate to Google Cloud'
+            inputs:
+              azureSubscription: 'google-cloud-wif'
+              addSpnToEnvironment: true
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                echo "$idToken" > "$(Pipeline.Workspace)/.workload_identity.jwt"
+
+                cat > "$(Pipeline.Workspace)/.workload_identity.wlconfig" <<EOF
+                {
+                  "type": "external_account",
+                  "audience": "//iam.googleapis.com/projects/776178390591/locations/global/workloadIdentityPools/azure-devops-pool/providers/azure-devops-provider",
+                  "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                  "token_url": "https://sts.googleapis.com/v1/token",
+                  "credential_source": {
+                    "file": "$(Pipeline.Workspace)/.workload_identity.jwt",
+                    "format": {
+                      "type": "text"
+                    }
+                  },
+                  "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com:generateAccessToken"
+                }
+                EOF
+
+                export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                gcloud auth login --cred-file="$GOOGLE_APPLICATION_CREDENTIALS" --quiet
+
+                cd terraform
+
+                terraform init -reconfigure
+
+          - script: |
+              cp "$(snowflakeKey.secureFilePath)" /tmp/snowflake_tf_key.p8
+              chmod 600 /tmp/snowflake_tf_key.p8
+            displayName: 'Prepare Snowflake Private Key'
+
+          - script: |
+              cd terraform
+
+              terraform plan \
+                -var-file="environments/dev.tfvars" \
+                -var="snowflake_private_key_path=/tmp/snowflake_tf_key.p8" \
+                -out="$(Build.ArtifactStagingDirectory)/dev.tfplan"
+            displayName: 'Terraform Plan DEV'
+
+            env:
+              TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
+
+          - script: |
+              cd terraform
+
+              terraform show -no-color \
+                "$(Build.ArtifactStagingDirectory)/dev.tfplan" \
+                > "$(Build.ArtifactStagingDirectory)/dev-plan.txt"
+            displayName: 'Generate Readable DEV Plan'
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publish DEV Terraform Plan'
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)'
+              artifact: 'terraform-plan-dev'
+              publishLocation: 'pipeline'
+
+
+# ============================================================
+# 6. TERRAFORM APPLY - DEV
+# ============================================================
+
+  - stage: TerraformApplyDev
+    displayName: '6. Terraform Apply - DEV'
+
+    dependsOn: TerraformPlanDev
+    condition: succeeded()
+
+    jobs:
+      - deployment: TerraformApplyDev
+        displayName: 'Terraform Apply DEV'
+
+        environment: 'DEV'
+
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+
+                - checkout: self
+
+                - task: DownloadPipelineArtifact@2
+                  displayName: 'Download DEV Terraform Plan'
+                  inputs:
+                    artifact: 'terraform-plan-dev'
+                    path: '$(Pipeline.Workspace)/terraform-plan-dev'
+
+                - task: DownloadSecureFile@1
+                  name: snowflakeKey
+                  displayName: 'Download Snowflake Private Key'
+                  inputs:
+                    secureFile: 'snowflake_tf_key.p8'
+
+                - script: |
+                    curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
+                    rm -rf /tmp/terraform-install
+                    mkdir -p /tmp/terraform-install
+                    unzip -o /tmp/terraform.zip -d /tmp/terraform-install
+                    chmod +x /tmp/terraform-install/terraform
+                    echo "##vso[task.prependpath]/tmp/terraform-install"
+                    terraform version
+                  displayName: 'Install Terraform'
+
+                - script: |
+                    cp "$(snowflakeKey.secureFilePath)" /tmp/snowflake_tf_key.p8
+                    chmod 600 /tmp/snowflake_tf_key.p8
+                  displayName: 'Prepare Snowflake Private Key'
+
+                - task: AzureCLI@2
+                  displayName: 'Authenticate to Google Cloud'
+                  inputs:
+                    azureSubscription: 'google-cloud-wif'
+                    addSpnToEnvironment: true
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      echo "$idToken" > "$(Pipeline.Workspace)/.workload_identity.jwt"
+
+                      cat > "$(Pipeline.Workspace)/.workload_identity.wlconfig" <<EOF
+                      {
+                        "type": "external_account",
+                        "audience": "//iam.googleapis.com/projects/776178390591/locations/global/workloadIdentityPools/azure-devops-pool/providers/azure-devops-provider",
+                        "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                        "token_url": "https://sts.googleapis.com/v1/token",
+                        "credential_source": {
+                          "file": "$(Pipeline.Workspace)/.workload_identity.jwt",
+                          "format": {
+                            "type": "text"
+                          }
+                        },
+                        "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com:generateAccessToken"
+                      }
+                      EOF
+
+                      export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                      gcloud auth login --cred-file="$GOOGLE_APPLICATION_CREDENTIALS" --quiet
+
+                      cd terraform
+
+                      terraform init -reconfigure
+
+                - script: |
+                    terraform apply \
+                      -auto-approve \
+                      "$(Pipeline.Workspace)/terraform-plan-dev/dev.tfplan"
+                  displayName: 'Apply EXACT DEV Saved Plan'
+                  workingDirectory: '$(Build.SourcesDirectory)/terraform'
+
+                  env:
+                    TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
+
+
+# ============================================================
+# 7. TERRAFORM PLAN - TEST
+# ============================================================
+
+  - stage: TerraformPlanTest
+    displayName: '7. Terraform Plan - TEST'
+
+    dependsOn: TerraformApplyDev
+    condition: succeeded()
+
+    jobs:
+      - job: TerraformPlanTest
+        displayName: 'Terraform Plan TEST'
+
+        steps:
+          - checkout: self
+
+          - task: DownloadSecureFile@1
+            name: snowflakeKey
+            displayName: 'Download Snowflake Private Key'
+            inputs:
+              secureFile: 'snowflake_tf_key.p8'
+
+          - script: |
+              curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
+              rm -rf /tmp/terraform-install
+              mkdir -p /tmp/terraform-install
+              unzip -o /tmp/terraform.zip -d /tmp/terraform-install
+              chmod +x /tmp/terraform-install/terraform
+              echo "##vso[task.prependpath]/tmp/terraform-install"
+              terraform version
+            displayName: 'Install Terraform'
+
+          - script: |
+              cp "$(snowflakeKey.secureFilePath)" /tmp/snowflake_tf_key.p8
+              chmod 600 /tmp/snowflake_tf_key.p8
+            displayName: 'Prepare Snowflake Private Key'
+
+          - task: AzureCLI@2
+            displayName: 'Authenticate to Google Cloud'
+            inputs:
+              azureSubscription: 'google-cloud-wif'
+              addSpnToEnvironment: true
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                echo "$idToken" > "$(Pipeline.Workspace)/.workload_identity.jwt"
+
+                cat > "$(Pipeline.Workspace)/.workload_identity.wlconfig" <<EOF
+                {
+                  "type": "external_account",
+                  "audience": "//iam.googleapis.com/projects/776178390591/locations/global/workloadIdentityPools/azure-devops-pool/providers/azure-devops-provider",
+                  "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                  "token_url": "https://sts.googleapis.com/v1/token",
+                  "credential_source": {
+                    "file": "$(Pipeline.Workspace)/.workload_identity.jwt",
+                    "format": {
+                      "type": "text"
+                    }
+                  },
+                  "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com:generateAccessToken"
+                }
+                EOF
+
+                export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                gcloud auth login --cred-file="$GOOGLE_APPLICATION_CREDENTIALS" --quiet
+
+                cd terraform
+
+                terraform init \
+                  -reconfigure \
+                  -backend-config="prefix=terraform/state/test"
+
+          - script: |
+              cd terraform
+
+              terraform plan \
+                -var-file="environments/test.tfvars" \
+                -var="snowflake_private_key_path=/tmp/snowflake_tf_key.p8" \
+                -out="$(Build.ArtifactStagingDirectory)/test.tfplan"
+            displayName: 'Terraform Plan TEST'
+
+            env:
+              TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
+
+          - script: |
+              cd terraform
+
+              terraform show -no-color \
+                "$(Build.ArtifactStagingDirectory)/test.tfplan" \
+                > "$(Build.ArtifactStagingDirectory)/test-plan.txt"
+            displayName: 'Generate Readable TEST Plan'
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publish TEST Terraform Plan'
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)'
+              artifact: 'terraform-plan-test'
+              publishLocation: 'pipeline'
+
+
+# ============================================================
+# 8. TERRAFORM APPLY - TEST
+# ============================================================
+
+  - stage: TerraformApplyTest
+    displayName: '8. Terraform Apply - TEST'
+
+    dependsOn: TerraformPlanTest
+    condition: succeeded()
+
+    jobs:
+      - deployment: TerraformApplyTest
+        displayName: 'Terraform Apply TEST'
+
+        environment: 'TEST'
+
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+
+                - checkout: self
+
+                - task: DownloadPipelineArtifact@2
+                  displayName: 'Download TEST Terraform Plan'
+                  inputs:
+                    artifact: 'terraform-plan-test'
+                    path: '$(Pipeline.Workspace)/terraform-plan-test'
+
+                - task: DownloadSecureFile@1
+                  name: snowflakeKey
+                  displayName: 'Download Snowflake Private Key'
+                  inputs:
+                    secureFile: 'snowflake_tf_key.p8'
+
+                - script: |
+                    curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
+                    rm -rf /tmp/terraform-install
+                    mkdir -p /tmp/terraform-install
+                    unzip -o /tmp/terraform.zip -d /tmp/terraform-install
+                    chmod +x /tmp/terraform-install/terraform
+                    echo "##vso[task.prependpath]/tmp/terraform-install"
+                    terraform version
+                  displayName: 'Install Terraform'
+
+                - script: |
+                    cp "$(snowflakeKey.secureFilePath)" /tmp/snowflake_tf_key.p8
+                    chmod 600 /tmp/snowflake_tf_key.p8
+                  displayName: 'Prepare Snowflake Private Key'
+
+                - task: AzureCLI@2
+                  displayName: 'Authenticate to Google Cloud'
+                  inputs:
+                    azureSubscription: 'google-cloud-wif'
+                    addSpnToEnvironment: true
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      echo "$idToken" > "$(Pipeline.Workspace)/.workload_identity.jwt"
+
+                      cat > "$(Pipeline.Workspace)/.workload_identity.wlconfig" <<EOF
+                      {
+                        "type": "external_account",
+                        "audience": "//iam.googleapis.com/projects/776178390591/locations/global/workloadIdentityPools/azure-devops-pool/providers/azure-devops-provider",
+                        "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                        "token_url": "https://sts.googleapis.com/v1/token",
+                        "credential_source": {
+                          "file": "$(Pipeline.Workspace)/.workload_identity.jwt",
+                          "format": {
+                            "type": "text"
+                          }
+                        },
+                        "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com:generateAccessToken"
+                      }
+                      EOF
+
+                      export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                      gcloud auth login --cred-file="$GOOGLE_APPLICATION_CREDENTIALS" --quiet
+
+                      cd terraform
+
+                      terraform init \
+                        -reconfigure \
+                        -backend-config="prefix=terraform/state/test"
+
+                - script: |
+                    terraform apply \
+                      -auto-approve \
+                      "$(Pipeline.Workspace)/terraform-plan-test/test.tfplan"
+                  displayName: 'Apply EXACT TEST Saved Plan'
+                  workingDirectory: '$(Build.SourcesDirectory)/terraform'
+
+                  env:
+                    TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
