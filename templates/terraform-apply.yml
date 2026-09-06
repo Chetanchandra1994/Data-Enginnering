@@ -1,0 +1,140 @@
+parameters:
+  - name: environment
+    type: string
+
+  - name: azureEnvironment
+    type: string
+
+
+steps:
+
+  # ============================================================
+  # 1. DOWNLOAD TERRAFORM PLAN
+  # ============================================================
+
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download ${{ parameters.environment }} Terraform Plan'
+    inputs:
+      artifact: 'terraform-plan-${{ parameters.environment }}'
+      path: '$(Pipeline.Workspace)/terraform-plan-${{ parameters.environment }}'
+
+
+  # ============================================================
+  # 2. DOWNLOAD SNOWFLAKE PRIVATE KEY
+  # ============================================================
+
+  - task: DownloadSecureFile@1
+    name: snowflakeKey
+    displayName: 'Download Snowflake Private Key'
+    inputs:
+      secureFile: 'snowflake_tf_key.p8'
+
+
+  # ============================================================
+  # 3. INSTALL TERRAFORM
+  # ============================================================
+
+  - script: |
+      curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip \
+        -o /tmp/terraform.zip
+
+      rm -rf /tmp/terraform-install
+      mkdir -p /tmp/terraform-install
+
+      unzip -o /tmp/terraform.zip -d /tmp/terraform-install
+
+      chmod +x /tmp/terraform-install/terraform
+
+      /tmp/terraform-install/terraform version
+
+      echo "##vso[task.prependpath]/tmp/terraform-install"
+    displayName: 'Install Terraform'
+
+
+  # ============================================================
+  # 4. PREPARE SNOWFLAKE PRIVATE KEY
+  # ============================================================
+
+  - script: |
+      cp "$(snowflakeKey.secureFilePath)" /tmp/snowflake_tf_key.p8
+      chmod 600 /tmp/snowflake_tf_key.p8
+    displayName: 'Prepare Snowflake Private Key'
+
+
+  # ============================================================
+  # 5. GOOGLE CLOUD WIF + TERRAFORM APPLY
+  # ============================================================
+
+  - task: AzureCLI@2
+    displayName: 'Authenticate to Google Cloud and Apply Terraform'
+    inputs:
+      azureSubscription: 'google-cloud-wif'
+      addSpnToEnvironment: true
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+
+      inlineScript: |
+
+        echo "$idToken" > "$(Pipeline.Workspace)/.workload_identity.jwt"
+
+
+        # --------------------------------------------------------
+        # Create Google Workload Identity configuration
+        # --------------------------------------------------------
+
+        cat > "$(Pipeline.Workspace)/.workload_identity.wlconfig" <<EOF
+        {
+          "type": "external_account",
+          "audience": "//iam.googleapis.com/projects/776178390591/locations/global/workloadIdentityPools/azure-devops-pool/providers/azure-devops-provider",
+          "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+          "token_url": "https://sts.googleapis.com/v1/token",
+          "credential_source": {
+            "file": "$(Pipeline.Workspace)/.workload_identity.jwt",
+            "format": {
+              "type": "text"
+            }
+          },
+          "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com:generateAccessToken"
+        }
+        EOF
+
+
+        # --------------------------------------------------------
+        # Authenticate to Google Cloud
+        # --------------------------------------------------------
+
+        export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+        gcloud auth login \
+          --cred-file="$GOOGLE_APPLICATION_CREDENTIALS" \
+          --quiet
+
+
+        # --------------------------------------------------------
+        # Terraform
+        # --------------------------------------------------------
+
+        cd terraform
+
+
+        echo "============================================================"
+        echo "TERRAFORM APPLY - ${{ parameters.environment }}"
+        echo "============================================================"
+
+
+        terraform init \
+          -reconfigure \
+          -backend-config="prefix=terraform/state/${{ parameters.environment }}"
+
+
+        terraform apply \
+          -auto-approve \
+          "$(Pipeline.Workspace)/terraform-plan-${{ parameters.environment }}/${{ parameters.environment }}.tfplan"
+
+
+        echo "============================================================"
+        echo "TERRAFORM APPLY COMPLETED - ${{ parameters.environment }}"
+        echo "============================================================"
+
+    env:
+      TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)

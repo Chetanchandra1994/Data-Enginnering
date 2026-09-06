@@ -1,0 +1,153 @@
+parameters:
+  - name: environment
+    type: string
+
+steps:
+
+  # ============================================================
+  # 1. DOWNLOAD SNOWFLAKE PRIVATE KEY
+  # ============================================================
+
+  - task: DownloadSecureFile@1
+    name: snowflakeKey
+    displayName: 'Download Snowflake Private Key'
+    inputs:
+      secureFile: 'snowflake_tf_key.p8'
+
+
+  # ============================================================
+  # 2. INSTALL TERRAFORM
+  # ============================================================
+
+  - script: |
+      curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip \
+        -o /tmp/terraform.zip
+
+      rm -rf /tmp/terraform-install
+      mkdir -p /tmp/terraform-install
+
+      unzip -o /tmp/terraform.zip -d /tmp/terraform-install
+
+      chmod +x /tmp/terraform-install/terraform
+
+      /tmp/terraform-install/terraform version
+
+      echo "##vso[task.prependpath]/tmp/terraform-install"
+    displayName: 'Install Terraform'
+
+
+  # ============================================================
+  # 3. PREPARE SNOWFLAKE PRIVATE KEY
+  # ============================================================
+
+  - script: |
+      cp "$(snowflakeKey.secureFilePath)" /tmp/snowflake_tf_key.p8
+      chmod 600 /tmp/snowflake_tf_key.p8
+    displayName: 'Prepare Snowflake Private Key'
+
+
+  # ============================================================
+  # 4. GOOGLE CLOUD WIF + TERRAFORM PLAN
+  # ============================================================
+
+  - task: AzureCLI@2
+    displayName: 'Authenticate to Google Cloud and Run Terraform Plan'
+    inputs:
+      azureSubscription: 'google-cloud-wif'
+      addSpnToEnvironment: true
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+
+      inlineScript: |
+
+        echo "$idToken" > "$(Pipeline.Workspace)/.workload_identity.jwt"
+
+
+        # --------------------------------------------------------
+        # Create Google Workload Identity configuration
+        # --------------------------------------------------------
+
+        cat > "$(Pipeline.Workspace)/.workload_identity.wlconfig" <<EOF
+        {
+          "type": "external_account",
+          "audience": "//iam.googleapis.com/projects/776178390591/locations/global/workloadIdentityPools/azure-devops-pool/providers/azure-devops-provider",
+          "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+          "token_url": "https://sts.googleapis.com/v1/token",
+          "credential_source": {
+            "file": "$(Pipeline.Workspace)/.workload_identity.jwt",
+            "format": {
+              "type": "text"
+            }
+          },
+          "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com:generateAccessToken"
+        }
+        EOF
+
+
+        # --------------------------------------------------------
+        # Authenticate to Google Cloud
+        # --------------------------------------------------------
+
+        export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+        gcloud auth login \
+          --cred-file="$GOOGLE_APPLICATION_CREDENTIALS" \
+          --quiet
+
+
+        # --------------------------------------------------------
+        # Terraform
+        # --------------------------------------------------------
+
+        cd terraform
+
+
+        echo "============================================================"
+        echo "TERRAFORM PLAN - ${{ parameters.environment }}"
+        echo "============================================================"
+
+
+        terraform init \
+          -reconfigure \
+          -backend-config="prefix=terraform/state/${{ parameters.environment }}"
+
+
+        terraform plan \
+          -var-file="environments/${{ parameters.environment }}.tfvars" \
+          -var="snowflake_private_key_path=/tmp/snowflake_tf_key.p8" \
+          -out="$(Build.ArtifactStagingDirectory)/${{ parameters.environment }}.tfplan"
+
+
+  # ============================================================
+  # 5. DISPLAY TERRAFORM PLAN
+  # ============================================================
+
+  - script: |
+
+      cd terraform
+
+      echo "============================================================"
+      echo "TERRAFORM PLAN - ${{ parameters.environment }}"
+      echo "============================================================"
+
+      terraform show -no-color \
+        "$(Build.ArtifactStagingDirectory)/${{ parameters.environment }}.tfplan" \
+        | tee "$(Build.ArtifactStagingDirectory)/${{ parameters.environment }}-plan.txt"
+
+      echo "============================================================"
+      echo "END OF TERRAFORM PLAN - ${{ parameters.environment }}"
+      echo "============================================================"
+
+    displayName: 'Display and Save Terraform Plan'
+
+
+  # ============================================================
+  # 6. PUBLISH PLAN ARTIFACT
+  # ============================================================
+
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish ${{ parameters.environment }} Terraform Plan'
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)'
+      artifact: 'terraform-plan-${{ parameters.environment }}'
+      publishLocation: 'pipeline'
