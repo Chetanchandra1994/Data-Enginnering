@@ -216,8 +216,13 @@ stages:
               echo "##vso[task.prependpath]/tmp/terraform-install"
             displayName: 'Install Terraform'
 
+          - script: |
+              cp "$(snowflakeKey.secureFilePath)" /tmp/snowflake_tf_key.p8
+              chmod 600 /tmp/snowflake_tf_key.p8
+            displayName: 'Prepare Snowflake Private Key'
+
           - task: AzureCLI@2
-            displayName: 'Authenticate to Google Cloud'
+            displayName: 'Authenticate to Google Cloud and Run Terraform'
             inputs:
               azureSubscription: 'google-cloud-wif'
               addSpnToEnvironment: true
@@ -250,20 +255,10 @@ stages:
 
                 terraform init -reconfigure
 
-          - script: |
-              cp "$(snowflakeKey.secureFilePath)" /tmp/snowflake_tf_key.p8
-              chmod 600 /tmp/snowflake_tf_key.p8
-            displayName: 'Prepare Snowflake Private Key'
-
-          - script: |
-              cd terraform
-
-              terraform plan \
-                -var-file="environments/dev.tfvars" \
-                -var="snowflake_private_key_path=/tmp/snowflake_tf_key.p8" \
-                -out="$(Build.ArtifactStagingDirectory)/dev.tfplan"
-            displayName: 'Terraform Plan DEV'
-
+                terraform plan \
+                  -var-file="environments/dev.tfvars" \
+                  -var="snowflake_private_key_path=/tmp/snowflake_tf_key.p8" \
+                  -out="$(Build.ArtifactStagingDirectory)/dev.tfplan"
             env:
               TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
@@ -334,7 +329,7 @@ stages:
                   displayName: 'Prepare Snowflake Private Key'
 
                 - task: AzureCLI@2
-                  displayName: 'Authenticate to Google Cloud'
+                  displayName: 'Authenticate to Google Cloud and Run Terraform'
                   inputs:
                     azureSubscription: 'google-cloud-wif'
                     addSpnToEnvironment: true
@@ -365,15 +360,13 @@ stages:
 
                       cd terraform
 
-                      terraform init -reconfigure
+                      terraform init \
+                        -reconfigure \
+                        -backend-config="prefix=terraform/state/dev"
 
-                - script: |
-                    terraform apply \
-                      -auto-approve \
-                      "$(Pipeline.Workspace)/terraform-plan-dev/dev.tfplan"
-                  displayName: 'Apply EXACT DEV Saved Plan'
-                  workingDirectory: '$(Build.SourcesDirectory)/terraform'
-
+                      terraform apply \
+                        -auto-approve \
+                        "$(Pipeline.Workspace)/terraform-plan-dev/dev.tfplan"
                   env:
                     TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
@@ -417,7 +410,7 @@ stages:
             displayName: 'Prepare Snowflake Private Key'
 
           - task: AzureCLI@2
-            displayName: 'Authenticate to Google Cloud'
+            displayName: 'Authenticate to Google Cloud and Run Terraform'
             inputs:
               azureSubscription: 'google-cloud-wif'
               addSpnToEnvironment: true
@@ -452,15 +445,10 @@ stages:
                   -reconfigure \
                   -backend-config="prefix=terraform/state/test"
 
-          - script: |
-              cd terraform
-
-              terraform plan \
-                -var-file="environments/test.tfvars" \
-                -var="snowflake_private_key_path=/tmp/snowflake_tf_key.p8" \
-                -out="$(Build.ArtifactStagingDirectory)/test.tfplan"
-            displayName: 'Terraform Plan TEST'
-
+                terraform plan \
+                  -var-file="environments/test.tfvars" \
+                  -var="snowflake_private_key_path=/tmp/snowflake_tf_key.p8" \
+                  -out="$(Build.ArtifactStagingDirectory)/test.tfplan"
             env:
               TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
@@ -531,7 +519,7 @@ stages:
                   displayName: 'Prepare Snowflake Private Key'
 
                 - task: AzureCLI@2
-                  displayName: 'Authenticate to Google Cloud'
+                  displayName: 'Authenticate to Google Cloud and Run Terraform'
                   inputs:
                     azureSubscription: 'google-cloud-wif'
                     addSpnToEnvironment: true
@@ -566,15 +554,12 @@ stages:
                         -reconfigure \
                         -backend-config="prefix=terraform/state/test"
 
-                - script: |
-                    terraform apply \
-                      -auto-approve \
-                      "$(Pipeline.Workspace)/terraform-plan-test/test.tfplan"
-                  displayName: 'Apply EXACT TEST Saved Plan'
-                  workingDirectory: '$(Build.SourcesDirectory)/terraform'
-
+                      terraform apply \
+                        -auto-approve \
+                        "$(Pipeline.Workspace)/terraform-plan-test/test.tfplan"
                   env:
                     TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
+
 
 # ============================================================
 # 9. TERRAFORM PLAN - PRE-PROD
@@ -615,7 +600,7 @@ stages:
             displayName: 'Prepare Snowflake Private Key'
 
           - task: AzureCLI@2
-            displayName: 'Authenticate to Google Cloud'
+            displayName: 'Authenticate to Google Cloud and Run Terraform'
             inputs:
               azureSubscription: 'google-cloud-wif'
               addSpnToEnvironment: true
@@ -650,15 +635,10 @@ stages:
                   -reconfigure \
                   -backend-config="prefix=terraform/state/preprod"
 
-          - script: |
-              cd terraform
-
-              terraform plan \
-                -var-file="environments/preprod.tfvars" \
-                -var="snowflake_private_key_path=/tmp/snowflake_tf_key.p8" \
-                -out="$(Build.ArtifactStagingDirectory)/preprod.tfplan"
-            displayName: 'Terraform Plan Preprod'
-
+                terraform plan \
+                  -var-file="environments/preprod.tfvars" \
+                  -var="snowflake_private_key_path=/tmp/snowflake_tf_key.p8" \
+                  -out="$(Build.ArtifactStagingDirectory)/preprod.tfplan"
             env:
               TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
@@ -729,7 +709,7 @@ stages:
                   displayName: 'Prepare Snowflake Private Key'
 
                 - task: AzureCLI@2
-                  displayName: 'Authenticate to Google Cloud'
+                  displayName: 'Authenticate to Google Cloud and Run Terraform'
                   inputs:
                     azureSubscription: 'google-cloud-wif'
                     addSpnToEnvironment: true
@@ -764,12 +744,8 @@ stages:
                         -reconfigure \
                         -backend-config="prefix=terraform/state/preprod"
 
-                - script: |
-                    terraform apply \
-                      -auto-approve \
-                      "$(Pipeline.Workspace)/terraform-plan-preprod/preprod.tfplan"
-                  displayName: 'Apply EXACT PREPROD Saved Plan'
-                  workingDirectory: '$(Build.SourcesDirectory)/terraform'
-
+                      terraform apply \
+                        -auto-approve \
+                        "$(Pipeline.Workspace)/terraform-plan-preprod/preprod.tfplan"
                   env:
                     TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
