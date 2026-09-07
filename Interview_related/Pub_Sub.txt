@@ -1,0 +1,187 @@
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 1 - Enable Pub/Sub API
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Run this one-line PowerShell command:
+
+gcloud services enable pubsub.googleapis.com --project=electric-tesla-507710-k2
+
+You should see something like:
+
+Operation "operations/..." finished successfully.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 2 — Create the Pub/Sub topic
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Run this one-line PowerShell command:
+
+gcloud pubsub topics create advworks-dev-gcs-events --project=electric-tesla-507710-k2
+
+Expected result:
+
+Created topic [projects/electric-tesla-507710-k2/topics/advworks-dev-gcs-events].
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 3 — Create the subscription
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Run this one-line PowerShell command:
+
+gcloud pubsub subscriptions create advworks-dev-gcs-events-sub --topic=advworks-dev-gcs-events --project=electric-tesla-507710-k2
+
+Expected output:
+
+Created subscription [projects/electric-tesla-507710-k2/subscriptions/advworks-dev-gcs-events-sub].
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 4A — Activate the Cloud Storage service agent
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Run this one-line PowerShell command:
+
+gcloud storage service-agent --project=electric-tesla-507710-k2
+
+It should return something like:
+
+service-776178390591@gs-project-accounts.iam.gserviceaccount.com
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 4B — Allow GCS to publish events to the topic
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Now we need to give the Cloud Storage service agent permission to publish messages to our Pub/Sub topic.
+
+Run this one-line PowerShell command:
+
+gcloud pubsub topics add-iam-policy-binding advworks-dev-gcs-events --member="serviceAccount:service-776178390591@gs-project-accounts.iam.gserviceaccount.com" --role="roles/pubsub.publisher" --project=electric-tesla-507710-k2
+
+You should see something containing:
+
+bindings:
+- members:
+  - serviceAccount:service-776178390591@gs-project-accounts.iam.gserviceaccount.com
+  role: roles/pubsub.publisher
+
+This is an important production concept:
+
+GCS Bucket
+    │
+    │ OBJECT_FINALIZE
+    ▼
+Cloud Storage Service Agent
+    │
+    │ publish
+    ▼
+Pub/Sub Topic
+    │
+    ▼
+Pub/Sub Subscription
+
+
+
+GCS Bucket
+    │
+    │  OBJECT_FINALIZE
+    ▼
+Cloud Storage Service Agent
+    │
+    │  Pub/Sub Publisher ✅
+    ▼
+advworks-dev-gcs-events (Pub/Sub Topic)
+    │
+    ▼
+advworks-dev-gcs-events-sub (Pub/Sub Subscription)
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 5 — Connect the GCS bucket to Pub/Sub
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Now configure your bucket:
+
+gs://advworks-dev-ingestion
+
+to send an event whenever a new object is successfully created.
+
+Run this one-line PowerShell command:
+
+gcloud storage buckets notifications create gs://advworks-dev-ingestion --topic=projects/electric-tesla-507710-k2/topics/advworks-dev-gcs-events --event-types=OBJECT_FINALIZE
+Why OBJECT_FINALIZE?
+
+For our pipeline, this means:
+
+"A new file has successfully been created in GCS and is ready for downstream processing."
+
+So eventually:
+
+Python
+  ↓
+GCS JSONL
+  ↓
+OBJECT_FINALIZE
+  ↓
+Pub/Sub
+  ↓
+Snowpipe
+  ↓
+Snowflake LANDING
+
+Important: this notification only applies to new objects created after the notification is configured. The existing 61 files will not suddenly generate Pub/Sub events.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 6 — Test the event flow
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Don't touch the existing 61 production-style batch files yet.
+
+We'll create a small controlled test object in a separate GCS path.
+
+Run:
+
+gcloud storage cp ".\python-ingestion\output\fact_internet_sales\FactInternetSales_batch_001.jsonl" "gs://advworks-dev-ingestion/pubsub_test/FactInternetSales_pubsub_test_001.jsonl"
+
+This creates a new GCS object, which should trigger OBJECT_FINALIZE.
+
+Then we'll pull the event from Pub/Sub and verify that we receive the GCS object information.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 7 — Pull the Pub/Sub message
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Run this one-line PowerShell command:
+
+gcloud pubsub subscriptions pull advworks-dev-gcs-events-sub --project=electric-tesla-507710-k2 --limit=10 --auto-ack
+
+We expect the message to contain details such as:
+
+Bucket: advworks-dev-ingestion
+Object: pubsub_test/FactInternetSales_pubsub_test_001.jsonl
+Event type: OBJECT_FINALIZE
+Object generation / timestamp information
+
+🚀 Next: Snowpipe
+
+Now we'll connect this Pub/Sub event to Snowflake Snowpipe so that:
+
+GCS
+   ↓
+Pub/Sub
+   ↓
+Snowpipe AUTO_INGEST
+   ↓
+Snowflake LANDING
+
+Before creating the Snowpipe objects, we'll set up the Snowflake side in the correct order:
+
+GCS Storage Integration
+GCS access for Snowflake
+Snowflake Notification Integration
+Give Snowflake's generated service account Pub/Sub Subscriber access
+External Stage
+File Format
+LANDING table
+Snowpipe with AUTO_INGEST = TRUE
+Upload a new test file
+Verify the row count in LANDING
+
+This is an important production architecture concept, so we'll do it properly rather than just making the pipe work.
