@@ -1,0 +1,570 @@
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 22+ — DBT
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+LANDING is not a dbt model in our design. Snowpipe is responsible for putting the raw data into landing tables.
+
+DBT starts after LANDING i.e LANDING is the primary Source for DBT transformations
+
+Our architecture is:
+
+LANDING (Capture what arrived from the source using Snowpipe)
+   │
+   │ Raw data from Snowpipe
+   ↓
+PREPARE (PREPARE is where we start making the data usable for downstream transformations.)
+   │
+   │ Type/standardize/initial transformation
+   ↓
+NORMALIZE
+   │
+   │ Clean/enrich/business preparation
+   ↓
+SCHEMATIZE
+   │
+   │ Dimensional model
+   ↓
+MARKETPLACE
+   │
+   │ Business-facing consumption
+   ↓
+BI Reports
+
+#####################   Step 22.1 — Check dbt Environment & Target Configuration #################################
+
+Open PowerShell and go to your dbt project:
+
+cd "C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\DBT\advworks_dbt"
+
+Then activate your existing virtual environment if it isn't already active: .venv\Scripts\Activate.ps1
+
+Now run:
+dbt --version
+
+Then:
+dbt debug --target dev
+
+What I want to verify
+
+dbt debug should confirm:
+
+dbt version             ✅
+profiles.yml             ✅
+Snowflake adapter        ✅
+Snowflake connection    ✅
+Target = dev             ✅
+Database = ADVWORKS_DEV  ✅
+
+Lets See which PREPARE models exist :  
+
+(.venv) PS C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\DBT\advworks_dbt> dbt ls --target dev --select path:models/prepare
+10:05:25  Running with dbt=1.12.3
+10:05:26  Registered adapter: snowflake=1.12.0
+10:05:26  Unable to do partial parsing because profile has changed
+10:05:29  Found 11 models, 4 data tests, 3 sources, 549 macros
+advworks_dbt.prepare.dim_customer_prepare
+advworks_dbt.prepare.dim_product_prepare
+advworks_dbt.prepare.fact_internet_sales_prepare
+source:advworks_dbt.snowflake_prepare.DIMCUSTOMER_PREPARE
+source:advworks_dbt.snowflake_prepare.DIMPRODUCT_PREPARE
+source:advworks_dbt.snowflake_prepare.FACTINTERNETSALES_PREPARE
+
+
+#####################   Step 22.2 — Add the Snowpipe LANDING Source to dbt #################################
+
+Open below file and add the code.
+
+models\prepare\sources.yml:
+
+version: 1
+
+sources:
+
+  - name: snowflake_landing
+    database: ADVWORKS_DEV
+    schema: LANDING
+
+    tables:
+      - name: FACT_INTERNET_SALES
+
+
+#####################   Step 22.3 — configure the PREPARE Model  #################################
+
+Open below file and add the code.
+
+models\prepare\fact_internet_sales_prepare.sql:
+SELECT
+    PRODUCTKEY AS PRODUCT_KEY,
+    ORDERDATEKEY AS ORDER_DATE_KEY,
+    DUEDATEKEY AS DUE_DATE_KEY,
+    SHIPDATEKEY AS SHIP_DATE_KEY,
+    CUSTOMERKEY AS CUSTOMER_KEY,
+    PROMOTIONKEY AS PROMOTION_KEY,
+    CURRENCYKEY AS CURRENCY_KEY,
+    SALESTERRITORYKEY AS SALES_TERRITORY_KEY,
+    SALESORDERNUMBER AS SALES_ORDER_NUMBER,
+    SALESORDERLINENUMBER AS SALES_ORDER_LINE_NUMBER,
+    REVISIONNUMBER AS REVISION_NUMBER,
+    ORDERQUANTITY AS ORDER_QUANTITY,
+    UNITPRICE AS UNIT_PRICE,
+    EXTENDEDAMOUNT AS EXTENDED_AMOUNT,
+    UNITPRICEDISCOUNTPCT AS UNIT_PRICE_DISCOUNT_PCT,
+    DISCOUNTAMOUNT AS DISCOUNT_AMOUNT,
+    PRODUCTSTANDARDCOST AS PRODUCT_STANDARD_COST,
+    TOTALPRODUCTCOST AS TOTAL_PRODUCT_COST,
+    SALESAMOUNT AS SALES_AMOUNT,
+    TAXAMT AS TAX_AMT,
+    FREIGHT,
+    CARRIERTRACKINGNUMBER AS CARRIER_TRACKING_NUMBER,
+    CUSTOMERPONUMBER AS CUSTOMER_PO_NUMBER,
+    ORDERDATE AS ORDER_DATE,
+    DUEDATE AS DUE_DATE,
+    SHIPDATE AS SHIP_DATE,
+
+    CURRENT_TIMESTAMP() AS LOAD_TIMESTAMP -- we have added timestamp to get ingestion timestamp
+
+FROM {{ source('snowflake_landing', 'FACT_INTERNET_SALES') }}
+
+
+#####################   Step 22.4 — Validate the dbt PREPARE Model  #################################
+
+Let's validate if dbt can resolve the new source before executing dbt run
+
+Run this one-line PowerShell command:
+dbt parse --target dev
+
+You should see something like:
+Parsing...
+Done.
+
+with no errors.
+
+#####################   Step 22.5 — Run the PREPARE model  #################################
+ 
+dbt run --target dev --select fact_internet_sales_prepare
+
+(.venv) PS C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\DBT\advworks_dbt> dbt run --target dev --select fact_internet_sales_prepare
+11:23:51  Running with dbt=1.12.3
+11:23:52  Registered adapter: snowflake=1.12.0
+11:23:53  Found 11 models, 4 data tests, 4 sources, 549 macros
+11:23:53  
+11:23:53  Concurrency: 4 threads (target='dev')
+11:23:53  
+11:23:57  1 of 1 START sql view model PREPARE.fact_internet_sales_prepare ................ [RUN]
+11:23:58  1 of 1 OK created sql view model PREPARE.fact_internet_sales_prepare ........... [SUCCESS 1 in 1.32s]
+11:24:01  
+11:24:01  Finished running 1 view model in 0 hours 0 minutes and 8.58 seconds (8.58s).
+11:24:01  
+11:24:01  Completed successfully
+11:24:01  
+11:24:01  Done. PASS=1 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=1
+
+#####################   Step 22.6 — PREPARE Validation & Data Quality in Snowflake #################################
+
+Run:
+
+SELECT COUNT(*) AS ROW_COUNT
+FROM ADVWORKS_DEV.PREPARE.FACT_INTERNET_SALES_PREPARE;
+
+Expected:
+1000
+
+Then:
+
+SELECT
+    COUNT(*) AS ROW_COUNT,
+    COUNT(DISTINCT SALES_ORDER_NUMBER || '-' || SALES_ORDER_LINE_NUMBER) AS DISTINCT_ORDER_LINES,
+    SUM(SALES_AMOUNT) AS TOTAL_SALES,
+    SUM(TOTAL_PRODUCT_COST) AS TOTAL_PRODUCT_COST,
+    SUM(TAX_AMT) AS TOTAL_TAX,
+    SUM(FREIGHT) AS TOTAL_FREIGHT
+FROM ADVWORKS_DEV.PREPARE.FACT_INTERNET_SALES_PREPARE;
+
+We should get:
+ROW_COUNT            1000
+DISTINCT_ORDER_LINES 1000
+TOTAL_SALES          3223116.8784
+TOTAL_PRODUCT_COST   1928831.4494
+TOTAL_TAX             257849.3552
+TOTAL_FREIGHT          80577.9714
+
+Those totals should match the LANDING baseline we established.
+
+4. Finally inspect the transformation
+SELECT
+    PRODUCT_KEY,
+    ORDER_DATE_KEY,
+    SALES_ORDER_NUMBER,
+    SALES_ORDER_LINE_NUMBER,
+    UNIT_PRICE,
+    SALES_AMOUNT,
+    ORDER_DATE,
+    LOAD_TIMESTAMP
+FROM ADVWORKS_DEV.PREPARE.FACT_INTERNET_SALES_PREPARE
+LIMIT 10;
+
+What we're proving is:
+
+Snowpipe LANDING → dbt PREPARE = no row/measure loss.
+
+LANDING
+PRODUCTKEY
+ORDERDATEKEY
+SALESORDERNUMBER
+       │
+       │ dbt
+       ▼
+PREPARE
+PRODUCT_KEY
+ORDER_DATE_KEY
+SALES_ORDER_NUMBER
+
+Now let's perform technical DQ checks
+
+Run this in Snowflake:
+
+SELECT
+    COUNT(*) AS TOTAL_ROWS,
+    COUNT_IF(PRODUCT_KEY IS NULL) AS NULL_PRODUCT_KEY,
+    COUNT_IF(CUSTOMER_KEY IS NULL) AS NULL_CUSTOMER_KEY,
+    COUNT_IF(SALES_ORDER_NUMBER IS NULL) AS NULL_ORDER_NUMBER,
+    COUNT_IF(SALES_ORDER_LINE_NUMBER IS NULL) AS NULL_ORDER_LINE,
+    COUNT_IF(SALES_AMOUNT IS NULL) AS NULL_SALES_AMOUNT,
+    COUNT_IF(ORDER_DATE IS NULL) AS NULL_ORDER_DATE
+FROM ADVWORKS_DEV.PREPARE.FACT_INTERNET_SALES_PREPARE;
+
+We want:
+
+TOTAL_ROWS = 1000
+
+and all the NULL_* columns should ideally be:
+
+0
+
+Then check duplicates:
+
+SELECT
+    SALES_ORDER_NUMBER,
+    SALES_ORDER_LINE_NUMBER,
+    COUNT(*) AS CNT
+FROM ADVWORKS_DEV.PREPARE.FACT_INTERNET_SALES_PREPARE
+GROUP BY SALES_ORDER_NUMBER, SALES_ORDER_LINE_NUMBER
+HAVING COUNT(*) > 1;
+
+Expected result:
+
+No rows.
+
+Finally check the transformation itself:
+
+SELECT
+    PRODUCT_KEY,
+    ORDER_DATE_KEY,
+    SALES_ORDER_NUMBER,
+    SALES_ORDER_LINE_NUMBER,
+    UNIT_PRICE,
+    SALES_AMOUNT,
+    ORDER_DATE,
+    LOAD_TIMESTAMP
+FROM ADVWORKS_DEV.PREPARE.FACT_INTERNET_SALES_PREPARE
+LIMIT 10;
+
+We want to confirm the standardized names and the generated LOAD_TIMESTAMP.
+
+🧠 Interview scenario
+
+If an interviewer asks:
+
+How do you validate that your ingestion and transformation pipeline hasn't corrupted the data?
+
+You can now answer with your actual project:
+
+"I perform source-to-target reconciliation using row counts and critical business measures such as sales amount, product cost, tax and freight. I also validate business-key uniqueness, null constraints, data types and referential integrity. For example, in my AdventureWorks pipeline, the 1,000 records loaded by Snowpipe into the LANDING layer were transformed through dbt PREPARE with the same 1,000 records and identical financial totals."
+
+That's a much stronger answer than simply saying "I run dbt tests."
+
+#####################   Step 22.6 — Build the NORMALIZE model  #################################
+
+{{ config(
+    materialized='table',
+    schema='NORMALIZE'
+) }}
+
+WITH source_data AS (
+
+    SELECT
+        PRODUCT_KEY,
+        ORDER_DATE_KEY,
+        DUE_DATE_KEY,
+        SHIP_DATE_KEY,
+        CUSTOMER_KEY,
+        PROMOTION_KEY,
+        CURRENCY_KEY,
+        SALES_TERRITORY_KEY,
+
+        UPPER(TRIM(SALES_ORDER_NUMBER)) AS SALES_ORDER_NUMBER,
+
+        SALES_ORDER_LINE_NUMBER,
+        REVISION_NUMBER,
+        ORDER_QUANTITY,
+
+        CAST(UNIT_PRICE AS NUMBER(19,4)) AS UNIT_PRICE,
+        CAST(EXTENDED_AMOUNT AS NUMBER(19,4)) AS EXTENDED_AMOUNT,
+        CAST(UNIT_PRICE_DISCOUNT_PCT AS NUMBER(19,4)) AS UNIT_PRICE_DISCOUNT_PCT,
+        CAST(DISCOUNT_AMOUNT AS NUMBER(19,4)) AS DISCOUNT_AMOUNT,
+        CAST(PRODUCT_STANDARD_COST AS NUMBER(19,4)) AS PRODUCT_STANDARD_COST,
+        CAST(TOTAL_PRODUCT_COST AS NUMBER(19,4)) AS TOTAL_PRODUCT_COST,
+        CAST(SALES_AMOUNT AS NUMBER(19,4)) AS SALES_AMOUNT,
+        CAST(TAX_AMT AS NUMBER(19,4)) AS TAX_AMT,
+        CAST(FREIGHT AS NUMBER(19,4)) AS FREIGHT,
+
+        NULLIF(
+            UPPER(TRIM(CARRIER_TRACKING_NUMBER)),
+            ''
+        ) AS CARRIER_TRACKING_NUMBER,
+
+        NULLIF(
+            UPPER(TRIM(CUSTOMER_PO_NUMBER)),
+            ''
+        ) AS CUSTOMER_PO_NUMBER,
+
+        TO_TIMESTAMP_NTZ(ORDER_DATE) AS ORDER_DATE,
+        TO_TIMESTAMP_NTZ(DUE_DATE) AS DUE_DATE,
+        TO_TIMESTAMP_NTZ(SHIP_DATE) AS SHIP_DATE,
+
+        LOAD_TIMESTAMP
+
+    FROM {{ ref('fact_internet_sales_prepare') }}
+
+),
+
+deduplicated AS (
+
+    SELECT
+        *,
+        ROW_NUMBER() OVER (
+            PARTITION BY
+                SALES_ORDER_NUMBER,
+                SALES_ORDER_LINE_NUMBER
+            ORDER BY LOAD_TIMESTAMP DESC
+        ) AS RN
+
+    FROM source_data
+
+)
+
+SELECT
+    PRODUCT_KEY,
+    ORDER_DATE_KEY,
+    DUE_DATE_KEY,
+    SHIP_DATE_KEY,
+    CUSTOMER_KEY,
+    PROMOTION_KEY,
+    CURRENCY_KEY,
+    SALES_TERRITORY_KEY,
+
+    SALES_ORDER_NUMBER,
+    SALES_ORDER_LINE_NUMBER,
+    REVISION_NUMBER,
+    ORDER_QUANTITY,
+
+    UNIT_PRICE,
+    EXTENDED_AMOUNT,
+    UNIT_PRICE_DISCOUNT_PCT,
+    DISCOUNT_AMOUNT,
+    PRODUCT_STANDARD_COST,
+    TOTAL_PRODUCT_COST,
+    SALES_AMOUNT,
+    TAX_AMT,
+    FREIGHT,
+
+    CARRIER_TRACKING_NUMBER,
+    CUSTOMER_PO_NUMBER,
+
+    ORDER_DATE,
+    DUE_DATE,
+    SHIP_DATE,
+
+    LOAD_TIMESTAMP,
+
+    CURRENT_TIMESTAMP() AS CREATED_TIMESTAMP,
+    CURRENT_TIMESTAMP() AS UPDATED_TIMESTAMP
+
+FROM deduplicated
+
+WHERE RN = 1
+
+-- Validation in Snowflake:
+
+SELECT COUNT(*) AS ROW_COUNT
+FROM ADVWORKS_DEV.NORMALIZE.FACT_INTERNET_SALES_NORMALIZE;
+/*
+ROW_COUNT
+1000
+*/
+
+SELECT
+    COUNT(*) AS TOTAL_ROWS,
+
+    COUNT_IF(PRODUCT_KEY IS NULL) AS NULL_PRODUCT_KEY,
+    COUNT_IF(CUSTOMER_KEY IS NULL) AS NULL_CUSTOMER_KEY,
+    COUNT_IF(SALES_ORDER_NUMBER IS NULL) AS NULL_ORDER_NUMBER,
+    COUNT_IF(SALES_ORDER_LINE_NUMBER IS NULL) AS NULL_ORDER_LINE,
+    COUNT_IF(SALES_AMOUNT IS NULL) AS NULL_SALES_AMOUNT,
+
+    COUNT(DISTINCT
+        SALES_ORDER_NUMBER || '-' || SALES_ORDER_LINE_NUMBER
+    ) AS DISTINCT_ORDER_LINES
+
+FROM ADVWORKS_DEV.NORMALIZE.FACT_INTERNET_SALES_NORMALIZE;
+/*
+TOTAL_ROWS	NULL_PRODUCT_KEY	NULL_CUSTOMER_KEY	NULL_ORDER_NUMBER	NULL_ORDER_LINE	NULL_SALES_AMOUNT	DISTINCT_ORDER_LINES
+1000	0	0	0	0	0	1000
+*/
+
+We cleaned the data:
+
+TRIM
+UPPER
+NULLIF
+CAST
+TO_TIMESTAMP
+DEDUPLICATION
+
+#####################   Step 22.7 — Build the SCHEMATIZE model  #################################
+
+Now we turn cleaned data into a business/analytical structure.
+
+For our AdventureWorks model, the target is:
+
+                    ┌─────────────────────┐
+                    │    DIM_CUSTOMER     │
+                    └──────────┬──────────┘
+                               │
+                               │ CUSTOMER_KEY
+                               │
+┌──────────────┐      ┌────────▼──────────┐      ┌──────────────┐
+│  DIM_DATE    │──────│    FACT_SALES     │──────│ DIM_PRODUCT  │
+└──────────────┘      └────────┬──────────┘      └──────────────┘
+                               │
+                               │
+                       SALES / COST / TAX
+
+This is essentially a star schema.
+
+And our fact grain will be:
+
+One row represents one product line on one Internet Sales order.
+
+For example:
+
+SO43697 | Line 1 | Product 310 | Customer X
+
+is one fact row.
+
+#####################   Step 22.8 — First build: DIM_DATE  #################################
+
+First build: DIM_DATE
+
+We'll create a reusable date dimension rather than deriving date attributes repeatedly inside the fact.
+
+It will eventually contain fields such as:
+
+DATE_KEY
+FULL_DATE
+YEAR
+QUARTER
+MONTH
+MONTH_NAME
+WEEK
+DAY
+DAY_NAME
+
+and potentially fiscal attributes later.
+
+For our project, let's build it with dbt rather than manually creating it in Snowflake.
+
+Create:
+
+models\schematize\dim_date.sql
+
+with:
+
+{{ config(
+    materialized='table',
+    schema='SCHEMATIZE'
+) }}
+
+WITH date_spine AS (
+
+    SELECT
+        DATEADD(
+            DAY,
+            SEQ4(),
+            '2010-01-01'::DATE
+        ) AS FULL_DATE
+
+    FROM TABLE(
+        GENERATOR(
+            ROWCOUNT => 10000
+        )
+    )
+
+)
+
+SELECT
+    TO_NUMBER(TO_CHAR(FULL_DATE, 'YYYYMMDD')) AS DATE_KEY,
+    FULL_DATE,
+
+    YEAR(FULL_DATE) AS YEAR,
+    QUARTER(FULL_DATE) AS QUARTER,
+    MONTH(FULL_DATE) AS MONTH,
+    MONTHNAME(FULL_DATE) AS MONTH_NAME,
+
+    WEEKOFYEAR(FULL_DATE) AS WEEK_OF_YEAR,
+
+    DAY(FULL_DATE) AS DAY_OF_MONTH,
+    DAYOFWEEK(FULL_DATE) AS DAY_OF_WEEK,
+    DAYNAME(FULL_DATE) AS DAY_NAME,
+
+    CASE
+        WHEN DAYOFWEEK(FULL_DATE) IN (1, 7)
+        THEN TRUE
+        ELSE FALSE
+    END AS IS_WEEKEND
+
+FROM date_spine
+
+This creates a 10,000-day calendar.
+
+Don't worry that our current sales data only covers part of this range. A reusable date dimension intentionally covers a broader range.
+
+Then run:
+
+dbt run --target dev --select dim_date
+
+And validate:
+
+SELECT
+    COUNT(*) AS ROW_COUNT,
+    MIN(FULL_DATE) AS MIN_DATE,
+    MAX(FULL_DATE) AS MAX_DATE
+FROM ADVWORKS_DEV.SCHEMATIZE.DIM_DATE;
+
+You should get approximately:
+
+ROW_COUNT    10000
+MIN_DATE     2010-01-01
+MAX_DATE     2037-05-18
+
+Then:
+
+SELECT *
+FROM ADVWORKS_DEV.SCHEMATIZE.DIM_DATE
+ORDER BY FULL_DATE
+LIMIT 10;
+
+Once DIM_DATE is successful, we'll build DIM_CUSTOMER from NORMALIZE.DIM_CUSTOMER_NORMALIZE, then DIM_PRODUCT, and finally the FACT_INTERNET_SALES table 
+with its dimensional relationships and derived measures.
+
+One thing to notice: DAY_OF_WEEK in Snowflake uses 0 = Sunday, 1 = Monday, ... 6 = Saturday under your current session settings. That's why Jan 3 (Sunday) shows 0.

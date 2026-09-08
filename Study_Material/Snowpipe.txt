@@ -1,0 +1,886 @@
+🚀 Snowpipe
+
+Now we'll connect the Pub/Sub event to Snowflake Snowpipe so that:
+
+GCS
+   ↓
+Pub/Sub
+   ↓
+Snowpipe AUTO_INGEST
+   ↓
+Snowflake LANDING
+
+Before creating the Snowpipe objects, we'll set up the Snowflake side in the correct order:
+
+GCS Storage Integration
+GCS access for Snowflake
+Snowflake Notification Integration
+Give Snowflake's generated service account Pub/Sub Subscriber access
+External Stage
+File Format
+LANDING table
+Snowpipe with AUTO_INGEST = TRUE
+Upload a new test file
+Verify the row count in LANDING
+
+This is an important production architecture concept, so we'll do it properly rather than just making the pipe work.
+
+Let's start the Snowflake side.
+----------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------  CONTINUATION AFTER PUB/SUB STEPS  ------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 8 — Create the GCS Storage Integration
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+We first need Snowflake to have controlled access to:
+
+gs://advworks-dev-ingestion/
+
+This integration will allow Snowflake/Snowpipe to read the JSONL files from GCS without putting GCP service-account keys or passwords into our project.
+
+Open Snowflake → Worksheets and make sure you're using:
+
+Role: ACCOUNTADMIN
+Database: ADVWORKS_DEV
+Warehouse: ETL_WH_DEV
+
+Run:
+
+CREATE OR REPLACE STORAGE INTEGRATION ADVWORKS_GCS_INT
+  TYPE = EXTERNAL_STAGE
+  STORAGE_PROVIDER = 'GCS'
+  ENABLED = TRUE
+  STORAGE_ALLOWED_LOCATIONS = ('gcs://advworks-dev-ingestion/fact_internet_sales/');
+
+output:
+Integration ADVWORKS_GCS_INT successfully created.  
+
+This is deliberately restricted to the fact_internet_sales/ path rather than giving Snowflake access to the entire bucket. That's the better production practice. Snowflake supports path-level restrictions through STORAGE_ALLOWED_LOCATIONS.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 9 — Get Snowflake's GCS service account
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Immediately after the CREATE succeeds, run:
+
+DESC INTEGRATION ADVWORKS_GCS_INT;
+
+Look for this property:
+
+STORAGE_GCP_SERVICE_ACCOUNT
+
+It will look approximately like:
+
+something@something.iam.gserviceaccount.com
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 10 — Grant Snowflake read access to GCS
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Now we need to allow this Snowflake service account to read objects from our GCS bucket/path.
+
+Run this one-line PowerShell command:
+
+gcloud storage buckets add-iam-policy-binding gs://advworks-dev-ingestion --member="serviceAccount:kerg30000@gcpmecentral2-1-6ca6.iam.gserviceaccount.com" --role="roles/storage.objectViewer" --project=electric-tesla-507710-k2
+
+This gives Snowflake:
+
+Object Viewer → read/download GCS objects
+
+It does not give Snowflake permission to delete or modify your files.
+
+Why we're doing this
+
+Our architecture is becoming:
+
+GCS
+ │
+ │ Snowflake Storage Integration
+ │
+ ▼
+Snowflake GCS Service Account
+ │
+ │ read objects
+ ▼
+Snowpipe
+ │
+ ▼
+ADVWORKS_DEV.LANDING
+
+So the GCS → Snowflake file-access path is ready.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 11 — Create the Snowflake Notification Integration
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Now we connect Snowflake to the Pub/Sub subscription we already created.
+
+In Snowflake, run:
+
+CREATE OR REPLACE NOTIFICATION INTEGRATION ADVWORKS_GCS_PUBSUB_INT
+  TYPE = QUEUE
+  NOTIFICATION_PROVIDER = GCP_PUBSUB
+  ENABLED = TRUE
+  GCP_PUBSUB_SUBSCRIPTION_NAME = 'projects/electric-tesla-507710-k2/subscriptions/advworks-dev-gcs-events-sub';
+
+Then run:
+
+DESC NOTIFICATION INTEGRATION ADVWORKS_GCS_PUBSUB_INT;
+
+Look for:
+
+GCP_PUBSUB_SERVICE_ACCOUNT
+
+Snowflake will provide another Google service account.
+
+We now have the Snowflake Pub/Sub service account. Notice the distinction:
+
+GCS Storage Integration             →  reads GCS objects
+Snowflake Notification Integration  →  reads Pub/Sub notifications
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 12 — Grant Snowflake Pub/Sub Subscriber permission
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Run this one-line PowerShell command:
+
+gcloud pubsub subscriptions add-iam-policy-binding advworks-dev-gcs-events-sub --member="serviceAccount:kfrg30000@gcpmecentral2-1-6ca6.iam.gserviceaccount.com" --role="roles/pubsub.subscriber" --project=electric-tesla-507710-k2
+
+Expected output will contain:
+
+role: roles/pubsub.subscriber
+members:
+- serviceAccount:kfrg30000@gcpmecentral2-1-6ca6.iam.gserviceaccount.com
+Our Snowpipe architecture so far
+                    GCP
+                     │
+SQL Server → Python → GCS
+                       │
+                       │ OBJECT_FINALIZE
+                       ▼
+                  Pub/Sub Topic
+                       │
+                       ▼
+               Pub/Sub Subscription
+                       │
+             ┌─────────┴─────────┐
+             │                   │
+     Snowflake notification      │
+        service account          │
+             │                   │
+             ▼                   │
+        Snowpipe ◄───────────────┘
+             │
+             │ reads GCS
+             ▼
+     Snowflake LANDING
+
+The two Snowflake identities are now correctly configured:
+
+Snowflake component	        GCP service account	                                        Permission
+Storage Integration	        kerg30000@gcpmecentral2-1-6ca6.iam.gserviceaccount.com	    Storage Object Viewer ✅
+Notification Integration	kfrg30000@gcpmecentral2-1-6ca6.iam.gserviceaccount.com	    Pub/Sub Subscriber ✅
+
+So we're ready to create the actual Snowpipe objects.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 13 — Create the JSONL file format
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+In Snowflake, run:
+
+CREATE OR REPLACE FILE FORMAT ADVWORKS_DEV.LANDING.FF_FACT_INTERNET_SALES_JSONL
+  TYPE = JSON
+  STRIP_OUTER_ARRAY = FALSE;
+
+Output:
+status
+File format FF_FACT_INTERNET_SALES_JSONL successfully created.
+
+This tells Snowflake that our GCS files contain JSON records.
+
+Our files are JSONL, meaning:
+
+{"SalesOrderNumber":"SO43659", ...}
+{"SalesOrderNumber":"SO43659", ...}
+{"SalesOrderNumber":"SO43660", ...}
+
+File format created successfully.
+
+We can now move to the next layer: GCS → Snowflake External Stage.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 14 — Create the external stage
+----------------------------------------------------------------------------------------------------------------------------------------------
+Run this in Snowflake:
+
+CREATE OR REPLACE STAGE ADVWORKS_DEV.LANDING.STG_FACT_INTERNET_SALES
+  URL = 'gcs://advworks-dev-ingestion/fact_internet_sales/'
+  STORAGE_INTEGRATION = ADVWORKS_GCS_INT
+  FILE_FORMAT = ADVWORKS_DEV.LANDING.FF_FACT_INTERNET_SALES_JSONL;
+
+Then verify it:
+
+DESC STAGE ADVWORKS_DEV.LANDING.STG_FACT_INTERNET_SALES;
+
+And test whether Snowflake can actually see the files:
+
+LIST @ADVWORKS_DEV.LANDING.STG_FACT_INTERNET_SALES;
+
+What we expect, You should see files such as:
+
+FactInternetSales_batch_001.jsonl
+FactInternetSales_batch_002.jsonl
+...
+FactInternetSales_batch_061.jsonl
+
+This is an important checkpoint because it proves:
+
+GCS
+ ↓
+Storage Integration
+ ↓
+External Stage
+ ↓
+Snowflake can read the files
+
+Don't create the Snowpipe yet. First run the CREATE STAGE and LIST commands. 
+Then we'll create the LANDING table with the correct 26-column structure before wiring up Snowpipe.
+
+Next
+
+We'll now create the LANDING table for the 26 columns from FactInternetSales.
+
+After that we'll do:
+
+Step 15 — Create LANDING table
+        ↓
+Step 16 — Manually COPY one/test file
+        ↓
+Step 17 — Validate loaded data
+        ↓
+Step 18 — Create Pub/Sub notification integration
+        ↓
+Step 19 — Create Snowpipe
+        ↓
+Step 20 — Test GCS → Pub/Sub → Snowpipe → LANDING
+        ↓
+Step 21 — Handle file naming / timestamp / incremental ingestion
+        ↓
+Step 22+ — dbt
+        ↓
+LANDING → PREPARE → NORMALIZE → SCHEMATIZE → MARKETPLACE
+
+One important correction to our earlier discussion: we don't need to make the Python filename timestamp-based just to make Snowpipe work. 
+Snowpipe tracks file loads and avoids reloading the same file. We'll later design the filename/object naming and ingestion metadata properly for 
+incremental/repeated pipeline runs, rather than trying to make Pub/Sub itself determine the "latest" file.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 15 — Create the LANDING table
+----------------------------------------------------------------------------------------------------------------------------------------------
+Since your GCS extraction is complete and Snowflake can see all 60,398 records across 61 files, we'll now create the raw LANDING table that matches the 26 columns from dbo.FactInternetSales.
+
+Run this in Snowflake:
+
+USE DATABASE ADVWORKS_DEV;
+USE SCHEMA LANDING;
+
+CREATE OR REPLACE TABLE FACT_INTERNET_SALES (
+    PRODUCTKEY                NUMBER,
+    ORDERDATEKEY              NUMBER,
+    DUEDATEKEY                NUMBER,
+    SHIPDATEKEY               NUMBER,
+    CUSTOMERKEY               NUMBER,
+    PROMOTIONKEY              NUMBER,
+    CURRENCYKEY               NUMBER,
+    SALESTERRITORYKEY         NUMBER,
+    SALESORDERNUMBER          VARCHAR,
+    SALESORDERLINENUMBER      NUMBER,
+    REVISIONNUMBER            NUMBER,
+    ORDERQUANTITY             NUMBER,
+    UNITPRICE                 NUMBER(19,4),
+    EXTENDEDAMOUNT             NUMBER(19,4),
+    UNITPRICEDISCOUNTPCT      NUMBER(19,4),
+    DISCOUNTAMOUNT             NUMBER(19,4),
+    PRODUCTSTANDARDCOST       NUMBER(19,4),
+    TOTALPRODUCTCOST          NUMBER(19,4),
+    SALESAMOUNT                NUMBER(19,4),
+    TAXAMT                    NUMBER(19,4),
+    FREIGHT                   NUMBER(19,4),
+    CARRIERTRACKINGNUMBER     VARCHAR,
+    CUSTOMERPONUMBER          VARCHAR,
+    ORDERDATE                 TIMESTAMP_NTZ,
+    DUEDATE                   TIMESTAMP_NTZ,
+    SHIPDATE                  TIMESTAMP_NTZ
+);
+
+Then verify:
+
+DESC TABLE ADVWORKS_DEV.LANDING.FACT_INTERNET_SALES;
+
+You should see 26 columns.
+
+Important design decision
+
+We're intentionally keeping this table relatively close to the source at the LANDING layer.
+
+The flow will eventually be:
+
+GCS
+  │
+  │ JSONL files
+  ▼
+Snowflake External Stage
+  │
+  │ Snowpipe / COPY
+  ▼
+LANDING.FACT_INTERNET_SALES
+  │
+  │ dbt
+  ▼
+PREPARE
+  │
+  ▼
+NORMALIZE
+  │
+  ▼
+SCHEMATIZE
+  │
+  ▼
+MARKETPLACE
+  │
+  ▼
+Tableau
+
+We will not do business transformations in LANDING. That's what we'll use dbt for later.
+
+Once the table is created successfully, the next step will be:
+
+Step 16 — Test loading one GCS file into LANDING
+
+We'll deliberately test with one file first rather than loading all 61 files. This lets us validate the JSONL → Snowflake mapping before we introduce Pub/Sub + Snowpipe.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 16 — Test loading one GCS file into LANDING
+----------------------------------------------------------------------------------------------------------------------------------------------
+Now we'll manually load exactly one file first. This validates that Snowflake can parse our JSONL and map it into the 26-column LANDING table before we turn on automatic Snowpipe ingestion.
+
+16.1 — Check the file contents first
+
+Run:
+
+SELECT $1 FROM @ADVWORKS_DEV.LANDING.STG_FACT_INTERNET_SALES/FactInternetSales_batch_001.jsonl LIMIT 3;
+
+You should see JSON objects containing fields such as:
+
+PRODUCTKEY
+ORDERDATEKEY
+DUEDATEKEY
+SHIPDATEKEY
+CUSTOMERKEY
+...
+SALESORDERNUMBER
+SALESORDERLINENUMBER
+...
+SALESAMOUNT
+TAXAMT
+FREIGHT
+...
+
+16.2 — Load the test file
+
+Because our file is JSONL, we'll use Snowflake's JSON path syntax to map each property.
+
+Run:
+
+COPY INTO ADVWORKS_DEV.LANDING.FACT_INTERNET_SALES
+FROM (
+    SELECT
+        $1:"ProductKey"::NUMBER,
+        $1:"OrderDateKey"::NUMBER,
+        $1:"DueDateKey"::NUMBER,
+        $1:"ShipDateKey"::NUMBER,
+        $1:"CustomerKey"::NUMBER,
+        $1:"PromotionKey"::NUMBER,
+        $1:"CurrencyKey"::NUMBER,
+        $1:"SalesTerritoryKey"::NUMBER,
+        $1:"SalesOrderNumber"::VARCHAR,
+        $1:"SalesOrderLineNumber"::NUMBER,
+        $1:"RevisionNumber"::NUMBER,
+        $1:"OrderQuantity"::NUMBER,
+        $1:"UnitPrice"::NUMBER(19,4),
+        $1:"ExtendedAmount"::NUMBER(19,4),
+        $1:"UnitPriceDiscountPct"::NUMBER(19,4),
+        $1:"DiscountAmount"::NUMBER(19,4),
+        $1:"ProductStandardCost"::NUMBER(19,4),
+        $1:"TotalProductCost"::NUMBER(19,4),
+        $1:"SalesAmount"::NUMBER(19,4),
+        $1:"TaxAmt"::NUMBER(19,4),
+        $1:"Freight"::NUMBER(19,4),
+        $1:"CarrierTrackingNumber"::VARCHAR,
+        $1:"CustomerPONumber"::VARCHAR,
+        $1:"OrderDate"::TIMESTAMP_NTZ,
+        $1:"DueDate"::TIMESTAMP_NTZ,
+        $1:"ShipDate"::TIMESTAMP_NTZ
+    FROM @ADVWORKS_DEV.LANDING.STG_FACT_INTERNET_SALES/FactInternetSales_batch_001.jsonl
+)
+FILE_FORMAT = (FORMAT_NAME = ADVWORKS_DEV.LANDING.FF_FACT_INTERNET_SALES_JSONL);
+
+16.3 — Validate the result
+
+Run:
+
+SELECT COUNT(*) AS ROW_COUNT FROM ADVWORKS_DEV.LANDING.FACT_INTERNET_SALES;
+
+For batch_001, we expect approximately 1,000 rows.
+
+Then:
+
+SELECT * FROM ADVWORKS_DEV.LANDING.FACT_INTERNET_SALES LIMIT 10;
+
+And finally:
+
+SELECT
+    COUNT(*) AS TOTAL_ROWS,
+    COUNT(DISTINCT SALESORDERNUMBER || '-' || SALESORDERLINENUMBER) AS DISTINCT_ORDER_LINES
+FROM ADVWORKS_DEV.LANDING.FACT_INTERNET_SALES;
+
+⚠️ One important thing
+
+Do not load all 61 files yet.
+
+We're deliberately proving:
+
+GCS JSONL
+    ↓
+External Stage
+    ↓
+JSON parsing
+    ↓
+26-column mapping
+    ↓
+LANDING table
+
+The next step will be to validate the loaded batch against the source totals and then build:
+
+GCS → Pub/Sub → Snowpipe → LANDING automatic ingestion
+
+That is the important production-style part we want to learn next.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 17 — Validate loaded data, Source-to-LANDING Reconciliation
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Run this in Snowflake:
+
+SELECT
+    COUNT(*) AS ROW_COUNT,
+    SUM(SALESAMOUNT) AS TOTAL_SALES,
+    SUM(TOTALPRODUCTCOST) AS TOTAL_PRODUCT_COST,
+    SUM(TAXAMT) AS TOTAL_TAX,
+    SUM(FREIGHT) AS TOTAL_FREIGHT
+FROM ADVWORKS_DEV.LANDING.FACT_INTERNET_SALES;
+
+For batch 001, we expect the same values as the corresponding first 1,000 source rows.
+
+Why we're doing this
+
+In a real Data Engineering pipeline, this is a fundamental validation pattern:
+
+Source
+  │
+  ├── Row count
+  ├── Business totals
+  ├── Duplicate check
+  └── Key validation
+        ↓
+      GCS
+        ↓
+    Snowflake
+        │
+        ├── Row count
+        ├── Business totals
+        ├── Duplicate check
+        └── Key validation
+
+A pipeline saying "COPY INTO succeeded" doesn't necessarily mean the data is correct.
+
+For interviews, this distinction is important:
+
+"I don't validate ingestion only by checking whether the job succeeded. 
+I reconcile source and target using row counts, business aggregates, primary/business keys, and data-quality checks."
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 18 — Create Snowpipe for Automatic GCS → Snowflake Ingestion
+----------------------------------------------------------------------------------------------------------------------------------------------
+Snowflake's GCS auto-ingest setup requires the notification integration plus IAM permissions on the subscription. 
+It also documents that a Monitoring Viewer role may be needed to avoid Snowpipe notification delays/missed events.
+
+We already granted:
+
+kfrg30000@gcpmecentral2-1-6ca6.iam.gserviceaccount.com
+        ↓
+roles/pubsub.subscriber
+        ↓
+advworks-dev-gcs-events-sub
+
+But we're missing the monitoring permission.
+
+Do this now
+
+Run this in PowerShell:
+
+PS C:\Users\Admin> gcloud projects add-iam-policy-binding electric-tesla-507710-k2 --member="serviceAccount:kfrg30000@gcpmecentral2-1-6ca6.iam.gserviceaccount.com" --role="roles/monitoring.viewer"
+Updated IAM policy for project [electric-tesla-507710-k2].
+bindings:
+- members:
+  - serviceAccount:kfrg30000@gcpmecentral2-1-6ca6.iam.gserviceaccount.com
+  role: roles/monitoring.viewer
+- members:
+  - user:bookingt7@gmail.com
+  role: roles/owner
+- members:
+  - serviceAccount:service-776178390591@gcp-sa-pubsub.iam.gserviceaccount.com
+  role: roles/pubsub.serviceAgent
+etag: BwZa9CNVSpk=
+version: 1
+
+Then verify:
+
+PS C:\Users\Admin> gcloud projects get-iam-policy electric-tesla-507710-k2 --flatten="bindings[].members" --filter="bindings.members:serviceAccount:kfrg30000@gcpmecentral2-1-6ca6.iam.gserviceaccount.com" --format="table(bindings.role)"
+ROLE
+roles/monitoring.viewer
+
+Verify Pub/Sub Subscriber permission:
+
+PS C:\Users\Admin> gcloud pubsub subscriptions get-iam-policy advworks-dev-gcs-events-sub --project=electric-tesla-507710-k2 --flatten="bindings[].members" --filter="bindings.members:serviceAccount:kfrg30000@gcpmecentral2-1-6ca6.iam.gserviceaccount.com" --format="table(bindings.role)"
+ROLE
+roles/pubsub.subscriber
+
+This grants Snowflake's notification integration service account the ability to monitor the relevant GCP resources.
+
+Step 18.1 — Create the Snowpipe
+
+In Snowflake, run:
+
+CREATE OR REPLACE PIPE ADVWORKS_DEV.LANDING.PIPE_FACT_INTERNET_SALES
+  AUTO_INGEST = TRUE
+  INTEGRATION = 'ADVWORKS_GCS_PUBSUB_INT'
+AS
+COPY INTO ADVWORKS_DEV.LANDING.FACT_INTERNET_SALES
+FROM @ADVWORKS_DEV.LANDING.STG_FACT_INTERNET_SALES;
+
+This connects:
+
+GCS → Pub/Sub → Notification Integration → Snowpipe → LANDING
+
+Step 18.2 — Verify the pipe
+
+Then run:
+
+SHOW PIPES LIKE 'PIPE_FACT_INTERNET_SALES'
+IN SCHEMA ADVWORKS_DEV.LANDING;
+
+And:
+
+SELECT SYSTEM$PIPE_STATUS(
+    'ADVWORKS_DEV.LANDING.PIPE_FACT_INTERNET_SALES'
+);
+
+First we'll verify that Snowpipe itself is correctly configured. Then we'll create a controlled new GCS object and watch it flow automatically into Snowflake.
+
+That's where you'll actually see the difference between:
+
+batch/manual ingestion: COPY INTO
+event-driven ingestion: Snowpipe AUTO_INGEST
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 19 — Test End-to-End Automatic Snowpipe Ingestion
+----------------------------------------------------------------------------------------------------------------------------------------------
+Now we're going to prove true automatic ingestion with a brand-new file. We need a new GCS object inside:
+
+gs://advworks-dev-ingestion/fact_internet_sales/
+
+#####################   Step 19.1 — Create a controlled test file #################################
+
+We'll take the existing first batch and upload it under a new filename.
+
+Run this PowerShell command:
+PS C:\Users\Admin> gcloud storage cp "C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\python-ingestion\output\fact_internet_sales\FactInternetSales_batch_001.jsonl" "gs://advworks-dev-ingestion/fact_internet_sales/Snowpipe_test_001.jsonl"
+Copying file://C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end\python-ingestion\output\fact_internet_sales\FactInternetSales_batch_001.jsonl to gs://advworks-dev-ingestion/fact_internet_sales/Snowpipe_test_001.jsonl
+  Completed files 1/1 | 655.3kiB/655.3kiB
+
+This creates:
+
+GCS
+└── fact_internet_sales/
+    └── Snowpipe_test_001.jsonl   ← NEW OBJECT
+What should happen automatically
+
+You should not manually touch Pub/Sub.
+
+GCS will generate:
+
+OBJECT_FINALIZE
+
+Then:
+
+GCS
+ ↓
+Pub/Sub
+ ↓
+Snowflake
+ ↓
+Snowpipe
+ ↓
+LANDING
+
+Because the file contains 1,000 rows and we're uploading it as a new object, Snowpipe should attempt to load those 1,000 rows.
+
+⚠️ Important
+
+This will temporarily make your LANDING table:
+
+1,000 → 2,000 rows
+
+because Snowpipe_test_001.jsonl contains the same data as batch_001, but Snowflake sees it as a different filename.
+
+That's intentional for this test.
+
+After proving Snowpipe works, we'll clean up the test data appropriately.
+
+Run only the upload command above first. Don't run any Pub/Sub pull command.
+
+We'll check Snowpipe's status and the LANDING row count.
+
+#####################   Step 19.2 — Check Snowpipe status #################################
+
+Run:
+
+SELECT SYSTEM$PIPE_STATUS(
+    'ADVWORKS_DEV.LANDING.PIPE_FACT_INTERNET_SALES'
+);
+
+We're looking for:
+
+"executionState":"RUNNING"
+
+and ideally:
+
+"pendingFileCount":0
+"numOutstandingMessagesOnChannel":0
+
+#####################   Step 19.3 — Check LANDING row count #################################
+
+Run:
+
+SELECT COUNT(*) AS ROW_COUNT
+FROM ADVWORKS_DEV.LANDING.FACT_INTERNET_SALES;
+
+Because the test file contains the same 1,000 rows as batch_001, we expect:
+
+ROW_COUNT
+---------
+2000
+
+#####################   Step 19.4 — Confirm Snowpipe actually loaded the new file #################################
+
+Run:
+
+SELECT
+    FILE_NAME,
+    STATUS,
+    ROW_COUNT,
+    LAST_LOAD_TIME
+FROM TABLE(
+    INFORMATION_SCHEMA.COPY_HISTORY(
+        TABLE_NAME => 'ADVWORKS_DEV.LANDING.FACT_INTERNET_SALES',
+        START_TIME => DATEADD('hour', -1, CURRENT_TIMESTAMP())
+    )
+)
+ORDER BY LAST_LOAD_TIME DESC;
+
+We should see something like:
+
+Snowpipe_test_001.jsonl    LOADED    1000    <recent timestamp>
+
+This proves that the file wasn't merely uploaded to GCS — Snowpipe consumed the event and loaded the file into Snowflake automatically.
+
+What you have now demonstrated. You can confidently explain this now:
+
+"I implemented an event-driven ingestion pipeline where Python extracts data from SQL Server into JSONL files in GCS. GCS generates an OBJECT_FINALIZE event, 
+which is published to Pub/Sub. Snowflake consumes the Pub/Sub notification through a notification integration, and Snowpipe automatically loads the new file 
+into the LANDING layer using a JSON transformation."
+
+That's a very solid Data Engineering example.
+
+Your pipeline now looks like this
+SQL Server
+    │
+    ▼
+Python Extraction
+    │
+    ▼
+GCS
+    │
+    │ OBJECT_FINALIZE
+    ▼
+Pub/Sub Topic
+    │
+    ▼
+Pub/Sub Subscription
+    │
+    ▼
+Snowflake Notification Integration
+    │
+    ▼
+Snowpipe
+    │
+    ▼
+JSON Transformation
+    │
+    ▼
+ADVWORKS_DEV.LANDING.FACT_INTERNET_SALES
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 20 — Snowpipe Idempotency & File Tracking
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Before we move to dbt, there's one important Data Engineering concept we should learn: what happens if the same file is delivered again?
+
+This is directly related to:
+
+duplicate prevention
+retries
+exactly-once vs at-least-once processing
+file tracking
+pipeline reliability
+production incident scenarios
+
+We should test it rather than just talk about it.
+
+But don't upload the same file again yet.
+
+First, let's inspect Snowflake's load history for our two files.
+
+Run:
+
+SELECT
+    FILE_NAME,
+    STATUS,
+    ROW_COUNT,
+    LAST_LOAD_TIME
+FROM TABLE(
+    INFORMATION_SCHEMA.COPY_HISTORY(
+        TABLE_NAME => 'ADVWORKS_DEV.LANDING.FACT_INTERNET_SALES',
+        START_TIME => DATEADD('hour', -2, CURRENT_TIMESTAMP())
+    )
+)
+ORDER BY LAST_LOAD_TIME;
+
+Then we'll test duplicate-file handling, clean the 1,000-row test data, and move on to the much bigger milestone:
+
+LANDING → PREPARE → NORMALIZE → SCHEMATIZE → MARKETPLACE using dbt.
+
+#####################   Step 20.1 — Clean Up Snowpipe Test Data, Delete the Snowpipe test rows #################################
+
+Because the test file contains the same order lines as batch_001, we can remove the duplicate business keys.
+
+Run:
+
+DELETE FROM ADVWORKS_DEV.LANDING.FACT_INTERNET_SALES
+WHERE SALESORDERNUMBER || '-' || SALESORDERLINENUMBER IN (
+    SELECT SALESORDERNUMBER || '-' || SALESORDERLINENUMBER
+    FROM ADVWORKS_DEV.LANDING.FACT_INTERNET_SALES
+    GROUP BY SALESORDERNUMBER, SALESORDERLINENUMBER
+    HAVING COUNT(*) > 1
+);
+
+Then verify:
+
+SELECT
+    COUNT(*) AS ROW_COUNT,
+    COUNT(DISTINCT SALESORDERNUMBER || '-' || SALESORDERLINENUMBER) AS DISTINCT_ORDER_LINES
+FROM ADVWORKS_DEV.LANDING.FACT_INTERNET_SALES;
+
+Expected:
+
+ROW_COUNT    DISTINCT_ORDER_LINES
+1000         1000
+
+#####################   Step 20.2 Verify our baseline totals #################################
+
+Run:
+
+SELECT
+    COUNT(*) AS ROW_COUNT,
+    SUM(SALESAMOUNT) AS TOTAL_SALES,
+    SUM(TOTALPRODUCTCOST) AS TOTAL_PRODUCT_COST,
+    SUM(TAXAMT) AS TOTAL_TAX,
+    SUM(FREIGHT) AS TOTAL_FREIGHT
+FROM ADVWORKS_DEV.LANDING.FACT_INTERNET_SALES;
+
+We should return to:
+
+ROW_COUNT           1000
+TOTAL_SALES         3223116.8784
+TOTAL_PRODUCT_COST  1928831.4494
+TOTAL_TAX           257849.3552
+TOTAL_FREIGHT       80577.9714
+
+Once that's confirmed, we're done with the GCS → Pub/Sub → Snowpipe section.
+
+Then we move to the next major milestone:
+
+LANDING
+   ↓
+PREPARE
+   ↓
+NORMALIZE
+   ↓
+SCHEMATIZE
+   ↓
+MARKETPLACE
+
+using your existing dbt project, including:
+
+dbt run --target dev
+model selection
+dependencies
+incremental thinking
+dbt test
+data-quality tests
+DEV → TEST → PRE-PROD → PROD
+CI/CD execution
+interview scenarios
+
+That is where we'll spend the next major part of the roadmap.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 21 — Handle file naming / timestamp / incremental ingestion
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Skipping, we will do it after finishing DBT part which is next.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 22 — dbt
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Step 22 — Run & Validate dbt: LANDING → PREPARE → NORMALIZE → SCHEMATIZE → MARKETPLACE
+
+We'll do it practically, one step at a time, including:
+
+Check current LANDING data
+Run PREPARE
+Validate row counts/types
+Run NORMALIZE
+Validate transformations
+Run SCHEMATIZE
+Run DQ tests
+Run MARKETPLACE
+Validate final business totals
+Run the same process with --target dev
+Then understand why dbt is designed this way and prepare the corresponding interview questions.
+

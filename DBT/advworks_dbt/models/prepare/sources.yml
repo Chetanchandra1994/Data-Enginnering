@@ -1,6 +1,7 @@
 version: 2
 
 sources:
+  # Legacy/practice Snowflake PREPARE objects
   - name: snowflake_prepare
     database: ADVWORKS_DEV
     schema: PREPARE
@@ -9,3 +10,11 @@ sources:
       - name: DIMCUSTOMER_PREPARE
       - name: DIMPRODUCT_PREPARE
       - name: FACTINTERNETSALES_PREPARE
+
+  # Current production-style ingestion boundary
+  - name: snowflake_landing
+    database: ADVWORKS_DEV
+    schema: LANDING
+
+    tables:
+      - name: FACT_INTERNET_SALES
