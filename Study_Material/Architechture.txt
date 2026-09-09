@@ -1,0 +1,123 @@
+
+
+
+                    Azure DevOps
+                         │
+                         ▼
+                    Terraform
+                         │
+          ┌──────────────┴──────────────┐
+          │                             │
+       main.tf                       YAML
+          │                             │
+          ▼                             ▼
+     GCP infrastructure          Snowflake metadata
+          │                             │
+   ┌──────┼───────┐              ┌──────┼──────────┐
+   │      │       │              │      │          │
+   ▼      ▼       ▼              ▼      ▼          ▼
+ GCS   Pub/Sub  Notification   Tables Stages   File Formats
+                  │                              │
+                  │                              ▼
+                  │                           Pipes
+                  │                              │
+                  └──────────────────────────────┘
+                                 │
+                                 ▼
+                            Snowflake
+
+the GCP Pub/Sub infrastructure is currently NOT metadata-driven from pipes.yml. 
+It is created once per environment by main.tf, while pipes.yml controls the individual Snowpipes.
+
+Specifically, main.tf handles the plumbing
+
+You have:
+
+google_pubsub_topic
+google_pubsub_subscription
+google_storage_notification
+google_pubsub_topic_iam_binding
+snowflake_notification_integration
+snowflake_storage_integration
+
+So Terraform establishes the transport infrastructure.
+
+The YAML handles the data-source metadata
+
+You have:
+
+tables.yml
+stages.yml
+file-formats.yml
+pipes.yml
+
+For example, this one entry:
+
+ebs:
+  cm50_ap_checks_all_pipe:
+    stage: ebs_stg
+    stage_subdir: CM50_AP_CHECKS_ALL_V
+    file-format: json_ff
+    table: cm50_ap_checks_all
+
+ultimately becomes something like:
+
+GCS
+  ↓
+/raw/OracleEBS/CM50_AP_CHECKS_ALL_V/
+  ↓
+STG_EBS
+  ↓
+JSON file format
+  ↓
+PIPE_CM50_AP_CHECKS_ALL
+  ↓
+CM50_AP_CHECKS_ALL landing table
+
+That is why we can have dozens/hundreds of pipes without writing hundreds of .tf resources.
+
+Your main.tf creates one generic Pub/Sub topic and one subscription per environment:
+
+test_snowpipe_topic_edl_raw
+test_snowpipe_subscription_edl_raw
+
+Then all the configured pipes use the same Snowflake notification integration:
+
+integration = snowflake_notification_integration.gcp_notification_edl_raw.id
+
+So conceptually:
+
+                         GCS
+                          │
+             OBJECT_FINALIZE events
+                          │
+                          ▼
+              ┌─────────────────────┐
+              │     Pub/Sub Topic   │
+              └──────────┬──────────┘
+                         │
+                         ▼
+                    Subscription
+                         │
+                         ▼
+             Snowflake Notification
+                Integration
+                         │
+             ┌───────────┼───────────┐
+             ▼           ▼           ▼
+          Pipe A       Pipe B       Pipe C
+             │           │           │
+             ▼           ▼           ▼
+          Table A      Table B      Table C
+
+The pipes use their stage/subdirectory to determine which files they process.
+
+That gives you a much stronger interview answer:
+
+"I worked with a metadata-driven Terraform framework where source-specific configuration was defined in YAML. 
+Terraform dynamically provisioned GCP Pub/Sub, GCS notifications, Snowflake integrations, stages, file formats, landing tables and Snowpipes. 
+The YAML controlled source/table/stage/pipe metadata, while Terraform implemented the infrastructure."
+
+That's a real Data Engineering/IaC answer, not just "I created Snowpipes."
+
+

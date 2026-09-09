@@ -2,6 +2,19 @@
 Step 22+ — DBT
 ----------------------------------------------------------------------------------------------------------------------------------------------
 
+Manual flow:
+
+1. Create GCS folder
+2. Create file format
+3. Create stage
+4. Create table
+5. Create Pub/Sub subscription
+6. Configure notification integration
+7. Create Snowpipe
+8. Refresh/debug Snowpipe
+9. Run dbt
+10. Run tests
+
 LANDING is not a dbt model in our design. Snowpipe is responsible for putting the raw data into landing tables.
 
 DBT starts after LANDING i.e LANDING is the primary Source for DBT transformations
@@ -1198,3 +1211,44 @@ Next target is:
                  DEV → TEST → PREPROD
                          ↓
                        PROD
+
+Manual flow:
+
+1. Create GCS folder
+2. Create file format
+3. Create stage
+4. Create table
+5. Create Pub/Sub subscription
+6. Configure notification integration
+7. Create Snowpipe
+8. Refresh/debug Snowpipe
+9. Run dbt
+10. Run tests
+
+Eventually:
+
+Developer adds configuration
+        ↓
+git commit
+        ↓
+Pull Request
+        ↓
+Azure DevOps CI
+        ↓
+terraform validate
+terraform plan
+dbt parse
+dbt compile
+dbt test
+        ↓
+Merge
+        ↓
+DEV deployment
+        ↓
+Terraform creates/updates infrastructure
+        ↓
+dbt deploys transformations
+        ↓
+Automated validation
+
+That's real Data Engineering CI/CD.
