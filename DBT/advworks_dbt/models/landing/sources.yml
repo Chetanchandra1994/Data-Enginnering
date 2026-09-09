@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: snowflake_landing
+    database: ADVWORKS_DEV
+    schema: LANDING
+
+    tables:
+      - name: DIM_CUSTOMER
+      - name: DIM_PRODUCT
+      - name: FACT_INTERNET_SALES

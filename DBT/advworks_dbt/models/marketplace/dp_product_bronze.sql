@@ -1,6 +1,6 @@
 {{ config(
     materialized='table',
-    schema='SCHEMATIZE'
+    schema='MARKETPLACE'
 ) }}
 
 SELECT
@@ -14,9 +14,6 @@ SELECT
     PRODUCT_SUBCATEGORY_KEY,
     START_DATE,
     END_DATE,
-    STATUS,
+    STATUS
 
-    CURRENT_TIMESTAMP() AS CREATED_TIMESTAMP,
-    CURRENT_TIMESTAMP() AS UPDATED_TIMESTAMP
-
-FROM {{ ref('dim_product_normalize') }}
+FROM {{ ref('dim_product') }}

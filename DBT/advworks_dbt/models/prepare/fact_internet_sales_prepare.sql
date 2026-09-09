@@ -1,3 +1,8 @@
+{{ config(
+    materialized='view',
+    schema='PREPARE'
+) }}
+
 SELECT
     PRODUCTKEY AS PRODUCT_KEY,
     ORDERDATEKEY AS ORDER_DATE_KEY,
@@ -28,8 +33,6 @@ SELECT
 
     ORDERDATE AS ORDER_DATE,
     DUEDATE AS DUE_DATE,
-    SHIPDATE AS SHIP_DATE,
-
-    CURRENT_TIMESTAMP() AS LOAD_TIMESTAMP
+    SHIPDATE AS SHIP_DATE
 
 FROM {{ source('snowflake_landing', 'FACT_INTERNET_SALES') }}

@@ -567,4 +567,634 @@ LIMIT 10;
 Once DIM_DATE is successful, we'll build DIM_CUSTOMER from NORMALIZE.DIM_CUSTOMER_NORMALIZE, then DIM_PRODUCT, and finally the FACT_INTERNET_SALES table 
 with its dimensional relationships and derived measures.
 
-One thing to notice: DAY_OF_WEEK in Snowflake uses 0 = Sunday, 1 = Monday, ... 6 = Saturday under your current session settings. That's why Jan 3 (Sunday) shows 0.
+One thing to notice: DAY_OF_WEEK in Snowflake uses 0 = Sunday, 1 = Monday, ... 6 = Saturday under your current session settings. 
+That's why Jan 3 (Sunday) shows 0.
+
+Let's finish the missing two ingestion pipelines instead of deleting the dbt models.
+
+We will build:
+
+SQL Server
+ ├── dbo.DimCustomer ── Python ── GCS ── Pub/Sub ── Snowpipe ── LANDING.DIM_CUSTOMER
+ ├── dbo.DimProduct  ── Python ── GCS ── Pub/Sub ── Snowpipe ── LANDING.DIM_PRODUCT
+ └── dbo.FactInternetSales ───────────────────────────────────── LANDING.FACT_INTERNET_SALES
+
+We'll use the same GCS bucket and existing Pub/Sub topic, but create separate subscriptions/integrations/pipes for Customer and Product. This avoids multiple Snowpipes competing for the same Pub/Sub messages.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 1 — Replace your Python ingestion with one script for all 3 tables
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Create: python-ingestion\Stage_6_GCS_extract_all_tables.py
+
+This automatically discovers the actual columns from SQL Server, so you do not need to manually type all DimCustomer/DimProduct columns into Python.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 2 — Run the Python extraction
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+From:
+
+C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end
+
+activate your venv if necessary and run:
+
+python .\python-ingestion\Stage_6_GCS_extract_all_tables.py
+
+Expected source counts:
+
+DimCustomer
+Source record count: 18484
+
+DimProduct
+Source record count: 606
+
+Expected GCS structure:
+
+gs://advworks-dev-ingestion/
+
+fact_internet_sales/
+    FactInternetSales_batch_001.jsonl
+    ...
+    FactInternetSales_batch_061.jsonl
+
+dim_customer/
+    DimCustomer_batch_001.jsonl
+    ...
+    DimCustomer_batch_019.jsonl
+
+dim_product/
+    DimProduct_batch_001.jsonl
+
+Customer will be 19 files with batch size 1,000.
+
+Product will be 1 file.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 3 — Create separate Pub/Sub subscriptions
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+We already have:
+
+Topic:
+advworks-dev-gcs-events
+
+Keep it.
+
+Create two subscriptions:
+
+gcloud pubsub subscriptions create advworks-dev-dim-customer-sub --topic=advworks-dev-gcs-events --project=electric-tesla-507710-k2
+gcloud pubsub subscriptions create advworks-dev-dim-product-sub --topic=advworks-dev-gcs-events --project=electric-tesla-507710-k2
+
+Why separate subscriptions?
+
+Because:
+
+GCS
+ ↓
+ONE topic
+ ↓
+ ├── Customer subscription → Customer Snowpipe
+ ├── Product subscription  → Product Snowpipe
+ └── Fact subscription     → existing Fact Snowpipe
+
+Each Snowpipe gets its own copy of the event stream.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 4 — Grant Snowflake notification service accounts Pub/Sub subscriber access
+----------------------------------------------------------------------------------------------------------------------------------------------
+our existing integration was created with only:
+
+STORAGE_ALLOWED_LOCATIONS = (
+  'gcs://advworks-dev-ingestion/fact_internet_sales/'
+);
+
+— Update the existing GCS storage integration
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Run this in Snowflake:
+
+CREATE OR REPLACE STORAGE INTEGRATION ADVWORKS_GCS_INT
+  TYPE = EXTERNAL_STAGE
+  STORAGE_PROVIDER = 'GCS'
+  ENABLED = TRUE
+  STORAGE_ALLOWED_LOCATIONS = (
+      'gcs://advworks-dev-ingestion/fact_internet_sales/',
+      'gcs://advworks-dev-ingestion/dim_customer/',
+      'gcs://advworks-dev-ingestion/dim_product/'
+  );
+
+We need separate notification integrations.
+
+First create Customer integration in Snowflake.
+
+CREATE OR REPLACE NOTIFICATION INTEGRATION ADVWORKS_GCS_PUBSUB_DIM_CUSTOMER_INT
+  TYPE = QUEUE
+  NOTIFICATION_PROVIDER = GCP_PUBSUB
+  ENABLED = TRUE
+  GCP_PUBSUB_SUBSCRIPTION_NAME =
+    'projects/electric-tesla-507710-k2/subscriptions/advworks-dev-dim-customer-sub';
+
+Then:
+
+DESC NOTIFICATION INTEGRATION ADVWORKS_GCS_PUBSUB_DIM_CUSTOMER_INT;
+
+Look for:
+
+GCP_PUBSUB_SERVICE_ACCOUNT
+
+It will be a Snowflake-generated service account.
+
+Grant it subscriber access:
+
+gcloud pubsub subscriptions add-iam-policy-binding advworks-dev-dim-customer-sub --member="serviceAccount:<CUSTOMER_NOTIFICATION_SERVICE_ACCOUNT>" --role="roles/pubsub.subscriber" --project=electric-tesla-507710-k2
+
+Replace only:
+
+<CUSTOMER_NOTIFICATION_SERVICE_ACCOUNT>
+
+with the service account returned by Snowflake.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 5 — Create Product notification integration
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Snowflake:
+
+CREATE OR REPLACE NOTIFICATION INTEGRATION ADVWORKS_GCS_PUBSUB_DIM_PRODUCT_INT
+  TYPE = QUEUE
+  NOTIFICATION_PROVIDER = GCP_PUBSUB
+  ENABLED = TRUE
+  GCP_PUBSUB_SUBSCRIPTION_NAME =
+    'projects/electric-tesla-507710-k2/subscriptions/advworks-dev-dim-product-sub';
+
+Then:
+
+DESC NOTIFICATION INTEGRATION ADVWORKS_GCS_PUBSUB_DIM_PRODUCT_INT;
+
+Again find:
+
+GCP_PUBSUB_SERVICE_ACCOUNT
+
+Grant it:
+
+gcloud pubsub subscriptions add-iam-policy-binding advworks-dev-dim-product-sub --member="serviceAccount:<PRODUCT_NOTIFICATION_SERVICE_ACCOUNT>" --role="roles/pubsub.subscriber" --project=electric-tesla-507710-k2
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 6 — Create LANDING.DIM_CUSTOMER
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Because Python dynamically extracts the source columns, we'll use a raw VARIANT landing pattern for the dimensions.
+
+This is actually a good Data Engineering design:
+
+LANDING
+    ↓
+raw JSON
+    ↓
+dbt PREPARE
+    ↓
+typed columns
+
+Run:
+
+USE DATABASE ADVWORKS_DEV;
+USE SCHEMA LANDING;
+
+CREATE OR REPLACE TABLE DIM_CUSTOMER (
+    RAW_DATA VARIANT,
+    SOURCE_FILE VARCHAR,
+    LOAD_TIMESTAMP TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+);
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 7 — Create LANDING.DIM_PRODUCT
+----------------------------------------------------------------------------------------------------------------------------------------------
+USE DATABASE ADVWORKS_DEV;
+USE SCHEMA LANDING;
+
+CREATE OR REPLACE TABLE DIM_PRODUCT (
+    RAW_DATA VARIANT,
+    SOURCE_FILE VARCHAR,
+    LOAD_TIMESTAMP TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+Now these objects exist:
+
+ADVWORKS_DEV.LANDING
+
+FACT_INTERNET_SALES
+DIM_CUSTOMER
+DIM_PRODUCT
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 8 — Create Customer file format and stage
+----------------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FILE FORMAT ADVWORKS_DEV.LANDING.FF_DIM_CUSTOMER_JSONL
+    TYPE = JSON
+    STRIP_OUTER_ARRAY = FALSE;
+
+Then:
+
+CREATE OR REPLACE STAGE ADVWORKS_DEV.LANDING.STG_DIM_CUSTOMER
+    URL = 'gcs://advworks-dev-ingestion/dim_customer/'
+    STORAGE_INTEGRATION = ADVWORKS_GCS_INT
+    FILE_FORMAT = ADVWORKS_DEV.LANDING.FF_DIM_CUSTOMER_JSONL;
+
+The existing ADVWORKS_GCS_INT can be reused because it has access to the bucket.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 9 — Create Product file format and stage
+----------------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FILE FORMAT ADVWORKS_DEV.LANDING.FF_DIM_PRODUCT_JSONL
+    TYPE = JSON
+    STRIP_OUTER_ARRAY = FALSE;
+
+Then:
+
+CREATE OR REPLACE STAGE ADVWORKS_DEV.LANDING.STG_DIM_PRODUCT
+    URL = 'gcs://advworks-dev-ingestion/dim_product/'
+    STORAGE_INTEGRATION = ADVWORKS_GCS_INT
+    FILE_FORMAT = ADVWORKS_DEV.LANDING.FF_DIM_PRODUCT_JSONL;
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 10 — Create Customer Snowpipe
+----------------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE PIPE ADVWORKS_DEV.LANDING.PIPE_DIM_CUSTOMER
+  AUTO_INGEST = TRUE
+  INTEGRATION = 'ADVWORKS_GCS_PUBSUB_DIM_CUSTOMER_INT'
+AS
+COPY INTO ADVWORKS_DEV.LANDING.DIM_CUSTOMER
+(
+    RAW_DATA,
+    SOURCE_FILE
+)
+FROM (
+    SELECT
+        $1,
+        METADATA$FILENAME
+    FROM @ADVWORKS_DEV.LANDING.STG_DIM_CUSTOMER
+);
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 11 — Create Product Snowpipe
+----------------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE PIPE ADVWORKS_DEV.LANDING.PIPE_DIM_PRODUCT
+  AUTO_INGEST = TRUE
+  INTEGRATION = 'ADVWORKS_GCS_PUBSUB_DIM_PRODUCT_INT'
+AS
+COPY INTO ADVWORKS_DEV.LANDING.DIM_PRODUCT
+(
+    RAW_DATA,
+    SOURCE_FILE
+)
+FROM (
+    SELECT
+        $1,
+        METADATA$FILENAME
+    FROM @ADVWORKS_DEV.LANDING.STG_DIM_PRODUCT
+);
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 12 — Verify the Snowpipes
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Customer:
+
+SHOW PIPES LIKE 'PIPE_DIM_CUSTOMER' IN SCHEMA ADVWORKS_DEV.LANDING;
+
+Product:
+
+SHOW PIPES LIKE 'PIPE_DIM_PRODUCT' IN SCHEMA ADVWORKS_DEV.LANDING;
+
+We want:
+
+executionState = RUNNING
+invalid_reason = blank
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 13 — Verify GCS
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Run:
+
+gcloud storage ls gs://advworks-dev-ingestion/dim_customer/
+
+Then:
+
+gcloud storage ls gs://advworks-dev-ingestion/dim_product/
+
+You should see:
+
+dim_customer/
+    DimCustomer_batch_001.jsonl
+    ...
+    DimCustomer_batch_019.jsonl
+
+and:
+
+dim_product/
+    DimProduct_batch_001.jsonl
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 14 — Check LANDING after Snowpipe ingestion
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Customer:
+
+SELECT
+    COUNT(*) AS ROW_COUNT,
+    COUNT(DISTINCT RAW_DATA:"CustomerKey"::NUMBER) AS DISTINCT_CUSTOMERS
+FROM ADVWORKS_DEV.LANDING.DIM_CUSTOMER;
+
+Expected:
+
+ROW_COUNT       18484
+DISTINCT_CUSTOMERS 18484
+
+Product:
+
+SELECT
+    COUNT(*) AS ROW_COUNT,
+    COUNT(DISTINCT RAW_DATA:"ProductKey"::NUMBER) AS DISTINCT_PRODUCTS
+FROM ADVWORKS_DEV.LANDING.DIM_PRODUCT;
+
+Expected:
+
+ROW_COUNT       606
+DISTINCT_PRODUCTS 606
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 15 — Check Snowpipe history
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Customer:
+
+SELECT
+    FILE_NAME,
+    STATUS,
+    ROW_COUNT,
+    LAST_LOAD_TIME
+FROM TABLE(
+    ADVWORKS_DEV.INFORMATION_SCHEMA.COPY_HISTORY(
+        TABLE_NAME => 'ADVWORKS_DEV.LANDING.DIM_CUSTOMER',
+        START_TIME => DATEADD('day', -7, CURRENT_TIMESTAMP())
+    )
+)
+ORDER BY LAST_LOAD_TIME;
+
+Product:
+
+SELECT
+    FILE_NAME,
+    STATUS,
+    ROW_COUNT,
+    LAST_LOAD_TIME
+FROM TABLE(
+    ADVWORKS_DEV.INFORMATION_SCHEMA.COPY_HISTORY(
+        TABLE_NAME => 'ADVWORKS_DEV.LANDING.DIM_PRODUCT',
+        START_TIME => DATEADD('day', -7, CURRENT_TIMESTAMP())
+    )
+)
+ORDER BY LAST_LOAD_TIME;
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 16 — Update dbt DIM_CUSTOMER_PREPARE
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Now your dbt model can actually use the real LANDING table.
+
+Replace:
+
+DBT\advworks_dbt\models\prepare\dim_customer_prepare.sql
+
+with:
+
+{{ config(
+    materialized='view',
+    schema='PREPARE'
+) }}
+
+SELECT
+    RAW_DATA:"CustomerKey"::NUMBER AS CUSTOMER_KEY,
+    RAW_DATA:"GeographyKey"::NUMBER AS GEOGRAPHY_KEY,
+    RAW_DATA:"CustomerAlternateKey"::VARCHAR AS CUSTOMER_ALTERNATE_KEY,
+    RAW_DATA:"Title"::VARCHAR AS TITLE,
+    RAW_DATA:"FirstName"::VARCHAR AS FIRST_NAME,
+    RAW_DATA:"MiddleName"::VARCHAR AS MIDDLE_NAME,
+    RAW_DATA:"LastName"::VARCHAR AS LAST_NAME,
+    RAW_DATA:"NameStyle"::BOOLEAN AS NAME_STYLE,
+    RAW_DATA:"BirthDate"::DATE AS BIRTH_DATE,
+    RAW_DATA:"MaritalStatus"::VARCHAR AS MARITAL_STATUS,
+    RAW_DATA:"Suffix"::VARCHAR AS SUFFIX,
+    RAW_DATA:"Gender"::VARCHAR AS GENDER,
+    RAW_DATA:"EmailAddress"::VARCHAR AS EMAIL_ADDRESS,
+    RAW_DATA:"YearlyIncome"::NUMBER(19,4) AS YEARLY_INCOME,
+    RAW_DATA:"TotalChildren"::NUMBER AS TOTAL_CHILDREN,
+    RAW_DATA:"NumberChildrenAtHome"::NUMBER AS NUMBER_CHILDREN_AT_HOME,
+    RAW_DATA:"EnglishEducation"::VARCHAR AS ENGLISH_EDUCATION,
+    RAW_DATA:"SpanishEducation"::VARCHAR AS SPANISH_EDUCATION,
+    RAW_DATA:"FrenchEducation"::VARCHAR AS FRENCH_EDUCATION,
+    RAW_DATA:"EnglishOccupation"::VARCHAR AS ENGLISH_OCCUPATION,
+    RAW_DATA:"SpanishOccupation"::VARCHAR AS SPANISH_OCCUPATION,
+    RAW_DATA:"FrenchOccupation"::VARCHAR AS FRENCH_OCCUPATION,
+    RAW_DATA:"HouseOwnerFlag"::BOOLEAN AS HOUSE_OWNER_FLAG,
+    RAW_DATA:"NumberCarsOwned"::NUMBER AS NUMBER_CARS_OWNED,
+    RAW_DATA:"AddressLine1"::VARCHAR AS ADDRESS_LINE_1,
+    RAW_DATA:"AddressLine2"::VARCHAR AS ADDRESS_LINE_2,
+    RAW_DATA:"Phone"::VARCHAR AS PHONE,
+    RAW_DATA:"DateFirstPurchase"::DATE AS DATE_FIRST_PURCHASE,
+    RAW_DATA:"CommuteDistance"::VARCHAR AS COMMUTE_DISTANCE,
+
+    SOURCE_FILE,
+    LOAD_TIMESTAMP
+
+FROM {{ source('snowflake_landing', 'DIM_CUSTOMER') }}
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 17 — Update dbt DIM_PRODUCT_PREPARE
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Replace:
+
+DBT\advworks_dbt\models\prepare\dim_product_prepare.sql
+
+with:
+
+{{ config(
+    materialized='view',
+    schema='PREPARE'
+) }}
+
+SELECT
+    RAW_DATA:"ProductKey"::NUMBER AS PRODUCT_KEY,
+    RAW_DATA:"ProductAlternateKey"::VARCHAR AS PRODUCT_ALTERNATE_KEY,
+    RAW_DATA:"ProductSubcategoryKey"::NUMBER AS PRODUCT_SUBCATEGORY_KEY,
+    RAW_DATA:"WeightUnitMeasureCode"::VARCHAR AS WEIGHT_UNIT_MEASURE_CODE,
+    RAW_DATA:"SizeUnitMeasureCode"::VARCHAR AS SIZE_UNIT_MEASURE_CODE,
+    RAW_DATA:"EnglishProductName"::VARCHAR AS ENGLISH_PRODUCT_NAME,
+    RAW_DATA:"SpanishProductName"::VARCHAR AS SPANISH_PRODUCT_NAME,
+    RAW_DATA:"FrenchProductName"::VARCHAR AS FRENCH_PRODUCT_NAME,
+    RAW_DATA:"StandardCost"::NUMBER(19,4) AS STANDARD_COST,
+    RAW_DATA:"FinishedGoodsFlag"::BOOLEAN AS FINISHED_GOODS_FLAG,
+    RAW_DATA:"Color"::VARCHAR AS COLOR,
+    RAW_DATA:"SafetyStockLevel"::NUMBER AS SAFETY_STOCK_LEVEL,
+    RAW_DATA:"ReorderPoint"::NUMBER AS REORDER_POINT,
+    RAW_DATA:"ListPrice"::NUMBER(19,4) AS LIST_PRICE,
+    RAW_DATA:"Size"::VARCHAR AS SIZE,
+    RAW_DATA:"SizeRange"::VARCHAR AS SIZE_RANGE,
+    RAW_DATA:"Weight"::NUMBER(19,4) AS WEIGHT,
+    RAW_DATA:"DaysToManufacture"::NUMBER AS DAYS_TO_MANUFACTURE,
+    RAW_DATA:"ProductLine"::VARCHAR AS PRODUCT_LINE,
+    RAW_DATA:"DealerPrice"::NUMBER(19,4) AS DEALER_PRICE,
+    RAW_DATA:"Class"::VARCHAR AS CLASS,
+    RAW_DATA:"Style"::VARCHAR AS STYLE,
+    RAW_DATA:"ModelName"::VARCHAR AS MODEL_NAME,
+    RAW_DATA:"EnglishDescription"::VARCHAR AS ENGLISH_DESCRIPTION,
+    RAW_DATA:"FrenchDescription"::VARCHAR AS FRENCH_DESCRIPTION,
+    RAW_DATA:"ChineseDescription"::VARCHAR AS CHINESE_DESCRIPTION,
+    RAW_DATA:"ArabicDescription"::VARCHAR AS ARABIC_DESCRIPTION,
+    RAW_DATA:"HebrewDescription"::VARCHAR AS HEBREW_DESCRIPTION,
+    RAW_DATA:"ThaiDescription"::VARCHAR AS THAI_DESCRIPTION,
+    RAW_DATA:"GermanDescription"::VARCHAR AS GERMAN_DESCRIPTION,
+    RAW_DATA:"JapaneseDescription"::VARCHAR AS JAPANESE_DESCRIPTION,
+    RAW_DATA:"TurkishDescription"::VARCHAR AS TURKISH_DESCRIPTION,
+    RAW_DATA:"StartDate"::DATE AS START_DATE,
+    RAW_DATA:"EndDate"::DATE AS END_DATE,
+    RAW_DATA:"Status"::VARCHAR AS STATUS,
+
+    SOURCE_FILE,
+    LOAD_TIMESTAMP
+
+FROM {{ source('snowflake_landing', 'DIM_PRODUCT') }}
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 18 — Update sources.yml
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+Your:
+
+models\staging\sources.yml
+
+or wherever your dbt sources.yml currently lives should contain:
+
+version: 2
+
+sources:
+
+  - name: snowflake_landing
+
+    database: ADVWORKS_DEV
+
+    schema: LANDING
+
+    tables:
+
+      - name: FACT_INTERNET_SALES
+
+      - name: DIM_CUSTOMER
+
+      - name: DIM_PRODUCT
+
+Now source() is valid for all three.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Step 19 — Run dbt
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+First:
+
+dbt clean
+
+Then:
+
+dbt parse --target dev
+
+Then:
+
+dbt run --target dev
+
+Then:
+
+dbt test --target dev
+Your final architecture will now be much stronger
+                         SQL SERVER
+                             │
+              ┌──────────────┼──────────────┐
+              │              │              │
+        DimCustomer      DimProduct    FactInternetSales
+              │              │              │
+              └────── Python Extraction ────┘
+                             │
+                             ▼
+                           GCS
+              ┌──────────────┼──────────────┐
+              │              │              │
+        dim_customer    dim_product   fact_internet_sales
+              │              │              │
+              └──────────────┼──────────────┘
+                             ▼
+                          Pub/Sub
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+          Customer        Product          Fact
+       Subscription    Subscription    Subscription
+              │              │              │
+              ▼              ▼              ▼
+          Snowpipe        Snowpipe        Snowpipe
+              │              │              │
+              ▼              ▼              ▼
+          LANDING         LANDING         LANDING
+       DIM_CUSTOMER    DIM_PRODUCT    FACT_INTERNET_SALES
+              │              │              │
+              └──────────────┼──────────────┘
+                             ▼
+                            dbt
+                             │
+          ┌──────────────────┼──────────────────┐
+          ▼                  ▼                  ▼
+       PREPARE            NORMALIZE         SCHEMATIZE
+                                               │
+                                               ▼
+                                          MARKETPLACE
+                                      Bronze / Silver / Gold
+
+Our pipeline is now:
+
+SQL Server
+    ↓
+Python Extraction
+    ↓
+GCS
+    ↓
+Pub/Sub
+    ↓
+Snowpipe
+    ↓
+Snowflake LANDING
+    ↓
+dbt PREPARE
+    ↓
+dbt NORMALIZE
+    ↓
+dbt SCHEMATIZE
+    ↓
+dbt MARKETPLACE
+    ↓
+Data Products
+
+###################################################################################################################################
+
+Next target is:
+
+
+                    GIT / GITHUB
+                         │
+                         ▼
+                Azure DevOps Pipeline
+                         │
+              ┌──────────┴──────────┐
+              │                     │
+        Terraform CI/CD          dbt CI/CD
+              │                     │
+              ▼                     ▼
+       Snowflake Infra          dbt Models
+       GCS / PubSub             Tests / Docs
+       Stages                   │
+       Tables                   │
+       File Formats             │
+       Snowpipes                │
+              │                     │
+              └──────────┬──────────┘
+                         ▼
+                 DEV → TEST → PREPROD
+                         ↓
+                       PROD
