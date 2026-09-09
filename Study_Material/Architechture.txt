@@ -120,4 +120,74 @@ The YAML controlled source/table/stage/pipe metadata, while Terraform implemente
 
 That's a real Data Engineering/IaC answer, not just "I created Snowpipes."
 
+Metadata columns are extremely important
+
+They're retaining:
+
+FILENAME
+FILE_ROW_NUMBER
+FILE_LAST_MODIFIED
+START_SCAN_TIME
+
+and renaming them:
+
+METADATA_FILENAME
+METADATA_FILE_ROW_NUMBER
+METADATA_FILE_LAST_MODIFIED
+METADATA_START_SCAN_TIME
+
+This gives you lineage/debugging information.
+
+For example, an interviewer could ask:
+
+"A record in your Snowflake table is incorrect. How do you determine which source file produced it?"
+
+You can answer:
+
+"We retain ingestion metadata such as source filename, file row number, file modification timestamp and scan timestamp. 
+This allows us to trace a transformed record back to the originating file and ingestion event."
+
+That's a very good interview answer.
+
+                 Git
+                  │
+                  ▼
+        ┌──────────────────┐
+        │  YAML Metadata   │
+        │                  │
+        │ file-formats.yml │
+        │ tables.yml       │
+        │ pipes.yml        │
+        │ stages.yml       │
+        └────────┬─────────┘
+                 │
+                 ▼
+            Terraform
+                 │
+       ┌─────────┼─────────┐
+       ▼         ▼         ▼
+   Snowflake   GCS      Pub/Sub
+   LANDING
+       │
+       ▼
+    Snowpipe
+       │
+       ▼
+   LANDING
+       │
+       ▼
+      dbt
+       │
+       ▼
+   PREPARE
+       │
+       ▼
+   NORMALIZE
+       │
+       ▼
+  SCHEMATIZE
+       │
+       ▼
+ MARKETPLACE
+
 
