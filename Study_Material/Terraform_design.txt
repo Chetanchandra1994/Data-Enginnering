@@ -1,49 +1,154 @@
-Terraform SOP — Metadata-Driven Snowflake Infrastructure
+# Terraform SOP — Metadata-Driven Snowflake Infrastructure
 
-Project goal: Convert manually created Snowflake landing infrastructure into Terraform-managed, metadata-driven infrastructure, similar to the  enterprise pattern.
+## Project Goal
 
-Current flow:
+Convert manually created Snowflake landing infrastructure into **Terraform-managed, metadata-driven infrastructure**, following the enterprise pattern.
 
-YAML configuration
-       ↓
+The goal is not merely to create Snowflake objects with Terraform. The goal is to understand how a production ingestion platform can be **configured, provisioned, validated, and deployed automatically**.
+
+---
+
+# 1. Target Architecture
+
+```text
+                    Git / GitHub
+                         │
+                         ▼
+              Terraform + YAML Metadata
+                         │
+                         ▼
+                Terraform Plan / Apply
+                         │
+          ┌──────────────┴──────────────┐
+          │                             │
+          ▼                             ▼
+         GCP                         Snowflake
+   ┌─────────────┐              ┌─────────────────┐
+   │ GCS Bucket  │              │ File Formats    │
+   │ Pub/Sub     │─────────────▶│ External Stages │
+   │ Notification│              │ Landing Tables  │
+   └─────────────┘              │ Snowpipes       │
+          │                     └────────┬────────┘
+          │                              │
+          └────── OBJECT_FINALIZE ───────┘
+                                         │
+                                         ▼
+                                  LANDING
+                                         │
+                                         ▼
+                                   dbt Models
+                                         │
+                    ┌────────────────────┼────────────────────┐
+                    ▼                    ▼                    ▼
+                 PREPARE             NORMALIZE            SCHEMATIZE
+                                                               │
+                                                               ▼
+                                                         MARKETPLACE
+                                                               │
+                                                               ▼
+                                                        BI / Tableau
+```
+
+---
+
+# 2. Metadata-Driven Design
+
+The central design is:
+
+```text
+YAML
+ │
+ │ yamldecode()
+ ▼
 Terraform locals
-       ↓
+ │
+ │ flatten()
+ │
+ │ for_each
+ ▼
 Terraform resources
-       ↓
-Snowflake
- ┌───────────────┐
- │ File Formats  │
- │ GCS Stages    │
- │ Landing Tables│
- │ Snowpipes     │
- └───────────────┘
-Step 1 — Create Terraform project structure
+ │
+ ▼
+GCP + Snowflake infrastructure
+```
 
-We started with the Terraform directory:
+Instead of creating this:
 
+```text
+resource "snowflake_table" "dim_customer" {}
+resource "snowflake_table" "dim_product" {}
+resource "snowflake_table" "fact_sales" {}
+resource "snowflake_pipe" "dim_customer" {}
+resource "snowflake_pipe" "dim_product" {}
+...
+```
+
+we describe infrastructure through metadata:
+
+```text
+tables.yml
+stages.yml
+file-formats.yml
+pipes.yml
+```
+
+This allows a new source to be onboarded primarily through configuration rather than writing a completely new Terraform resource block.
+
+---
+
+# Step 1 — Create Terraform Project Structure
+
+Directory:
+
+```text
 terraform/
 ├── main.tf
 ├── variables.tf
 ├── versions.tf
+├── providers.tf
+├── locals.tf
 ├── outputs.tf
-├── environments/
-│   ├── dev.tfvars
-│   ├── test.tfvars
-│   ├── preprod.tfvars
-│   └── prod.tfvars
-└── ...
-Purpose
+│
+├── file-formats.tf
+├── stages.tf
+├── tables.tf
+├── pipes.tf
+├── gcp-pubsub.tf
+│
+├── config/
+│   ├── file-formats.yml
+│   ├── stages.yml
+│   ├── tables.yml
+│   └── pipes.yml
+│
+└── environments/
+    ├── dev.tfvars
+    ├── test.tfvars
+    ├── preprod.tfvars
+    └── prod.tfvars
+```
+
+### Purpose
 
 Separate:
 
+```text
 Terraform logic
-variables
-environment-specific values
-infrastructure configuration
-Step 2 — Configure Terraform backend and provider
+       +
+Environment configuration
+       +
+Infrastructure metadata
+```
 
-versions.tf:
+This is an important enterprise design principle.
 
+---
+
+# Step 2 — Configure Terraform Backend
+
+`versions.tf`:
+
+```hcl
 terraform {
   required_version = ">= 1.5.0"
 
@@ -57,22 +162,160 @@ terraform {
       source  = "snowflakedb/snowflake"
       version = "~> 2.0"
     }
+
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 8.0"
+    }
   }
 }
-Why?
+```
 
-Terraform state is stored remotely in GCS instead of only on your laptop.
+### Architecture
 
+```text
 Terraform
-    ↓
-GCS remote state
+    │
+    ▼
+GCS Remote State
+    │
+    ├── Terraform state
+    ├── Resource IDs
+    ├── Dependency information
+    └── Current infrastructure state
+```
 
-This is important for CI/CD and team environments.
+### Why remote state?
 
-Step 3 — Configure Snowflake authentication through variables
+Without remote state:
 
-variables.tf contains:
+```text
+Developer laptop
+     ↓
+terraform.tfstate
+```
 
+With remote state:
+
+```text
+Developer / CI/CD
+        ↓
+     GCS State
+        ↓
+Shared Terraform state
+```
+
+This is essential for:
+
+* CI/CD
+* multiple developers
+* state locking
+* consistent infrastructure management
+
+### Important
+
+Never commit:
+
+```text
+terraform.tfstate
+terraform.tfstate.backup
+private keys
+passphrases
+service-account JSON
+```
+
+---
+
+# Step 3 — Configure Google Provider
+
+`providers.tf`:
+
+```hcl
+provider "google" {
+  project = var.gcp_project_id
+  region  = var.gcp_region
+}
+```
+
+This allows Terraform to manage:
+
+```text
+GCS
+Pub/Sub
+IAM
+GCS notifications
+```
+
+---
+
+# Step 4 — Configure Snowflake Provider
+
+`main.tf`:
+
+```hcl
+provider "snowflake" {
+  organization_name = var.snowflake_organization_name
+  account_name      = var.snowflake_account_name
+  user              = var.snowflake_user
+
+  authenticator          = "SNOWFLAKE_JWT"
+  private_key            = file(var.snowflake_private_key_path)
+  private_key_passphrase = var.snowflake_private_key_passphrase
+
+  role = var.snowflake_role
+
+  preview_features_enabled = [
+    "snowflake_notification_integration_resource",
+    "snowflake_table_resource",
+    "snowflake_pipe_resource"
+  ]
+}
+```
+
+### Authentication
+
+We use:
+
+```text
+Snowflake
+    ↑
+JWT / Key Pair Authentication
+    ↑
+Private key
+```
+
+The private key is stored locally:
+
+```text
+C:\Users\Admin\.snowflake\snowflake_tf_key.p8
+```
+
+The passphrase is supplied through an environment variable.
+
+Example:
+
+```powershell
+$env:SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="..."
+```
+
+### Security rule
+
+Never put this in Git:
+
+```text
+snowflake_tf_key.p8
+SNOWFLAKE_PRIVATE_KEY_PASSPHRASE
+password
+service-account.json
+```
+
+---
+
+# Step 5 — Define Terraform Variables
+
+`variables.tf`:
+
+```hcl
 variable "snowflake_organization_name" {
   type = string
 }
@@ -110,60 +353,96 @@ variable "snowflake_database" {
 variable "environment" {
   type = string
 }
-Important security principle
 
-We do not commit:
+variable "gcp_project_id" {
+  type = string
+}
 
-private key
-passphrase
-credentials
+variable "gcp_region" {
+  type = string
+}
 
-The private key remains locally under:
+variable "gcp_bucket_name" {
+  type = string
+}
+```
 
-$HOME\.snowflake\snowflake_tf_key.p8
+---
 
-and secrets are supplied through environment variables/CI secrets.
+# Step 6 — Environment-Specific Configuration
 
-Step 4 — Configure environment-specific values
+Example:
 
-Example test.tfvars:
+`environments/test.tfvars`
 
+```hcl
 snowflake_organization_name = "QNFANFA"
 snowflake_account_name      = "QI17075"
 snowflake_user              = "CHETANCHANDRA81"
 snowflake_role              = "ACCOUNTADMIN"
-snowflake_warehouse         = "ETL_WH_TEST"
-snowflake_database          = "ADVWORKS_TEST"
-environment                 = "test"
 
-This allows the same Terraform code to work against different environments.
+snowflake_warehouse = "ETL_WH_TEST"
+snowflake_database  = "ADVWORKS_TEST"
 
-Terraform code
-      │
-      ├── dev.tfvars
-      ├── test.tfvars
-      ├── preprod.tfvars
-      └── prod.tfvars
+environment = "test"
 
-This is one of the most important CI/CD concepts.
+gcp_project_id  = "electric-tesla-507710-k2"
+gcp_region      = "northamerica-northeast1"
+gcp_bucket_name = "advworks-dev-ingestion"
+```
 
-Step 5 — Create Snowflake database
+### Same code, different environments
 
-In main.tf:
+```text
+                    Terraform Code
+                         │
+        ┌────────────────┼─────────────────┐
+        ▼                ▼                 ▼
+   dev.tfvars       test.tfvars      preprod.tfvars
+        │                │                 │
+        ▼                ▼                 ▼
+   ADVWORKS_DEV     ADVWORKS_TEST    ADVWORKS_PREPROD
+```
 
+Eventually:
+
+```text
+DEV
+ ↓
+TEST
+ ↓
+PREPROD
+ ↓
+PROD
+```
+
+The infrastructure code remains reusable.
+
+---
+
+# Step 7 — Create Snowflake Database
+
+`main.tf`:
+
+```hcl
 resource "snowflake_database" "advworks" {
   name = var.snowflake_database
 }
-
-Terraform now owns the database definition.
+```
 
 For TEST:
 
+```text
 ADVWORKS_TEST
-Step 6 — Create Snowflake warehouse
+```
 
-Example:
+Terraform now owns the database definition.
 
+---
+
+# Step 8 — Create Snowflake Warehouse
+
+```hcl
 resource "snowflake_warehouse" "etl" {
   name           = var.snowflake_warehouse
   warehouse_size = "XSMALL"
@@ -185,18 +464,40 @@ resource "snowflake_warehouse" "etl" {
     ]
   }
 }
+```
 
 For TEST:
 
+```text
 ETL_WH_TEST
-Why?
+```
 
-This is the compute layer used by Snowflake transformations.
+### Purpose
 
-Step 7 — Create Snowflake schemas
+The warehouse provides Snowflake compute for:
 
-We created:
+```text
+dbt transformations
+SQL
+data processing
+testing
+```
 
+Important distinction:
+
+```text
+Database = data/container
+Warehouse = compute
+Schema   = logical organization
+```
+
+---
+
+# Step 9 — Create Snowflake Schemas
+
+Architecture:
+
+```text
 ADVWORKS_TEST
 │
 ├── LANDING
@@ -204,52 +505,90 @@ ADVWORKS_TEST
 ├── NORMALIZE
 ├── SCHEMATIZE
 └── MARKETPLACE
+```
 
 Example:
 
+```hcl
 resource "snowflake_schema" "landing" {
   database = snowflake_database.advworks.name
   name     = "LANDING"
 
-  is_transient       = "false"
+  is_transient        = "false"
   with_managed_access = "false"
 }
+```
 
-Same pattern is used for the other schemas.
+The same pattern is used for:
 
-Architecture
+```text
+prepare
+normalize
+schematize
+marketplace
+```
+
+### Data flow
+
+```text
+GCS
+ ↓
 LANDING
-   ↓
+ ↓
 PREPARE
-   ↓
+ ↓
 NORMALIZE
-   ↓
+ ↓
 SCHEMATIZE
-   ↓
+ ↓
 MARKETPLACE
-Step 8 — Separate metadata from Terraform code
+```
 
-This was the major architectural improvement.
+---
 
-Instead of hardcoding every table/stage/pipe directly in .tf files, we created:
+# Step 10 — Create Metadata Configuration Directory
 
+Create:
+
+```text
 terraform/config/
-├── tables.yml
-├── stages.yml
-├── file-formats.yml
-└── pipes.yml
+```
 
-This follows the same basic idea as the  repository.
+with:
 
-Step 9 — Define landing tables in YAML
+```text
+file-formats.yml
+stages.yml
+tables.yml
+pipes.yml
+```
 
-config/tables.yml:
+### Responsibility
 
+```text
+*.tf
+    = How infrastructure is created
+
+*.yml
+    = What infrastructure should exist
+```
+
+This separation is one of the most important concepts in this project.
+
+---
+
+# Step 11 — Define Landing Tables in YAML
+
+Current correct configuration:
+
+`config/tables.yml`
+
+```yaml
 fact_internet_sales:
   database: ADVWORKS
   tables:
     - name: FACT_INTERNET_SALES
-      landing_type: typed
+      landing_type: variant
 
 dim_customer:
   database: ADVWORKS
@@ -262,21 +601,53 @@ dim_product:
   tables:
     - name: DIM_PRODUCT
       landing_type: variant
-Why metadata?
+```
 
-Instead of:
+### Important correction
 
-resource "snowflake_table" "dim_customer" {}
-resource "snowflake_table" "dim_product" {}
+Initially we used:
 
-we can describe them as configuration.
+```yaml
+landing_type: typed
+```
 
-Terraform reads the YAML and dynamically creates resources.
+for FactInternetSales.
 
-Step 10 — Define GCS stages in YAML
+That was changed.
 
-config/stages.yml:
+The final practice architecture uses:
 
+```text
+VARIANT landing
+```
+
+for all three sources.
+
+Why?
+
+Because the enterprise-style landing layer should initially preserve the raw source payload.
+
+```text
+Raw JSON
+   ↓
+VARIANT
+   ↓
+PREPARE
+   ↓
+NORMALIZE
+   ↓
+SCHEMATIZE
+```
+
+This gives us schema flexibility and preserves the raw ingestion payload.
+
+---
+
+# Step 12 — Define GCS Stages
+
+`config/stages.yml`
+
+```yaml
 fact_internet_sales:
   stage_fact_internet_sales:
     gcs_path: gcs://advworks-dev-ingestion/fact_internet_sales/
@@ -288,18 +659,27 @@ dim_customer:
 dim_product:
   stage_dim_product:
     gcs_path: gcs://advworks-dev-ingestion/dim_product/
+```
 
-Conceptually:
+Architecture:
 
-GCS
- │
- ├── fact_internet_sales/
- ├── dim_customer/
- └── dim_product/
-Step 11 — Define file formats in YAML
+```text
+GCS Bucket
+│
+├── fact_internet_sales/
+├── dim_customer/
+└── dim_product/
+```
 
-config/file-formats.yml:
+Snowflake stages point to these locations.
 
+---
+
+# Step 13 — Define File Formats
+
+`config/file-formats.yml`
+
+```yaml
 fact_internet_sales:
   json_ff:
     type: JSON
@@ -311,18 +691,27 @@ dim_customer:
 dim_product:
   json_ff:
     type: JSON
+```
 
-This means the Terraform layer knows:
+Meaning:
 
-source
-   ↓
-file format
-   ↓
-JSON
-Step 12 — Define Snowpipes in YAML
+```text
+Source
+  ↓
+JSON File Format
+  ↓
+Snowflake Stage
+  ↓
+Landing Table
+```
 
-config/pipes.yml:
+---
 
+# Step 14 — Define Snowpipes
+
+`config/pipes.yml`
+
+```yaml
 fact_internet_sales:
   pipe_fact_internet_sales:
     stage: stage_fact_internet_sales
@@ -343,20 +732,29 @@ dim_product:
     stage_subdir: ""
     file_format: json_ff
     table: DIM_PRODUCT
+```
 
-This expresses:
+Conceptually:
 
+```text
 Stage
-  +
-File format
-  +
-Target table
-  =
+   +
+File Format
+   +
+Target Table
+   +
+Notification Integration
+   =
 Snowpipe
-Step 13 — Use Terraform yamldecode() to read metadata
+```
 
-locals.tf reads the YAML:
+---
 
+# Step 15 — Read YAML with yamldecode()
+
+`locals.tf`:
+
+```hcl
 locals {
   tables_config = yamldecode(
     file("${path.module}/config/tables.yml")
@@ -374,54 +772,178 @@ locals {
     file("${path.module}/config/pipes.yml")
   )
 }
-Key concept
+```
+
+### Key concept
+
+```text
 YAML
+ ↓
+file()
  ↓
 yamldecode()
  ↓
-Terraform objects
+Terraform object
+```
 
-This is the core of our metadata-driven Terraform design.
+Terraform can now process the metadata.
 
-Step 14 — Flatten metadata into Terraform-friendly structures
+---
 
-Example for tables:
+# Step 16 — Flatten Metadata
 
-tables = flatten([
-  for source_name, source_config in local.tables_config : [
-    for table_config in source_config.tables : {
-      key          = "${source_name}.${table_config.name}"
-      source       = source_name
-      database     = source_config.database
-      table_name   = table_config.name
-      landing_type = table_config.landing_type
-    }
-  ]
-])
+Continue `locals.tf`:
 
-Then:
+```hcl
+locals {
+  tables = flatten([
+    for source_name, source_config in local.tables_config : [
+      for table_config in source_config.tables : {
+        key          = "${source_name}.${table_config.name}"
+        source       = source_name
+        database     = source_config.database
+        table_name   = table_config.name
+        landing_type = table_config.landing_type
+      }
+    ]
+  ])
 
-tables_map = {
-  for table in local.tables :
-  table.key => table
+  stages = flatten([
+    for source_name, source_config in local.stages_config : [
+      for stage_name, stage_config in source_config : {
+        key        = "${source_name}.${stage_name}"
+        source     = source_name
+        stage_name = stage_name
+        gcs_path   = stage_config.gcs_path
+      }
+    ]
+  ])
+
+  file_formats = flatten([
+    for source_name, source_config in local.file_formats_config : [
+      for format_name, format_config in source_config : {
+        key         = "${source_name}.${format_name}"
+        source      = source_name
+        format_name = format_name
+        type        = format_config.type
+      }
+    ]
+  ])
+
+  pipes = flatten([
+    for source_name, source_config in local.pipes_config : [
+      for pipe_name, pipe_config in source_config : {
+        key          = "${source_name}.${pipe_name}"
+        source       = source_name
+        pipe_name    = pipe_name
+        stage        = pipe_config.stage
+        stage_subdir = pipe_config.stage_subdir
+        file_format  = pipe_config.file_format
+        table        = pipe_config.table
+      }
+    ]
+  ])
+
+  tables_map = {
+    for table in local.tables :
+    table.key => table
+  }
+
+  stages_map = {
+    for stage in local.stages :
+    stage.key => stage
+  }
+
+  file_formats_map = {
+    for format in local.file_formats :
+    format.key => format
+  }
+
+  pipes_map = {
+    for pipe in local.pipes :
+    pipe.key => pipe
+  }
 }
+```
 
-So:
+Example generated Terraform keys:
 
+```text
+fact_internet_sales.FACT_INTERNET_SALES
 dim_customer.DIM_CUSTOMER
 dim_product.DIM_PRODUCT
-fact_internet_sales.FACT_INTERNET_SALES
+```
 
-become Terraform keys.
+and:
 
-Why for_each?
+```text
+fact_internet_sales.pipe_fact_internet_sales
+dim_customer.pipe_dim_customer
+dim_product.pipe_dim_product
+```
 
-Because Terraform can dynamically create infrastructure from metadata.
+---
 
-Step 15 — Create JSON file formats dynamically
+# Step 17 — Understand for_each
 
-file-formats.tf:
+Terraform can now do:
 
+```hcl
+for_each = local.tables_map
+```
+
+instead of creating individual resources.
+
+Conceptually:
+
+```text
+tables.yml
+    │
+    ├── Customer
+    ├── Product
+    └── Fact
+         │
+         ▼
+     tables_map
+         │
+         ▼
+       for_each
+      /   |   \
+     /    |    \
+Customer Product Fact
+```
+
+### Why this matters
+
+Adding a new source becomes:
+
+```text
+Add YAML metadata
+       ↓
+terraform plan
+       ↓
+Terraform creates required objects
+```
+
+rather than:
+
+```text
+Create new .tf resource
+Create dependencies
+Create names
+Create pipe
+Create stage
+Create file format
+Repeat
+```
+
+---
+
+# Step 18 — Create File Formats Dynamically
+
+`file-formats.tf`
+
+```hcl
 resource "snowflake_file_format_json" "json" {
   for_each = local.file_formats_map
 
@@ -432,24 +954,35 @@ resource "snowflake_file_format_json" "json" {
     "FF_${each.value.source}_${each.value.format_name}"
   )
 }
+```
 
-Terraform now dynamically creates:
+Creates:
 
+```text
 FF_FACT_INTERNET_SALES_JSON_FF
 FF_DIM_CUSTOMER_JSON_FF
 FF_DIM_PRODUCT_JSON_FF
-Important lesson
+```
 
-We initially used an older generic resource, then corrected it to:
+### Important provider lesson
 
+We initially used an older generic approach.
+
+The final implementation uses:
+
+```hcl
 snowflake_file_format_json
+```
 
-because the Snowflake provider has moved toward specialized resources.
+because the current Snowflake Terraform provider uses specialized resources.
 
-Step 16 — Create GCS external stages dynamically
+---
 
-stages.tf:
+# Step 19 — Create GCS External Stages Dynamically
 
+`stages.tf`
+
+```hcl
 resource "snowflake_stage_external_gcs" "gcs" {
   for_each = local.stages_map
 
@@ -458,20 +991,42 @@ resource "snowflake_stage_external_gcs" "gcs" {
 
   name = upper(each.value.stage_name)
 
-  url = each.value.gcs_path
-
+  url                 = each.value.gcs_path
   storage_integration = "ADVWORKS_GCS_INT"
 }
+```
 
-This creates:
+Creates:
 
+```text
 ADVWORKS_TEST.LANDING.STAGE_FACT_INTERNET_SALES
+
 ADVWORKS_TEST.LANDING.STAGE_DIM_CUSTOMER
+
 ADVWORKS_TEST.LANDING.STAGE_DIM_PRODUCT
-Step 17 — Create VARIANT landing tables dynamically
+```
 
-tables.tf:
+### Dependency
 
+The stage requires:
+
+```text
+GCS
+ ↓
+Storage Integration
+ ↓
+Snowflake External Stage
+```
+
+The storage integration itself gives Snowflake permission to access the GCS bucket.
+
+---
+
+# Step 20 — Create VARIANT Landing Tables Dynamically
+
+`tables.tf`
+
+```hcl
 resource "snowflake_table" "landing_variant" {
   for_each = {
     for table in local.tables_map :
@@ -502,31 +1057,296 @@ resource "snowflake_table" "landing_variant" {
     }
   }
 }
+```
 
-This creates:
+Creates:
 
+```text
 DIM_CUSTOMER
 DIM_PRODUCT
+FACT_INTERNET_SALES
+```
 
 with:
 
-RAW_DATA       VARIANT
-SOURCE_FILE    VARCHAR
-LOAD_TIMESTAMP TIMESTAMP_NTZ
-Important
+```text
+RAW_DATA        VARIANT
+SOURCE_FILE     VARCHAR
+LOAD_TIMESTAMP  TIMESTAMP_NTZ
+```
 
-FactInternetSales is marked:
+### Why VARIANT?
 
-landing_type: typed
+Raw source JSON can be stored without forcing the landing layer to know every business column.
 
-so this resource intentionally does not create the Fact table.
+Example:
 
-We are avoiding accidentally replacing the existing working typed Fact table.
+```json
+{
+  "CustomerKey": 11000,
+  "FirstName": "John",
+  "LastName": "Smith",
+  "YearlyIncome": 50000
+}
+```
 
-Step 18 — Create Snowpipes dynamically
+becomes:
 
-pipes.tf:
+```text
+RAW_DATA
+   ↓
+VARIANT
+```
 
+Transformation happens later.
+
+---
+
+# Step 21 — Understand Snowpipe Dependency Chain
+
+This is critical.
+
+A Snowpipe depends conceptually on:
+
+```text
+GCS
+ │
+ ▼
+Pub/Sub
+ │
+ ▼
+Notification Integration
+ │
+ ▼
+Snowflake Stage
+ │
+ ▼
+File Format
+ │
+ ▼
+Landing Table
+ │
+ ▼
+Snowpipe
+```
+
+More specifically:
+
+```text
+GCS Bucket
+    │
+    │ OBJECT_FINALIZE
+    ▼
+Pub/Sub Topic
+    │
+    ▼
+Pub/Sub Subscription
+    │
+    ▼
+Snowflake Notification Integration
+    │
+    ▼
+Snowpipe
+    │
+    ├── Stage
+    ├── File Format
+    └── Landing Table
+```
+
+This dependency chain is extremely important for Terraform.
+
+---
+
+# Step 22 — Create GCP Pub/Sub Infrastructure
+
+`gcp-pubsub.tf`
+
+```hcl
+resource "google_pubsub_topic" "snowpipe" {
+  name = "${var.environment}-gcs-events"
+}
+
+resource "google_pubsub_subscription" "snowpipe" {
+  name  = "${var.environment}-gcs-events-sub"
+  topic = google_pubsub_topic.snowpipe.id
+}
+```
+
+For TEST:
+
+```text
+Topic:
+test-gcs-events
+
+Subscription:
+test-gcs-events-sub
+```
+
+---
+
+# Step 23 — Allow GCS to Publish Events
+
+```hcl
+data "google_storage_project_service_account" "gcs_account" {
+}
+
+resource "google_pubsub_topic_iam_member" "gcs_publisher" {
+  topic  = google_pubsub_topic.snowpipe.name
+  role   = "roles/pubsub.publisher"
+
+  member = "serviceAccount:${data.google_storage_project_service_account.gcs_account.email_address}"
+}
+```
+
+### Flow
+
+```text
+GCS
+ │
+ │ OBJECT_FINALIZE
+ ▼
+Pub/Sub Topic
+```
+
+GCS needs publisher permission on the topic.
+
+---
+
+# Step 24 — Configure GCS Object Notifications
+
+```hcl
+resource "google_storage_notification" "snowpipe" {
+  bucket         = var.gcp_bucket_name
+  payload_format = "JSON_API_V1"
+
+  topic = google_pubsub_topic.snowpipe.id
+
+  event_types = [
+    "OBJECT_FINALIZE"
+  ]
+
+  depends_on = [
+    google_pubsub_topic_iam_member.gcs_publisher
+  ]
+}
+```
+
+### Why OBJECT_FINALIZE?
+
+The event is generated when a new object is successfully created.
+
+Example:
+
+```text
+Upload:
+DimCustomer_batch_001.jsonl
+
+        ↓
+
+OBJECT_FINALIZE
+
+        ↓
+
+Pub/Sub message
+
+        ↓
+
+Snowpipe
+
+        ↓
+
+Snowflake
+```
+
+---
+
+# Step 25 — Create Snowflake Notification Integration
+
+```hcl
+resource "snowflake_notification_integration" "gcp" {
+  name    = upper("${var.environment}_GCS_PUBSUB_INT")
+  enabled = true
+
+  notification_provider = "GCP_PUBSUB"
+
+  gcp_pubsub_subscription_name =
+    google_pubsub_subscription.snowpipe.id
+}
+```
+
+This connects:
+
+```text
+GCP Pub/Sub
+     ↕
+Snowflake
+```
+
+For TEST:
+
+```text
+TEST_GCS_PUBSUB_INT
+```
+
+---
+
+# Step 26 — Grant Snowflake Subscriber Permission
+
+```hcl
+resource "google_pubsub_subscription_iam_member" "snowflake_subscriber" {
+  subscription = google_pubsub_subscription.snowpipe.name
+
+  role = "roles/pubsub.subscriber"
+
+  member = "serviceAccount:${snowflake_notification_integration.gcp.gcp_pubsub_service_account}"
+}
+```
+
+This is important.
+
+Snowflake needs permission to consume messages from the Pub/Sub subscription.
+
+### Full IAM flow
+
+```text
+GCS Service Account
+       │
+       │ pubsub.publisher
+       ▼
+Pub/Sub Topic
+       │
+       ▼
+Subscription
+       ▲
+       │ pubsub.subscriber
+       │
+Snowflake Service Account
+```
+
+---
+
+# Step 27 — Grant Monitoring Permission
+
+```hcl
+resource "google_project_iam_member" "snowflake_monitoring_viewer" {
+  project = var.gcp_project_id
+
+  role = "roles/monitoring.viewer"
+
+  member =
+    "serviceAccount:${snowflake_notification_integration.gcp.gcp_pubsub_service_account}"
+}
+```
+
+This allows Snowflake's integration service account to access required monitoring information.
+
+---
+
+# Step 28 — Create Snowpipes Dynamically
+
+Final `pipes.tf`:
+
+```hcl
 resource "snowflake_pipe" "landing" {
   for_each = local.pipes_map
 
@@ -537,161 +1357,1684 @@ resource "snowflake_pipe" "landing" {
 
   auto_ingest = true
 
-  integration = "ADVWORKS_GCS_PUBSUB_INT"
+  integration = snowflake_notification_integration.gcp.name
 
   copy_statement = <<-SQL
     COPY INTO ${var.snowflake_database}.${snowflake_schema.landing.name}.${each.value.table}
-    FROM @${var.snowflake_database}.${snowflake_schema.landing.name}.${upper(each.value.stage)}
+    (
+      RAW_DATA,
+      SOURCE_FILE
+    )
+    FROM (
+      SELECT
+        $1,
+        METADATA$FILENAME
+      FROM @${var.snowflake_database}.${snowflake_schema.landing.name}.${upper(each.value.stage)}
+    )
     FILE_FORMAT = (
       FORMAT_NAME = '${var.snowflake_database}.${snowflake_schema.landing.name}.${upper("FF_${each.value.source}_${each.value.file_format}")}'
     )
     ON_ERROR = 'CONTINUE'
   SQL
+
+  depends_on = [
+    snowflake_table.landing_variant
+  ]
 }
+```
 
-Terraform now understands the complete Snowpipe definition.
+### Why the SELECT?
 
-Example generated pipe:
+This was an important implementation issue.
 
-COPY INTO ADVWORKS_TEST.LANDING.DIM_CUSTOMER
-FROM @ADVWORKS_TEST.LANDING.STAGE_DIM_CUSTOMER
-FILE_FORMAT = (
-  FORMAT_NAME =
-  'ADVWORKS_TEST.LANDING.FF_DIM_CUSTOMER_JSON_FF'
-)
-ON_ERROR = 'CONTINUE'
-Step 19 — Validate Terraform before planning
+A JSON file format cannot directly map a JSON object into multiple normal table columns when the target landing table is:
 
-We use:
+```text
+RAW_DATA VARIANT
+SOURCE_FILE VARCHAR
+```
 
+Therefore:
+
+```sql
+SELECT
+    $1,
+    METADATA$FILENAME
+```
+
+maps:
+
+```text
+JSON payload
+    ↓
+RAW_DATA VARIANT
+
+GCS filename
+    ↓
+SOURCE_FILE VARCHAR
+```
+
+### Result
+
+```text
+GCS JSON
+   │
+   ▼
+Snowpipe
+   │
+   ├── $1
+   │    ↓
+   │  RAW_DATA
+   │
+   └── METADATA$FILENAME
+        ↓
+      SOURCE_FILE
+```
+
+`LOAD_TIMESTAMP` is automatically populated by:
+
+```sql
+CURRENT_TIMESTAMP()
+```
+
+---
+
+# Step 29 — Understand Terraform Resource Dependencies
+
+This is one of the most important Terraform concepts.
+
+Terraform should ultimately build something similar to:
+
+```text
+                    Database
+                       │
+                       ▼
+                    Schema
+                       │
+       ┌───────────────┼────────────────┐
+       ▼               ▼                ▼
+ File Format         Stage            Table
+       │               │                │
+       └───────────────┼────────────────┘
+                       ▼
+                 Snowpipe
+                       ▲
+                       │
+             Notification Integration
+                       ▲
+                       │
+                 Pub/Sub
+                       ▲
+                       │
+                      GCS
+```
+
+### Important explicit dependency
+
+The Snowpipe contains:
+
+```hcl
+depends_on = [
+  snowflake_table.landing_variant
+]
+```
+
+This was required because Terraform otherwise attempted to create the pipe before the table existed.
+
+The first attempt failed with:
+
+```text
+Table 'ADVWORKS_TEST.LANDING.FACT_INTERNET_SALES' does not exist
+```
+
+The dependency was then corrected.
+
+### Key lesson
+
+Terraform dependencies can be:
+
+```text
+Implicit
+```
+
+through references such as:
+
+```hcl
+snowflake_database.advworks.name
+```
+
+or:
+
+```text
+Explicit
+```
+
+using:
+
+```hcl
+depends_on = [...]
+```
+
+Use explicit dependencies when Terraform cannot correctly infer the runtime dependency.
+
+---
+
+# Step 30 — Initialize Terraform
+
+From:
+
+```text
+Data-pipeline-end-to-end\terraform
+```
+
+run:
+
+```powershell
+terraform init
+```
+
+This initialized:
+
+```text
+Snowflake provider
+Google provider
+GCS backend
+```
+
+Versions used in this project:
+
+```text
+Snowflake provider: 2.21.0
+Google provider:    8.2.0
+```
+
+---
+
+# Step 31 — Format and Validate
+
+Run:
+
+```powershell
 terraform fmt
+```
 
 Then:
 
+```powershell
 terraform validate
+```
 
-Successful result:
+Expected:
 
+```text
 Success! The configuration is valid.
-Purpose
+```
 
-Catch Terraform syntax/schema errors before touching infrastructure.
+### Golden rule
 
-Step 20 — Always PLAN before APPLY
+Never go directly from:
 
-For TEST:
+```text
+Edit
+```
 
-terraform plan -var-file=".\environments\test.tfvars"
+to:
 
-Our latest result:
+```text
+Apply
+```
 
-Plan: 11 to add, 0 to change, 0 to destroy.
+Use:
 
-The 11 resources were:
+```text
+Edit
+ ↓
+fmt
+ ↓
+validate
+ ↓
+plan
+ ↓
+review
+ ↓
+apply
+```
 
+---
+
+# Step 32 — Understand Terraform Workspaces
+
+We initially encountered an important state-management issue.
+
+The default workspace contained DEV infrastructure.
+
+When TEST was planned from the default workspace, Terraform wanted to replace DEV resources.
+
+That was stopped.
+
+We created:
+
+```text
+test
+```
+
+workspace.
+
+Command:
+
+```powershell
+terraform workspace new test
+```
+
+Then:
+
+```powershell
+terraform workspace select test
+```
+
+### Why?
+
+Terraform state is environment-specific.
+
+Correct:
+
+```text
+DEV
+ ↓
+dev state
+
+TEST
+ ↓
+test state
+```
+
+Incorrect:
+
+```text
+DEV configuration
+        +
+TEST variables
+        ↓
+same state
+```
+
+That can result in destructive plans.
+
+---
+
+# Step 33 — Import Existing TEST Infrastructure
+
+The TEST database, warehouse and schemas already existed because they had originally been created manually.
+
+We therefore imported them into Terraform state instead of recreating them.
+
+Examples:
+
+```powershell
+terraform import snowflake_database.advworks ADVWORKS_TEST
+```
+
+and the corresponding:
+
+```text
+warehouse
+landing schema
+prepare schema
+normalize schema
+schematize schema
+marketplace schema
+```
+
+### Important concept
+
+Terraform manages resources through:
+
+```text
+Configuration
+     +
+Terraform State
+     +
+Actual Infrastructure
+```
+
+If infrastructure already exists but is not in Terraform state:
+
+```text
+Terraform may try to CREATE it.
+```
+
+Import brings it under Terraform management.
+
+---
+
+# Step 34 — First Metadata Terraform Plan
+
+After YAML metadata and Terraform resources were added, the plan showed resources to create.
+
+The metadata-driven resources included:
+
+```text
 3 File Formats
 3 GCS Stages
-2 Variant Landing Tables
+3 Landing Tables
 3 Snowpipes
+```
 
-This is exactly the workflow we want:
+plus the GCP/Pub/Sub resources and IAM resources.
 
-Edit code
-   ↓
-terraform fmt
-   ↓
-terraform validate
-   ↓
+### Important
+
+The exact plan count changed during implementation because we progressively added:
+
+```text
+GCP
+notification integration
+landing tables
+Snowpipes
+IAM
+dependencies
+```
+
+Therefore, do not memorize the old:
+
+```text
+Plan: 11 to add
+```
+
+as the final state.
+
+The important point is:
+
+```text
 terraform plan
-   ↓
-Review
-   ↓
-terraform apply
-Current Terraform architecture
+     ↓
+review exact changes
+     ↓
+apply
+```
 
-At this point, remember this picture:
+---
 
+# Step 35 — Resolve Provider Preview Features
+
+The Snowflake provider required preview flags for some resources.
+
+Final provider configuration contains:
+
+```hcl
+preview_features_enabled = [
+  "snowflake_notification_integration_resource",
+  "snowflake_table_resource",
+  "snowflake_pipe_resource"
+]
+```
+
+### Important lesson
+
+Terraform provider versions matter.
+
+A Terraform configuration may be syntactically valid but still fail because:
+
+```text
+Provider version
+       +
+Resource maturity
+       +
+Preview feature requirements
+```
+
+must align.
+
+For interviews:
+
+> "I always pin provider versions and validate provider-specific resource capabilities before introducing infrastructure changes."
+
+---
+
+# Step 36 — Final Terraform Resource Inventory
+
+After successful Terraform deployment, the TEST state contained the major resources:
+
+```text
+GCP
+├── Pub/Sub topic
+├── Pub/Sub subscription
+├── GCS notification
+├── GCS publisher IAM
+├── Snowflake subscriber IAM
+└── Monitoring viewer IAM
+
+Snowflake
+├── Database
+├── Warehouse
+├── Schemas
+│
+├── File Formats
+│   ├── FACT
+│   ├── DIM_CUSTOMER
+│   └── DIM_PRODUCT
+│
+├── Stages
+│   ├── FACT
+│   ├── DIM_CUSTOMER
+│   └── DIM_PRODUCT
+│
+├── Landing Tables
+│   ├── FACT_INTERNET_SALES
+│   ├── DIM_CUSTOMER
+│   └── DIM_PRODUCT
+│
+├── Notification Integration
+│
+└── Snowpipes
+    ├── PIPE_FACT_INTERNET_SALES
+    ├── PIPE_DIM_CUSTOMER
+    └── PIPE_DIM_PRODUCT
+```
+
+Terraform state confirmed all three Snowpipes were managed:
+
+```text
+snowflake_pipe.landing["dim_customer.pipe_dim_customer"]
+
+snowflake_pipe.landing["dim_product.pipe_dim_product"]
+
+snowflake_pipe.landing["fact_internet_sales.pipe_fact_internet_sales"]
+```
+
+---
+
+# Step 37 — Verify Snowpipe Health
+
+For Fact:
+
+```sql
+SELECT SYSTEM$PIPE_STATUS(
+  'ADVWORKS_TEST.LANDING.PIPE_FACT_INTERNET_SALES'
+);
+```
+
+For Customer:
+
+```sql
+SELECT SYSTEM$PIPE_STATUS(
+  'ADVWORKS_TEST.LANDING.PIPE_DIM_CUSTOMER'
+);
+```
+
+For Product:
+
+```sql
+SELECT SYSTEM$PIPE_STATUS(
+  'ADVWORKS_TEST.LANDING.PIPE_DIM_PRODUCT'
+);
+```
+
+Expected healthy state:
+
+```text
+executionState = RUNNING
+pendingFileCount = 0
+numOutstandingMessagesOnChannel = 0
+```
+
+The TEST pipes reached this healthy state.
+
+### Meaning
+
+```text
+Snowpipe
+   │
+   ├── Running
+   ├── No pending files
+   └── No outstanding Pub/Sub messages
+```
+
+This verifies the infrastructure is ready to consume events.
+
+---
+
+# Step 38 — Understand Why Landing Counts Were Initially Zero
+
+We checked:
+
+```sql
+SELECT COUNT(*)
+FROM ADVWORKS_TEST.LANDING.FACT_INTERNET_SALES;
+```
+
+and equivalent Customer/Product tables.
+
+They were:
+
+```text
+0
+```
+
+This is expected.
+
+Why?
+
+Terraform creates:
+
+```text
+Infrastructure
+```
+
+It does NOT automatically mean:
+
+```text
+Existing GCS files
+      ↓
+re-ingested
+```
+
+The Snowpipe is waiting for new object-finalize events.
+
+Therefore:
+
+```text
+Terraform Apply
+      ↓
+Infrastructure READY
+      ↓
+New GCS Object
+      ↓
+OBJECT_FINALIZE
+      ↓
+Pub/Sub
+      ↓
+Snowpipe
+      ↓
+LANDING
+```
+
+---
+
+# Step 39 — Controlled TEST Ingestion
+
+To prove the Terraform-created Snowpipe actually works, we intentionally create a **new GCS object name**.
+
+Command:
+
+```powershell
+gcloud storage cp gs://advworks-dev-ingestion/dim_customer/DimCustomer_batch_001.jsonl gs://advworks-dev-ingestion/dim_customer/terraform_test_customer_001.jsonl
+```
+
+This creates:
+
+```text
+gs://advworks-dev-ingestion/dim_customer/terraform_test_customer_001.jsonl
+```
+
+### Why not upload the same filename?
+
+Because Snowpipe tracks processed files.
+
+Reusing the same filename can result in the file not being treated as a new ingestion event.
+
+Therefore:
+
+```text
+Existing:
+DimCustomer_batch_001.jsonl
+
+New:
+terraform_test_customer_001.jsonl
+```
+
+---
+
+# Step 40 — Event-Driven Ingestion Flow
+
+Once the new file is uploaded:
+
+```text
+gcloud storage cp
+       │
+       ▼
+GCS Bucket
+       │
+       │ OBJECT_FINALIZE
+       ▼
+Pub/Sub Topic
+       │
+       ▼
+Pub/Sub Subscription
+       │
+       ▼
+Snowflake Notification Integration
+       │
+       ▼
+Snowpipe
+       │
+       ▼
+COPY INTO
+       │
+       ▼
+ADVWORKS_TEST.LANDING.DIM_CUSTOMER
+```
+
+This is the critical end-to-end proof.
+
+---
+
+# Step 41 — Check Snowpipe Status
+
+After waiting approximately 30–60 seconds:
+
+```sql
+SELECT SYSTEM$PIPE_STATUS(
+  'ADVWORKS_TEST.LANDING.PIPE_DIM_CUSTOMER'
+);
+```
+
+Expected:
+
+```text
+executionState = RUNNING
+pendingFileCount = 0
+numOutstandingMessagesOnChannel = 0
+```
+
+---
+
+# Step 42 — Verify TEST Landing Count
+
+Run:
+
+```sql
+SELECT COUNT(*)
+FROM ADVWORKS_TEST.LANDING.DIM_CUSTOMER;
+```
+
+The copied source file contains approximately:
+
+```text
+1000 records
+```
+
+Therefore we expect approximately:
+
+```text
+1000
+```
+
+The exact result should be verified rather than assumed.
+
+---
+
+# Step 43 — Verify Raw Landing Data
+
+Run:
+
+```sql
+SELECT
+    SOURCE_FILE,
+    LOAD_TIMESTAMP,
+    RAW_DATA
+FROM ADVWORKS_TEST.LANDING.DIM_CUSTOMER
+ORDER BY LOAD_TIMESTAMP DESC
+LIMIT 5;
+```
+
+Expected:
+
+```text
+SOURCE_FILE
+--------------------------------------------
+dim_customer/terraform_test_customer_001.jsonl
+```
+
+and:
+
+```text
+RAW_DATA
+--------------------------------------------
+JSON / VARIANT payload
+```
+
+This proves that:
+
+```text
+JSON
+ ↓
+VARIANT
+```
+
+and:
+
+```text
+GCS filename
+ ↓
+SOURCE_FILE
+```
+
+are working.
+
+---
+
+# Step 44 — DO NOT Manually Pull the Pub/Sub Subscription
+
+Once Snowpipe is connected:
+
+```text
+DO NOT manually pull/ACK messages
+```
+
+from:
+
+```text
+test-gcs-events-sub
+```
+
+Why?
+
+Because Snowflake/Snowpipe needs those messages.
+
+If you manually consume and acknowledge them:
+
+```text
+GCS
+ ↓
+Pub/Sub
+ ↓
+Manual pull
+ ↓
+ACK
+```
+
+Snowpipe may no longer receive the notification.
+
+The correct flow is:
+
+```text
+GCS
+ ↓
+Pub/Sub
+ ↓
+Snowflake/Snowpipe
+```
+
+---
+
+# Step 45 — Final Metadata-Driven Architecture
+
+The completed Terraform design is:
+
+```text
                     Git
                      │
                      ▼
-             Terraform Config
+             Terraform Repository
                      │
+          ┌──────────┴───────────┐
+          │                      │
+        *.tf                   *.yml
+          │                      │
+ Terraform Logic          Infrastructure Metadata
+          │                      │
+          └──────────┬───────────┘
+                     ▼
+                 yamldecode
+                     │
+                     ▼
+                  locals
+                     │
+                 flatten()
+                     │
+                 for_each
+                     │
+                     ▼
+              Terraform Plan
+                     │
+                     ▼
         ┌────────────┴────────────┐
         │                         │
-      *.tf                       *.yml
+       GCP                    Snowflake
         │                         │
-        │                  Metadata/config
+   ┌────┴────┐          ┌─────────┴──────────┐
+   │ GCS     │          │ File Formats       │
+   │ Pub/Sub │          │ Stages             │
+   │ IAM     │          │ Landing Tables     │
+   └────┬────┘          │ Notification Int.  │
+        │               │ Snowpipes          │
+        │               └─────────┬──────────┘
         │                         │
-        └────────────┬────────────┘
-                     ▼
-               Terraform Plan
+        └──── OBJECT EVENT ───────┘
+                                  │
+                                  ▼
+                               LANDING
+                                  │
+                                  ▼
+                                 dbt
+                                  │
+                                  ▼
+                      PREPARE → NORMALIZE
+                                  │
+                                  ▼
+                            SCHEMATIZE
+                                  │
+                                  ▼
+                            MARKETPLACE
+```
+
+---
+
+# Step 46 — Complete Dependency Order
+
+This is the sequence you should remember.
+
+```text
+1. Terraform Backend
+        ↓
+2. Providers
+        ↓
+3. Authentication / Variables
+        ↓
+4. Environment tfvars
+        ↓
+5. Snowflake Database
+        ↓
+6. Snowflake Warehouse
+        ↓
+7. Snowflake Schemas
+        ↓
+8. GCS / Pub/Sub Infrastructure
+        ↓
+9. Snowflake Storage Integration
+        ↓
+10. Snowflake Notification Integration
+        ↓
+11. Pub/Sub IAM
+        ↓
+12. YAML Metadata
+        ↓
+13. Terraform locals
+        ↓
+14. File Formats
+        ↓
+15. External GCS Stages
+        ↓
+16. Landing Tables
+        ↓
+17. Snowpipes
+        ↓
+18. terraform plan
+        ↓
+19. terraform apply
+        ↓
+20. Snowpipe health check
+        ↓
+21. New GCS file
+        ↓
+22. OBJECT_FINALIZE
+        ↓
+23. Pub/Sub
+        ↓
+24. Snowpipe
+        ↓
+25. LANDING verification
+```
+
+---
+
+# Step 47 — Terraform Dependency vs Data Dependency
+
+Do not confuse these two.
+
+### Infrastructure dependency
+
+Terraform must create:
+
+```text
+Table
+ ↓
+Pipe
+```
+
+before the pipe can reference the table.
+
+### Data dependency
+
+Runtime data flows:
+
+```text
+GCS
+ ↓
+Pub/Sub
+ ↓
+Snowpipe
+ ↓
+LANDING
+ ↓
+dbt
+```
+
+Terraform manages the infrastructure.
+
+It does not replace the runtime data pipeline.
+
+---
+
+# Step 48 — What Terraform Owns vs What dbt Owns
+
+This distinction is extremely important.
+
+## Terraform owns infrastructure
+
+```text
+GCS
+Pub/Sub
+IAM
+Snowflake Database
+Snowflake Warehouse
+Snowflake Schemas
+Snowflake File Formats
+Snowflake Stages
+Snowflake Landing Tables
+Snowflake Notification Integrations
+Snowpipes
+```
+
+## dbt owns data transformation
+
+```text
+LANDING
+   ↓
+PREPARE
+   ↓
+NORMALIZE
+   ↓
+SCHEMATIZE
+   ↓
+MARKETPLACE
+```
+
+dbt also owns:
+
+```text
+Tests
+Documentation
+Data modelling
+Transformation logic
+Model dependencies
+```
+
+### Important
+
+Do not use dbt to create Snowpipes.
+
+Do not use Terraform to contain large SQL transformation logic.
+
+Keep responsibilities separated.
+
+---
+
+# Step 49 — Enterprise Pattern Comparison
+
+Enterprise-style architecture:
+
+```text
+                    YAML
                      │
                      ▼
-                Snowflake
+                  Terraform
                      │
-       ┌─────────────┼─────────────┐
-       ▼             ▼             ▼
- File Formats     GCS Stages    Tables
-       │             │             │
-       └─────────────┼─────────────┘
+        ┌────────────┼────────────┐
+        ▼            ▼            ▼
+     Tables        Stages      File Formats
+                     │
                      ▼
-                 Snowpipes
-The most important interview takeaway
+                  Pipes
+                     │
+                     ▼
+                    GCS
+                     │
+                  Pub/Sub
+                     │
+                  Snowflake
+```
 
-If an interviewer asks:
+dbt:
 
-"Why did you use YAML with Terraform instead of hardcoding every Snowflake object?"
+```text
+landing.yml
+     │
+     ▼
+LANDING sources
+     │
+     ▼
+PREPARE
+     │
+     ▼
+NORMALIZE
+     │
+     ▼
+SCHEMATIZE
+     │
+     ▼
+MARKETPLACE
+```
 
-Your answer:
+The important lesson is that **metadata drives reusable infrastructure**.
 
-"We separated infrastructure logic from infrastructure metadata. Terraform contains the reusable resource definitions, while YAML defines source-specific metadata such as tables, stages, file formats and pipes. Terraform uses yamldecode, for expressions and for_each to dynamically provision the resources. This makes onboarding a new source mostly a configuration change rather than requiring new Terraform resource blocks, which is more scalable and consistent with an enterprise metadata-driven ingestion framework."
+For example, code uses metadata such as:
 
-That's the core lesson of everything we've done so far.
+```yaml
+meta:
+  with_pipe: true
+```
 
-Current checkpoint
-✅ Terraform remote state
+This does not mean the YAML itself is a Snowpipe.
+
+It means metadata can tell automation:
+
+```text
+"This source/table requires a pipe."
+```
+
+Terraform then creates the physical Snowpipe.
+
+---
+
+# Step 50 — Adding a New Source
+
+Suppose we add:
+
+```text
+DimEmployee
+```
+
+The desired approach is:
+
+### 1. Add metadata
+
+```yaml
+dim_employee:
+  database: ADVWORKS
+  tables:
+    - name: DIM_EMPLOYEE
+      landing_type: variant
+```
+
+### 2. Add stage metadata
+
+```yaml
+dim_employee:
+  stage_dim_employee:
+    gcs_path: gcs://advworks-dev-ingestion/dim_employee/
+```
+
+### 3. Add file format
+
+```yaml
+dim_employee:
+  json_ff:
+    type: JSON
+```
+
+### 4. Add pipe
+
+```yaml
+dim_employee:
+  pipe_dim_employee:
+    stage: stage_dim_employee
+    stage_subdir: ""
+    file_format: json_ff
+    table: DIM_EMPLOYEE
+```
+
+### 5. Run:
+
+```powershell
+terraform fmt
+```
+
+```powershell
+terraform validate
+```
+
+```powershell
+terraform plan -var-file=".\environments\test.tfvars"
+```
+
+Review:
+
+```text
+New file format
+New stage
+New table
+New pipe
+```
+
+Then:
+
+```powershell
+terraform apply -var-file=".\environments\test.tfvars"
+```
+
+This demonstrates the value of metadata-driven infrastructure.
+
+---
+
+# Step 51 — Terraform Change Workflow
+
+The standard development workflow should now be:
+
+```text
+Developer changes YAML / Terraform
+              │
+              ▼
+        git diff / review
+              │
+              ▼
+        terraform fmt
+              │
+              ▼
+       terraform validate
+              │
+              ▼
+        terraform plan
+              │
+              ▼
+      Review add/change/destroy
+              │
+              ▼
+       Pull Request / Merge
+              │
+              ▼
+         CI/CD Pipeline
+              │
+              ▼
+             DEV
+              │
+              ▼
+             TEST
+              │
+              ▼
+           PREPROD
+              │
+              ▼
+        PROD approval
+              │
+              ▼
+             PROD
+```
+
+This is the next major step for the project.
+
+---
+
+# Step 52 — Security Lessons — DO NOT MISS
+
+Never commit:
+
+```text
+*.p8
+*.pem
+*.key
+*.json credentials
+passphrase files
+terraform.tfstate
+terraform.tfstate.backup
+.env
+```
+
+The project previously had a Snowflake passphrase accidentally committed to Git history.
+
+It was removed from Git history.
+
+### Current rule
+
+```text
+Secrets
+  ↓
+Environment variables / secure CI variables
+  ↓
+Terraform
+```
+
+Not:
+
+```text
+Secrets
+  ↓
+Git
+```
+
+Also remember:
+
+> A secret deleted from the latest Git commit may still exist in Git history.
+
+If a secret was exposed, treat it as compromised and rotate it where appropriate.
+
+---
+
+# Step 53 — Critical GCP Environment Consideration
+
+Our practice TEST configuration currently uses:
+
+```hcl
+gcp_bucket_name = "advworks-dev-ingestion"
+```
+
+Therefore DEV and TEST are not completely isolated at the GCS bucket level.
+
+Architecture currently resembles:
+
+```text
+Shared GCS Bucket
+        │
+        ├── fact_internet_sales/
+        ├── dim_customer/
+        └── dim_product/
+```
+
+This is acceptable for practice, but a production design should preferably isolate environments using:
+
+```text
+Separate buckets
+```
+
+or:
+
+```text
+Environment-specific prefixes + notification filtering
+```
+
+For example:
+
+```text
+advworks-dev-ingestion
+advworks-test-ingestion
+advworks-preprod-ingestion
+advworks-prod-ingestion
+```
+
+This should be addressed when we cover production architecture and environment isolation.
+
+---
+
+# Step 54 — What We Have Proven
+
+At this point we have demonstrated:
+
+```text
+                    Terraform
+                       │
+                       ▼
+               Infrastructure as Code
+                       │
+          ┌────────────┴────────────┐
+          ▼                         ▼
+         GCP                    Snowflake
+          │                         │
+       Pub/Sub                File Formats
+       IAM                    GCS Stages
+       GCS Events             Landing Tables
+          │                    Notification
+          │                    Integration
+          │                    Snowpipes
+          │                         │
+          └──────────┬──────────────┘
+                     ▼
+                Event Driven
+                 Ingestion
+                     │
+                     ▼
+                  LANDING
+```
+
+The important difference from the earlier manual implementation is:
+
+```text
+BEFORE
+
+Manual SQL
+Manual stages
+Manual pipes
+Manual IAM
+Manual integration
+       ↓
+Working pipeline
+
+
+NOW
+
+YAML metadata
+      ↓
+Terraform
+      ↓
+Infrastructure
+      ↓
+Working event-driven pipeline
+```
+
+That is the actual learning milestone.
+
+---
+
+# Step 55 — Interview Questions You Should Be Able to Answer
+
+## Q1. Why Terraform?
+
+**Answer:**
+
+> "I use Terraform to manage Snowflake and GCP infrastructure as code. Instead of manually creating stages, file formats, landing tables, notification integrations and Snowpipes, I define them declaratively so infrastructure is version-controlled, repeatable and deployable through CI/CD."
+
+---
+
+## Q2. Why use YAML?
+
+**Answer:**
+
+> "YAML separates source-specific infrastructure metadata from reusable Terraform resource logic. Terraform uses `yamldecode`, locals and `for_each` to dynamically provision resources. This makes onboarding a new source primarily a metadata change instead of requiring new Terraform resource blocks."
+
+---
+
+## Q3. Why use `for_each`?
+
+**Answer:**
+
+> "`for_each` allows Terraform to create multiple resources from a metadata map. For example, the same Snowpipe resource definition can create FactInternetSales, DimCustomer and DimProduct pipes based on YAML configuration."
+
+---
+
+## Q4. Why use VARIANT in the landing layer?
+
+**Answer:**
+
+> "The landing layer is intended to preserve the raw source payload. VARIANT allows us to ingest JSON without tightly coupling the raw layer to a predefined relational schema. Business transformations and type conversions happen downstream in dbt."
+
+---
+
+## Q5. What is the difference between Terraform and dbt?
+
+**Answer:**
+
+> "Terraform manages infrastructure, such as Snowflake databases, schemas, stages, tables, integrations and Snowpipes. dbt manages data transformation, modelling, testing and documentation from LANDING through the analytical layers."
+
+---
+
+## Q6. Explain Snowpipe auto-ingestion.
+
+**Answer:**
+
+> "A new object is finalized in GCS, which generates an OBJECT_FINALIZE event. The event is published to Pub/Sub. Snowflake's notification integration listens to the Pub/Sub subscription, and the Snowpipe uses the notification to identify the new file and execute its COPY statement into the landing table."
+
+---
+
+## Q7. Why do we need Pub/Sub?
+
+**Answer:**
+
+> "Pub/Sub provides the event notification mechanism between GCS and Snowflake. Instead of continuously polling the bucket for new files, Snowflake can react to object-finalize events."
+
+---
+
+## Q8. Why `depends_on`?
+
+**Answer:**
+
+> "Terraform normally infers dependencies from resource references, but some runtime dependencies are not fully represented in the Terraform expression graph. I used explicit `depends_on` for the Snowpipe-to-table dependency because the pipe creation could otherwise occur before the landing table existed."
+
+---
+
+## Q9. What happens if Terraform state is wrong?
+
+**Answer:**
+
+> "Terraform compares configuration against its state and the real infrastructure. If the wrong workspace or state is used, Terraform may interpret resources from another environment as needing replacement. Therefore environment-specific state/workspaces and careful plan review are critical."
+
+---
+
+## Q10. Why remote state?
+
+**Answer:**
+
+> "Remote state provides a shared source of truth for Terraform infrastructure and is essential for collaborative development and CI/CD. It also prevents each developer or pipeline from maintaining an isolated local state."
+
+---
+
+# Step 56 — The Most Important Mental Model
+
+Remember this:
+
+```text
+YAML
+ │
+ │ "What sources do I have?"
+ ▼
+Terraform locals
+ │
+ │ "Convert metadata into objects"
+ ▼
+for_each
+ │
+ │ "Create resources dynamically"
+ ▼
+Terraform
+ │
+ │ "How should infrastructure exist?"
+ ▼
+GCP + Snowflake
+ │
+ │ "Infrastructure is ready"
+ ▼
+Runtime data pipeline
+ │
+ ▼
+GCS
+ │
+ ▼
+Pub/Sub
+ │
+ ▼
+Snowpipe
+ │
+ ▼
+LANDING
+ │
+ ▼
+dbt
+ │
+ ▼
+PREPARE
+ │
+ ▼
+NORMALIZE
+ │
+ ▼
+SCHEMATIZE
+ │
+ ▼
+MARKETPLACE
+```
+
+---
+
+# Step 57 — Current Project Checkpoint
+
+## Terraform
+
+```text
+✅ Remote GCS backend
 ✅ Snowflake provider
-✅ Environment-specific tfvars
+✅ Google provider
+✅ Key-pair authentication
+✅ Environment tfvars
+✅ Terraform workspaces
+✅ Existing infrastructure import
 ✅ Database
 ✅ Warehouse
 ✅ Schemas
-✅ YAML metadata
+```
+
+## Metadata-driven infrastructure
+
+```text
+✅ tables.yml
+✅ stages.yml
+✅ file-formats.yml
+✅ pipes.yml
 ✅ yamldecode()
-✅ Terraform locals
+✅ flatten()
+✅ locals
 ✅ for_each
-✅ Dynamic file formats
-✅ Dynamic GCS stages
-✅ Dynamic landing tables
-✅ Dynamic Snowpipes
+```
+
+## Snowflake ingestion infrastructure
+
+```text
+✅ JSON file formats
+✅ External GCS stages
+✅ VARIANT landing tables
+✅ Notification integration
+✅ Snowpipes
+✅ Auto ingestion
+```
+
+## GCP
+
+```text
+✅ GCS bucket
+✅ Pub/Sub topic
+✅ Pub/Sub subscription
+✅ GCS OBJECT_FINALIZE notification
+✅ GCS publisher IAM
+✅ Snowflake subscriber IAM
+✅ Monitoring viewer IAM
+```
+
+## Validation
+
+```text
 ✅ terraform fmt
 ✅ terraform validate
-✅ TEST plan = 11 add / 0 change / 0 destroy
+✅ terraform plan
+✅ terraform apply
+✅ Terraform state verification
+✅ Snowpipe SYSTEM$PIPE_STATUS verification
+🟢 Controlled TEST ingestion initiated
+⏳ TEST row-count verification
+```
 
-⏭️ Next:
-GCP Pub/Sub → Snowflake Notification Integration → Snowpipe
+---
 
-This is the point where we move from "Terraform creates Snowflake objects" to "Terraform creates the complete event-driven ingestion infrastructure."
+# Step 58 — Current End-to-End Proof
 
-                 GCS
-                  │
-          OBJECT_FINALIZE
-                  │
-                  ▼
-        Pub/Sub Topic
-        test-gcs-events
-                  │
-                  ▼
-      Pub/Sub Subscription
-      test-gcs-events-sub
-                  │
-                  ▼
-     Snowflake Notification
-       TEST_GCS_PUBSUB_INT
-                  │
-        ┌─────────┼─────────┐
-        ▼         ▼         ▼
-     Pipe       Pipe       Pipe
-     Fact       Customer   Product
-        │         │         │
-        ▼         ▼         ▼
-    LANDING    LANDING    LANDING
+The exact proof we are completing now is:
+
+```text
+                 TERRAFORM
+                     │
+                     ▼
+        ┌─────────────────────────┐
+        │ TEST Infrastructure     │
+        │                         │
+        │ Stage                   │
+        │ File Format             │
+        │ Landing Table           │
+        │ Pub/Sub                 │
+        │ Notification Integration│
+        │ Snowpipe                │
+        └────────────┬────────────┘
+                     │
+                     ▼
+              New GCS File
+                     │
+                     ▼
+              OBJECT_FINALIZE
+                     │
+                     ▼
+                Pub/Sub
+                     │
+                     ▼
+                Snowpipe
+                     │
+                     ▼
+          TEST.LANDING.DIM_CUSTOMER
+                     │
+                     ▼
+              COUNT(*) ≈ 1000
+```
+
+Once the count is confirmed, the **Terraform metadata-driven Snowpipe implementation is functionally proven**.
+
+---
+
+# Step 59 — What Comes Next
+
+Do **not** manually create more Snowflake objects.
+
+The next phase is:
+
+```text
+Terraform Infrastructure
+          ↓
+       COMPLETE
+          │
+          ▼
+Azure DevOps CI/CD
+          │
+          ├── Terraform fmt
+          ├── Terraform validate
+          ├── Terraform plan
+          ├── DEV apply
+          ├── TEST apply
+          ├── PREPROD apply
+          └── PROD approval + apply
+          │
+          ▼
+dbt CI/CD
+          │
+          ├── dbt parse
+          ├── dbt compile
+          ├── dbt build
+          ├── dbt test
+          └── environment promotion
+          │
+          ▼
+Production-style pipeline
+```
+
+After that we continue with:
+
+```text
+Monitoring
+     ↓
+Error Handling
+     ↓
+Retry / Idempotency
+     ↓
+Incremental / CDC
+     ↓
+Security / IAM
+     ↓
+Performance / Cost
+     ↓
+Production Architecture
+     ↓
+BI Consumption
+     ↓
+Interview Case Studies
+     ↓
+Mock Interviews
+     ↓
+AIRFLOW — LAST
+```
+
+---
+
+# Final Interview Summary
+
+If asked:
+
+### "Explain your Terraform implementation."
+
+Use this:
+
+> "I built a metadata-driven Terraform framework for a Snowflake ingestion pipeline. YAML files define source-specific metadata for landing tables, GCS stages, JSON file formats and Snowpipes. Terraform reads that metadata using `yamldecode`, transforms it through locals and `flatten`, and uses `for_each` to dynamically create the infrastructure. GCP resources such as Pub/Sub topics, subscriptions, GCS notifications and IAM are also managed through Terraform. Snowflake uses a GCS storage integration and Pub/Sub notification integration for event-driven Snowpipe ingestion. The landing layer uses VARIANT to preserve raw JSON, while dbt owns downstream transformations from LANDING through PREPARE, NORMALIZE, SCHEMATIZE and MARKETPLACE. The infrastructure is stored in remote GCS state and is designed to be promoted through Azure DevOps CI/CD across DEV, TEST, PREPROD and PROD."
+
+That is the **core story of this entire Terraform phase**.
