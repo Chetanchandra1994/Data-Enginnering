@@ -2,7 +2,7 @@ fact_internet_sales:
   database: ADVWORKS
   tables:
     - name: FACT_INTERNET_SALES
-      landing_type: typed
+      landing_type: variant
 
 dim_customer:
   database: ADVWORKS

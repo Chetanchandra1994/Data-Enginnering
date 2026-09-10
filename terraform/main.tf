@@ -6,6 +6,12 @@ provider "snowflake" {
   private_key            = file(var.snowflake_private_key_path)
   private_key_passphrase = var.snowflake_private_key_passphrase
   role                   = var.snowflake_role
+
+  preview_features_enabled = [
+    "snowflake_notification_integration_resource",
+    "snowflake_table_resource",
+    "snowflake_pipe_resource"
+  ]
 }
 
 

@@ -671,3 +671,27 @@ Current checkpoint
 GCP Pub/Sub → Snowflake Notification Integration → Snowpipe
 
 This is the point where we move from "Terraform creates Snowflake objects" to "Terraform creates the complete event-driven ingestion infrastructure."
+
+                 GCS
+                  │
+          OBJECT_FINALIZE
+                  │
+                  ▼
+        Pub/Sub Topic
+        test-gcs-events
+                  │
+                  ▼
+      Pub/Sub Subscription
+      test-gcs-events-sub
+                  │
+                  ▼
+     Snowflake Notification
+       TEST_GCS_PUBSUB_INT
+                  │
+        ┌─────────┼─────────┐
+        ▼         ▼         ▼
+     Pipe       Pipe       Pipe
+     Fact       Customer   Product
+        │         │         │
+        ▼         ▼         ▼
+    LANDING    LANDING    LANDING

@@ -7,14 +7,27 @@ resource "snowflake_pipe" "landing" {
 
   auto_ingest = true
 
-  integration = "ADVWORKS_GCS_PUBSUB_INT"
+  integration = snowflake_notification_integration.gcp.name
 
   copy_statement = <<-SQL
     COPY INTO ${var.snowflake_database}.${snowflake_schema.landing.name}.${each.value.table}
-    FROM @${var.snowflake_database}.${snowflake_schema.landing.name}.${upper(each.value.stage)}
+    (
+      RAW_DATA,
+      SOURCE_FILE
+    )
+    FROM (
+      SELECT
+        $1,
+        METADATA$FILENAME
+      FROM @${var.snowflake_database}.${snowflake_schema.landing.name}.${upper(each.value.stage)}
+    )
     FILE_FORMAT = (
       FORMAT_NAME = '${var.snowflake_database}.${snowflake_schema.landing.name}.${upper("FF_${each.value.source}_${each.value.file_format}")}'
     )
     ON_ERROR = 'CONTINUE'
   SQL
+
+  depends_on = [
+    snowflake_table.landing_variant
+  ]
 }
