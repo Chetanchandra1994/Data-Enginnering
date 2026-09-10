@@ -53,6 +53,40 @@ The goal is not merely to create Snowflake objects with Terraform. The goal is t
 
 # 2. Metadata-Driven Design
 
+Terraform Metadata-Driven Infrastructure
+                    │
+                    ▼
+              YAML Metadata
+                    │
+                    ▼
+              Terraform locals
+                    │
+                    ▼
+                 for_each
+                    │
+        ┌───────────┴───────────┐
+        ▼                       ▼
+       GCP                   Snowflake
+        │                       │
+       GCS                  Stages
+        │                  File Formats
+     Pub/Sub               Tables
+        │                  Notification
+        │                  Integration
+        │                  Snowpipes
+        │                       │
+        └───────────┬───────────┘
+                    ▼
+              EVENT-DRIVEN
+               INGESTION
+                    │
+                    ▼
+                 LANDING
+                    │
+                    ▼
+                 1,000 rows
+                    ✅
+
 The central design is:
 
 ```text
