@@ -1,0 +1,20 @@
+fact_internet_sales:
+  pipe_fact_internet_sales:
+    stage: stage_fact_internet_sales
+    stage_subdir: ""
+    file_format: json_ff
+    table: FACT_INTERNET_SALES
+
+dim_customer:
+  pipe_dim_customer:
+    stage: stage_dim_customer
+    stage_subdir: ""
+    file_format: json_ff
+    table: DIM_CUSTOMER
+
+dim_product:
+  pipe_dim_product:
+    stage: stage_dim_product
+    stage_subdir: ""
+    file_format: json_ff
+    table: DIM_PRODUCT

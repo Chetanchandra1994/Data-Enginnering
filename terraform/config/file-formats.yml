@@ -1,0 +1,11 @@
+fact_internet_sales:
+  json_ff:
+    type: JSON
+
+dim_customer:
+  json_ff:
+    type: JSON
+
+dim_product:
+  json_ff:
+    type: JSON

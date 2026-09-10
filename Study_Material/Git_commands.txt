@@ -1,0 +1,26 @@
+To get repo structure:
+
+(.venv) PS C:\Users\Admin\Documents\Courses\Pipeline\Data-pipeline-end-to-end> 
+git status; 
+Write-Host "`n===== REPO STRUCTURE =====" -ForegroundColor Cyan; 
+Get-ChildItem -Recurse -File | Where-Object { $_.FullName -notmatch '\\(\.git|\.venv|\.terraform|__pycache__|logs|output|storage|storage_bucket|node_modules)\\' } | ForEach-Object { $_.FullName.Replace((Get-Location).Path + '\','') }
+On branch main
+nothing to commit, working tree clean
+
+===== REPO STRUCTURE =====
+.gitignore
+azure-pipelines.yml
+azure-pipelines_yml_backup.yml
+Data-pipeline-end-to-end.code-workspace
+README.md
+
+
+when it asks passphrase or something: enter below commands in one line:
+$p=Read-Host "Snowflake private key passphrase" -AsSecureString; $env:TF_VAR_snowflake_private_key_passphrase=[Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($p)); 
+$env:TF_VAR_snowflake_private_key_path="$HOME\.snowflake\snowflake_tf_key.p8"; 
+$env:TF_VAR_snowflake_organization_name="QNFANFA"; 
+$env:TF_VAR_snowflake_account_name="QI17075"; 
+$env:TF_VAR_snowflake_user="CHETANCHANDRA81"; $env:TF_VAR_snowflake_role="ACCOUNTADMIN"; 
+$env:TF_VAR_snowflake_warehouse="ETL_WH_TEST"; 
+$env:TF_VAR_snowflake_database="ADVWORKS_TEST"; 
+$env:TF_VAR_environment="test"

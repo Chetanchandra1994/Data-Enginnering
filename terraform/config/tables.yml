@@ -1,0 +1,17 @@
+fact_internet_sales:
+  database: ADVWORKS
+  tables:
+    - name: FACT_INTERNET_SALES
+      landing_type: typed
+
+dim_customer:
+  database: ADVWORKS
+  tables:
+    - name: DIM_CUSTOMER
+      landing_type: variant
+
+dim_product:
+  database: ADVWORKS
+  tables:
+    - name: DIM_PRODUCT
+      landing_type: variant
