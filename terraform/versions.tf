@@ -11,5 +11,10 @@ terraform {
       source  = "snowflakedb/snowflake"
       version = "~> 2.0"
     }
+
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 8.0"
+    }
   }
 }
