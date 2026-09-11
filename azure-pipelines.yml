@@ -1,5 +1,6 @@
 trigger:
-  - main
+  #- main
+  - none
 
 variables:
   - group: snowflake-dev-secrets
