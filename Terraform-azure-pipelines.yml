@@ -37,21 +37,13 @@ stages:
         # ----------------------------------------------------
 
         - script: |
-            curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip \
-              -o /tmp/terraform.zip
-
-            rm -rf /tmp/terraform-install
-            mkdir -p /tmp/terraform-install
-
-            unzip -o /tmp/terraform.zip \
-              -d /tmp/terraform-install
-
-            chmod +x /tmp/terraform-install/terraform
-
-            echo "##vso[task.prependpath]/tmp/terraform-install"
-
-            terraform version
-
+              curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
+              rm -rf /tmp/terraform-install
+              mkdir -p /tmp/terraform-install
+              unzip -o /tmp/terraform.zip -d /tmp/terraform-install
+              chmod +x /tmp/terraform-install/terraform
+              /tmp/terraform-install/terraform version
+              echo "##vso[task.prependpath]/tmp/terraform-install"
           displayName: 'Install Terraform'
 
         # ----------------------------------------------------
