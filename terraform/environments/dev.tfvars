@@ -5,3 +5,7 @@ snowflake_role              = "ACCOUNTADMIN"
 snowflake_warehouse         = "ETL_WH_DEV"
 snowflake_database          = "ADVWORKS_DEV"
 environment                 = "dev"
+
+gcp_project_id  = "electric-tesla-507710-k2"
+gcp_region      = "northamerica-northeast1"
+gcp_bucket_name = "advworks-dev-ingestion"

@@ -68,6 +68,7 @@ steps:
       cd terraform
 
       terraform plan \
+        -input=false \
         -var-file="./environments/${{ parameters.environment }}.tfvars" \
         -out="$(Build.ArtifactStagingDirectory)/${{ parameters.environment }}.tfplan"
 
