@@ -11,6 +11,9 @@ pr:
 pool:
   vmImage: ubuntu-latest
 
+variables:
+  - group: snowflake-dev-secrets
+
 stages:
 
 # ============================================================
@@ -26,10 +29,6 @@ stages:
 
       steps:
 
-        # ----------------------------------------------------
-        # Checkout
-        # ----------------------------------------------------
-
         - checkout: self
 
         # ----------------------------------------------------
@@ -37,13 +36,13 @@ stages:
         # ----------------------------------------------------
 
         - script: |
-              curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
-              rm -rf /tmp/terraform-install
-              mkdir -p /tmp/terraform-install
-              unzip -o /tmp/terraform.zip -d /tmp/terraform-install
-              chmod +x /tmp/terraform-install/terraform
-              /tmp/terraform-install/terraform version
-              echo "##vso[task.prependpath]/tmp/terraform-install"
+            curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
+            rm -rf /tmp/terraform-install
+            mkdir -p /tmp/terraform-install
+            unzip -o /tmp/terraform.zip -d /tmp/terraform-install
+            chmod +x /tmp/terraform-install/terraform
+            /tmp/terraform-install/terraform version
+            echo "##vso[task.prependpath]/tmp/terraform-install"
           displayName: 'Install Terraform'
 
         # ----------------------------------------------------
@@ -52,9 +51,7 @@ stages:
 
         - script: |
             cd terraform
-
             terraform fmt -check -recursive
-
           displayName: 'Terraform Format Check'
 
         # ----------------------------------------------------
@@ -63,9 +60,7 @@ stages:
 
         - script: |
             cd terraform
-
             terraform init -backend=false
-
           displayName: 'Terraform Init'
 
         # ----------------------------------------------------
@@ -74,10 +69,9 @@ stages:
 
         - script: |
             cd terraform
-
             terraform validate
-
           displayName: 'Terraform Validate'
+
 
 # ============================================================
 # 2. TERRAFORM PLAN - DEV
@@ -98,23 +92,6 @@ stages:
 
         - checkout: self
 
-        - template: templates/terraform-plan.yml
+        - template: terraform/templates/terraform-plan.yml
           parameters:
             environment: dev
-
-        - script: |
-            set -e
-
-            export TF_VAR_snowflake_private_key_path="$(snowflakeKey.secureFilePath)"
-            export TF_VAR_snowflake_private_key_passphrase="$SNOWFLAKE_PRIVATE_KEY_PASSPHRASE"
-
-            cd terraform
-
-            terraform plan \
-              -var-file="./environments/${{ parameters.environment }}.tfvars" \
-              -out="$(Build.ArtifactStagingDirectory)/${{ parameters.environment }}.tfplan"
-
-          displayName: 'Terraform Plan - ${{ parameters.environment }}'
-
-variables:
-  - group: snowflake-dev-secrets

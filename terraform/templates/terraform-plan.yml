@@ -1,77 +1,70 @@
 parameters:
+
   - name: environment
     type: string
 
+
 steps:
 
-  # ==========================================================
-  # 1. INSTALL TERRAFORM
-  # ==========================================================
+  # ----------------------------------------------------------
+  # Install Terraform
+  # ----------------------------------------------------------
 
   - script: |
       set -e
 
-      curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip \
-        -o /tmp/terraform.zip
-
+      curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
       rm -rf /tmp/terraform-install
-
       mkdir -p /tmp/terraform-install
-
-      unzip -o /tmp/terraform.zip \
-        -d /tmp/terraform-install
-
+      unzip -o /tmp/terraform.zip -d /tmp/terraform-install
       chmod +x /tmp/terraform-install/terraform
-
+      /tmp/terraform-install/terraform version
       echo "##vso[task.prependpath]/tmp/terraform-install"
-
-      terraform version
 
     displayName: 'Install Terraform'
 
 
-  # ==========================================================
-  # 2. DOWNLOAD SNOWFLAKE PRIVATE KEY
-  # ==========================================================
-
-  - task: DownloadSecureFile@1
-    name: snowflakeKey
-    displayName: 'Download Snowflake Private Key'
-    inputs:
-      secureFile: 'snowflake_tf_key.p8'
-
-
-  # ==========================================================
-  # 3. GOOGLE CLOUD WIF
-  # ==========================================================
+  # ----------------------------------------------------------
+  # Google Cloud WIF
+  # ----------------------------------------------------------
 
   - template: google-wif-auth.yml
 
 
-  # ==========================================================
-  # 4. TERRAFORM INIT
-  # ==========================================================
+  # ----------------------------------------------------------
+  # Download Snowflake Private Key
+  # ----------------------------------------------------------
+
+  - task: DownloadSecureFile@1
+    name: snowflakeKey
+    displayName: 'Download Snowflake Private Key'
+
+    inputs:
+      secureFile: 'snowflake_tf_key.p8'
+
+
+  # ----------------------------------------------------------
+  # Terraform Init
+  # ----------------------------------------------------------
 
   - script: |
       set -e
-
       cd terraform
-
-      terraform init \
-        -reconfigure
+      terraform init -reconfigure
 
     displayName: 'Terraform Init - ${{ parameters.environment }}'
 
+    env:
+      TF_VAR_snowflake_private_key_path: $(snowflakeKey.secureFilePath)
+      TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
-  # ==========================================================
-  # 5. TERRAFORM PLAN
-  # ==========================================================
+
+  # ----------------------------------------------------------
+  # Terraform Plan
+  # ----------------------------------------------------------
 
   - script: |
       set -e
-
-      export TF_VAR_snowflake_private_key_path="$(snowflakeKey.secureFilePath)"
-
       cd terraform
 
       terraform plan \
@@ -80,13 +73,18 @@ steps:
 
     displayName: 'Terraform Plan - ${{ parameters.environment }}'
 
+    env:
+      TF_VAR_snowflake_private_key_path: $(snowflakeKey.secureFilePath)
+      TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
-  # ==========================================================
-  # 6. PUBLISH PLAN
-  # ==========================================================
+
+  # ----------------------------------------------------------
+  # Publish Plan
+  # ----------------------------------------------------------
 
   - task: PublishPipelineArtifact@1
     displayName: 'Publish Terraform Plan'
+
     inputs:
       targetPath: '$(Build.ArtifactStagingDirectory)/${{ parameters.environment }}.tfplan'
       artifact: 'terraform-plan-${{ parameters.environment }}'
