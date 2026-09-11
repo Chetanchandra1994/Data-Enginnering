@@ -1,0 +1,49 @@
+steps:
+
+  - task: AzureCLI@2
+    displayName: 'Authenticate to Google Cloud using WIF'
+    inputs:
+      azureSubscription: 'google-cloud-wif'
+      addSpnToEnvironment: true
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+
+      inlineScript: |
+
+        set -e
+
+        echo "$idToken" > "$(Pipeline.Workspace)/.workload_identity.jwt"
+
+        cat > "$(Pipeline.Workspace)/.workload_identity.wlconfig" <<EOF
+        {
+          "type": "external_account",
+          "audience": "//iam.googleapis.com/projects/776178390591/locations/global/workloadIdentityPools/azure-devops-pool/providers/azure-devops-provider",
+          "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+          "token_url": "https://sts.googleapis.com/v1/token",
+          "credential_source": {
+            "file": "$(Pipeline.Workspace)/.workload_identity.jwt",
+            "format": {
+              "type": "text"
+            }
+          },
+          "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com:generateAccessToken"
+        }
+        EOF
+
+        export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+        gcloud auth login \
+          --cred-file="$GOOGLE_APPLICATION_CREDENTIALS" \
+          --quiet
+
+        echo "Authenticated Google account:"
+        gcloud auth list
+
+        echo "Testing Terraform state bucket access..."
+
+        gcloud storage buckets describe \
+          gs://electric-tesla-507710-k2-tfstate
+
+        echo "Google Cloud WIF authentication successful."
+
+        echo "##vso[task.setvariable variable=GOOGLE_APPLICATION_CREDENTIALS]$(Pipeline.Workspace)/.workload_identity.wlconfig"

@@ -2,6 +2,21 @@ Terraform implementation into an automated pipeline, No more manual Snowflake/Sn
 
 Git → PR → CI validation → Terraform Plan → DEV → TEST → PREPROD → PROD approval → PROD
 
+1. Terraform Validation        ✅
+2. GCP WIF Authentication      ← now
+3. Terraform PLAN DEV
+4. Publish DEV Plan Artifact
+5. DEV Approval
+6. Terraform APPLY DEV
+7. Verify DEV infrastructure
+8. TEST Plan
+9. TEST Apply
+10. PREPROD Plan
+11. PREPROD Apply
+12. PROD Plan
+13. PROD Approval
+14. PROD Apply
+
 ----------------------------------------------------------------------------------------------------------------------------------------------
 Step 1 — Create the Azure DevOps CI/CD pipeline
 ----------------------------------------------------------------------------------------------------------------------------------------------
@@ -123,6 +138,7 @@ Data-pipeline-end-to-end/
 ├── source-db/
 └── ...
 Step 2.2 — Use this initial CI pipeline
+
 trigger:
   branches:
     include:
@@ -162,21 +178,13 @@ stages:
         # ----------------------------------------------------
 
         - script: |
-            curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip \
-              -o /tmp/terraform.zip
-
-            rm -rf /tmp/terraform-install
-            mkdir -p /tmp/terraform-install
-
-            unzip -o /tmp/terraform.zip \
-              -d /tmp/terraform-install
-
-            chmod +x /tmp/terraform-install/terraform
-
-            echo "##vso[task.prependpath]/tmp/terraform-install"
-
-            terraform version
-
+              curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
+              rm -rf /tmp/terraform-install
+              mkdir -p /tmp/terraform-install
+              unzip -o /tmp/terraform.zip -d /tmp/terraform-install
+              chmod +x /tmp/terraform-install/terraform
+              /tmp/terraform-install/terraform version
+              echo "##vso[task.prependpath]/tmp/terraform-install"
           displayName: 'Install Terraform'
 
         # ----------------------------------------------------
@@ -211,6 +219,7 @@ stages:
             terraform validate
 
           displayName: 'Terraform Validate'
+
 Step 2.3 — Why terraform init -backend=false here?
 
 This is an important CI/CD distinction.
@@ -317,6 +326,23 @@ Install Terraform       ✅
 Terraform fmt            ✅
 Terraform init           ✅
 Terraform validate      ✅
+
+Our current pipeline has successfully completed:
+
+PR / main
+   │
+   ▼
+Terraform Validation
+   ├── Install Terraform
+   ├── terraform fmt -check
+   ├── terraform init -backend=false
+   └── terraform validate
+             │
+             ▼
+          SUCCESS ✅
+
+The next logical step is Google Cloud authentication through Azure DevOps WIF, followed by Terraform initialization with the real GCS backend, 
+then Terraform PLAN, and only after that controlled APPLY.
 
 Step 6 — Important PR behavior
 
@@ -547,3 +573,4 @@ Terraform
         ├── GCS
         ├── Pub/Sub
         └── IAM
+

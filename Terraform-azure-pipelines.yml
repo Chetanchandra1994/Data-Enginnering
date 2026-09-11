@@ -78,3 +78,43 @@ stages:
             terraform validate
 
           displayName: 'Terraform Validate'
+
+# ============================================================
+# 2. TERRAFORM PLAN - DEV
+# ============================================================
+
+- stage: TerraformPlanDev
+  displayName: '2. Terraform Plan - DEV'
+
+  dependsOn: TerraformValidation
+  condition: succeeded()
+
+  jobs:
+
+    - job: TerraformPlanDev
+      displayName: 'Terraform Plan DEV'
+
+      steps:
+
+        - checkout: self
+
+        - template: templates/terraform-plan.yml
+          parameters:
+            environment: dev
+
+        - script: |
+            set -e
+
+            export TF_VAR_snowflake_private_key_path="$(snowflakeKey.secureFilePath)"
+            export TF_VAR_snowflake_private_key_passphrase="$SNOWFLAKE_PRIVATE_KEY_PASSPHRASE"
+
+            cd terraform
+
+            terraform plan \
+              -var-file="./environments/${{ parameters.environment }}.tfvars" \
+              -out="$(Build.ArtifactStagingDirectory)/${{ parameters.environment }}.tfplan"
+
+          displayName: 'Terraform Plan - ${{ parameters.environment }}'
+
+variables:
+  - group: snowflake-dev-secrets
