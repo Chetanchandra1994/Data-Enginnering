@@ -7,13 +7,14 @@ resource "google_pubsub_subscription" "snowpipe" {
   topic = google_pubsub_topic.snowpipe.id
 }
 
-data "google_storage_project_service_account" "gcs_account" {
+locals {
+  gcs_service_agent_email = "service-${var.gcp_project_number}@gs-project-accounts.iam.gserviceaccount.com"
 }
 
 resource "google_pubsub_topic_iam_member" "gcs_publisher" {
   topic  = google_pubsub_topic.snowpipe.name
   role   = "roles/pubsub.publisher"
-  member = "serviceAccount:${data.google_storage_project_service_account.gcs_account.email_address}"
+  member = "serviceAccount:${local.gcs_service_agent_email}"
 }
 
 resource "google_storage_notification" "snowpipe" {
