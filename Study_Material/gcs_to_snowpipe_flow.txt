@@ -1,0 +1,1136 @@
+Below is the full first-time GCS → Pub/Sub → Snowflake Snowpipe → Landing Table implementation, with the creation order, access/IAM order, verification steps, and runtime data path, and code for each step.
+
+In this architecture some resources cannot be created/configured correctly until a previous resource exists.
+
+Important: The examples below use placeholders such as PROJECT_ID, BUCKET_NAME, TOPIC_NAME, etc. They should be replaced with the actual practice-project values. The Snowflake objects follow the architecture we've been building: LANDING, external stage, storage integration, notification integration and Snowpipe.
+
+PART A — FIRST-TIME INFRASTRUCTURE CREATION ORDER
+GCP PROJECT
+   ↓
+GCS BUCKET
+   ↓
+PUB/SUB TOPIC
+   ↓
+PUB/SUB SUBSCRIPTION
+   ↓
+GCS → PUB/SUB NOTIFICATION
+   ↓
+GCS / PUBSUB IAM
+   ↓
+SNOWFLAKE STORAGE INTEGRATION
+   ↓
+SNOWFLAKE STORAGE IAM
+   ↓
+SNOWFLAKE FILE FORMAT
+   ↓
+SNOWFLAKE EXTERNAL STAGE
+   ↓
+SNOWFLAKE NOTIFICATION INTEGRATION
+   ↓
+PUB/SUB IAM FOR SNOWFLAKE
+   ↓
+SNOWFLAKE LANDING TABLE
+   ↓
+SNOWFLAKE PIPE
+   ↓
+SNOWFLAKE ROLE / GRANTS
+   ↓
+TERRAFORM VALIDATE
+   ↓
+TERRAFORM PLAN
+   ↓
+TERRAFORM APPLY
+   ↓
+END-TO-END TEST FILE
+1. SET VARIABLES
+
+First define the values that will be reused.
+
+GCP
+export PROJECT_ID="your-gcp-project-id"
+export REGION="us-central1"
+
+export BUCKET_NAME="advworks-dev-raw"
+export GCS_PATH="dimcustomer"
+
+export TOPIC_NAME="snowpipe-dimcustomer-topic"
+export SUBSCRIPTION_NAME="snowpipe-dimcustomer-subscription"
+
+Set the project:
+
+gcloud config set project $PROJECT_ID
+
+Verify:
+
+gcloud config get-value project
+2. ENABLE REQUIRED GCP APIs
+gcloud services enable \
+  storage.googleapis.com \
+  pubsub.googleapis.com
+
+Verify:
+
+gcloud services list --enabled
+3. CREATE GCS BUCKET
+
+Create the bucket:
+
+gcloud storage buckets create gs://$BUCKET_NAME \
+  --location=$REGION \
+  --uniform-bucket-level-access
+
+Verify:
+
+gcloud storage buckets describe gs://$BUCKET_NAME
+4. CREATE GCS DIRECTORY/PREFIX
+
+GCS doesn't technically have folders, but we create an object prefix.
+
+echo "placeholder" > placeholder.txt
+
+gcloud storage cp \
+  placeholder.txt \
+  gs://$BUCKET_NAME/$GCS_PATH/placeholder.txt
+
+Remove placeholder:
+
+gcloud storage rm \
+  gs://$BUCKET_NAME/$GCS_PATH/placeholder.txt
+
+Result:
+
+gs://advworks-dev-raw/
+        │
+        └── dimcustomer/
+5. CREATE PUB/SUB TOPIC
+gcloud pubsub topics create $TOPIC_NAME
+
+Verify:
+
+gcloud pubsub topics describe $TOPIC_NAME
+
+Result:
+
+GCS
+ ↓
+Pub/Sub Topic
+6. CREATE PUB/SUB SUBSCRIPTION
+
+Create subscription attached to the topic:
+
+gcloud pubsub subscriptions create $SUBSCRIPTION_NAME \
+  --topic=$TOPIC_NAME
+
+Verify:
+
+gcloud pubsub subscriptions describe $SUBSCRIPTION_NAME
+
+Architecture now:
+
+GCS
+ ↓
+TOPIC
+ ↓
+SUBSCRIPTION
+7. GET GCS SERVICE AGENT
+
+GCS uses a Google-managed service agent to publish object notifications.
+
+Get the project number:
+
+export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID \
+  --format="value(projectNumber)")
+
+GCS service agent:
+
+export GCS_SERVICE_AGENT="service-${PROJECT_NUMBER}@gs-project-accounts.iam.gserviceaccount.com"
+
+Verify:
+
+echo $GCS_SERVICE_AGENT
+8. GRANT PUB/SUB PUBLISHER TO GCS SERVICE AGENT
+
+This allows GCS to publish notifications to the topic.
+
+gcloud pubsub topics add-iam-policy-binding $TOPIC_NAME \
+  --member="serviceAccount:$GCS_SERVICE_AGENT" \
+  --role="roles/pubsub.publisher"
+
+Verify:
+
+gcloud pubsub topics get-iam-policy $TOPIC_NAME
+
+You should see:
+
+roles/pubsub.publisher
+    ↓
+GCS service agent
+9. CREATE GCS → PUB/SUB NOTIFICATION
+
+Now tell GCS:
+
+Whenever an object is created in this bucket, publish an event to this topic.
+
+gcloud storage buckets notifications create \
+  gs://$BUCKET_NAME \
+  --topic=$TOPIC_NAME \
+  --event-types=OBJECT_FINALIZE
+
+Verify:
+
+gcloud storage buckets notifications list \
+  gs://$BUCKET_NAME
+
+Now:
+
+GCS Bucket
+    │
+    │ OBJECT_FINALIZE
+    ▼
+Pub/Sub Topic
+10. CREATE SNOWFLAKE STORAGE INTEGRATION
+
+Now we move into Snowflake.
+
+Connect to Snowflake with an administrative/deployment role.
+
+USE ROLE ACCOUNTADMIN;
+
+Create the storage integration:
+
+CREATE OR REPLACE STORAGE INTEGRATION GCS_ADVWORKS_STORAGE_INT
+  TYPE = EXTERNAL_STAGE
+  STORAGE_PROVIDER = GCS
+  ENABLED = TRUE
+  STORAGE_ALLOWED_LOCATIONS = (
+      'gcs://advworks-dev-raw/dimcustomer/'
+  );
+
+Check it:
+
+DESC INTEGRATION GCS_ADVWORKS_STORAGE_INT;
+
+This is an extremely important command.
+
+Snowflake will return information including the generated:
+
+STORAGE_GCP_SERVICE_ACCOUNT
+
+Save that value.
+
+For example:
+
+<generated-snowflake-service-account>
+11. GRANT GCS ACCESS TO SNOWFLAKE STORAGE SERVICE ACCOUNT
+
+The Snowflake service account needs permission to read objects from GCS.
+
+Grant:
+
+gcloud storage buckets add-iam-policy-binding \
+  gs://$BUCKET_NAME \
+  --member="serviceAccount:<SNOWFLAKE_GCP_SERVICE_ACCOUNT>" \
+  --role="roles/storage.objectViewer"
+
+For a narrower design, object-level IAM can be considered, but bucket-level roles/storage.objectViewer is the common straightforward setup.
+
+Verify:
+
+gcloud storage buckets get-iam-policy \
+  gs://$BUCKET_NAME
+
+The flow is now:
+
+Snowflake Storage Integration
+             ↓
+Snowflake GCP Service Account
+             ↓
+GCS IAM
+             ↓
+GCS Bucket
+12. CREATE SNOWFLAKE FILE FORMAT
+
+Now tell Snowflake how the incoming file should be interpreted.
+
+For our JSON practice files:
+
+CREATE OR REPLACE FILE FORMAT ADVWORKS_DEV.LANDING.DIMCUSTOMER_JSON_FORMAT
+  TYPE = JSON;
+
+Verify:
+
+SHOW FILE FORMATS IN SCHEMA ADVWORKS_DEV.LANDING;
+13. CREATE SNOWFLAKE EXTERNAL STAGE
+
+Now connect Snowflake to the GCS location.
+
+CREATE OR REPLACE STAGE ADVWORKS_DEV.LANDING.DIMCUSTOMER_STAGE
+  URL = 'gcs://advworks-dev-raw/dimcustomer/'
+  STORAGE_INTEGRATION = GCS_ADVWORKS_STORAGE_INT
+  FILE_FORMAT = ADVWORKS_DEV.LANDING.DIMCUSTOMER_JSON_FORMAT;
+
+Verify:
+
+DESC STAGE ADVWORKS_DEV.LANDING.DIMCUSTOMER_STAGE;
+14. TEST SNOWFLAKE → GCS ACCESS
+
+Before creating Snowpipe, verify that Snowflake can actually see the bucket.
+
+LIST @ADVWORKS_DEV.LANDING.DIMCUSTOMER_STAGE;
+
+If files exist:
+
+name
+--------------------------------
+gcs://.../dimcustomer/file1.json
+gcs://.../dimcustomer/file2.json
+
+If this fails, do not continue to Snowpipe.
+
+Fix:
+
+Storage Integration
+       ↓
+GCP Service Account
+       ↓
+GCS IAM
+       ↓
+Bucket
+
+first.
+
+15. CREATE SNOWFLAKE NOTIFICATION INTEGRATION
+
+Now create the Snowflake object that allows Snowflake/Snowpipe to receive notifications through Google Pub/Sub.
+
+CREATE OR REPLACE NOTIFICATION INTEGRATION GCS_ADVWORKS_NOTIFICATION_INT
+  ENABLED = TRUE
+  TYPE = QUEUE
+  NOTIFICATION_PROVIDER = GCP_PUBSUB
+  GCP_PUBSUB_SUBSCRIPTION_NAME =
+    'projects/<PROJECT_ID>/subscriptions/<SUBSCRIPTION_NAME>';
+
+For example:
+
+CREATE OR REPLACE NOTIFICATION INTEGRATION GCS_ADVWORKS_NOTIFICATION_INT
+  ENABLED = TRUE
+  TYPE = QUEUE
+  NOTIFICATION_PROVIDER = GCP_PUBSUB
+  GCP_PUBSUB_SUBSCRIPTION_NAME =
+    'projects/my-project/subscriptions/snowpipe-dimcustomer-subscription';
+
+Now:
+
+DESC INTEGRATION GCS_ADVWORKS_NOTIFICATION_INT;
+
+This gives you the Snowflake Pub/Sub service account information that must be granted access.
+
+16. GET SNOWFLAKE PUB/SUB SERVICE ACCOUNT
+
+Run:
+
+DESC INTEGRATION GCS_ADVWORKS_NOTIFICATION_INT;
+
+Find:
+
+GCP_PUBSUB_SERVICE_ACCOUNT
+
+Save the returned service account.
+
+Conceptually:
+
+Snowflake Notification Integration
+             ↓
+Snowflake Pub/Sub Service Account
+17. GRANT PUB/SUB SUBSCRIBER TO SNOWFLAKE
+
+The Snowflake service account needs to consume messages from the Pub/Sub subscription.
+
+gcloud pubsub subscriptions add-iam-policy-binding \
+  $SUBSCRIPTION_NAME \
+  --member="serviceAccount:<SNOWFLAKE_PUBSUB_SERVICE_ACCOUNT>" \
+  --role="roles/pubsub.subscriber"
+
+Verify:
+
+gcloud pubsub subscriptions get-iam-policy \
+  $SUBSCRIPTION_NAME
+
+Now the Pub/Sub security path is:
+
+GCS Service Agent
+       ↓
+Pub/Sub Publisher
+       ↓
+TOPIC
+       ↓
+SUBSCRIPTION
+       ↓
+Pub/Sub Subscriber
+       ↓
+Snowflake Service Account
+18. VERIFY NOTIFICATION INTEGRATION
+
+Back in Snowflake:
+
+DESC INTEGRATION GCS_ADVWORKS_NOTIFICATION_INT;
+
+Verify:
+
+ENABLED = TRUE
+TYPE = QUEUE
+NOTIFICATION_PROVIDER = GCP_PUBSUB
+GCP_PUBSUB_SUBSCRIPTION_NAME = ...
+19. CREATE LANDING SCHEMA
+
+If it doesn't already exist:
+
+CREATE SCHEMA IF NOT EXISTS ADVWORKS_DEV.LANDING;
+20. CREATE LANDING TABLE
+
+For our DimCustomer example:
+
+CREATE OR REPLACE TABLE ADVWORKS_DEV.LANDING.DIMCUSTOMER_RAW (
+    RAW_DATA VARIANT,
+    SOURCE_FILE_NAME VARCHAR,
+    LOAD_TIMESTAMP TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+If you are implementing a flattened landing table instead:
+
+CREATE OR REPLACE TABLE ADVWORKS_DEV.LANDING.DIMCUSTOMER_RAW (
+    CustomerKey NUMBER,
+    FirstName VARCHAR,
+    MiddleName VARCHAR,
+    LastName VARCHAR,
+    BirthDate DATE,
+    Gender VARCHAR,
+    EmailAddress VARCHAR,
+    YearlyIncome NUMBER,
+    NumberCarsOwned NUMBER,
+    DateFirstPurchase DATE,
+    SOURCE_FILE_NAME VARCHAR,
+    LOAD_TIMESTAMP TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+The exact target structure depends on the landing-layer design we choose.
+
+21. CREATE SNOWPIPE
+
+Now all the dependencies exist:
+
+GCS
+ ↓
+Topic
+ ↓
+Subscription
+ ↓
+GCS Notification
+ ↓
+Storage Integration
+ ↓
+External Stage
+ ↓
+Notification Integration
+ ↓
+Landing Table
+
+Now create the pipe.
+
+Example using the raw VARIANT approach:
+
+CREATE OR REPLACE PIPE ADVWORKS_DEV.LANDING.DIMCUSTOMER_PIPE
+  AUTO_INGEST = TRUE
+  INTEGRATION = 'GCS_ADVWORKS_NOTIFICATION_INT'
+AS
+COPY INTO ADVWORKS_DEV.LANDING.DIMCUSTOMER_RAW
+(
+    RAW_DATA,
+    SOURCE_FILE_NAME,
+    LOAD_TIMESTAMP
+)
+FROM (
+    SELECT
+        $1,
+        METADATA$FILENAME,
+        CURRENT_TIMESTAMP()
+    FROM @ADVWORKS_DEV.LANDING.DIMCUSTOMER_STAGE
+)
+FILE_FORMAT = (
+    FORMAT_NAME = ADVWORKS_DEV.LANDING.DIMCUSTOMER_JSON_FORMAT
+);
+22. CHECK PIPE
+SHOW PIPES IN SCHEMA ADVWORKS_DEV.LANDING;
+
+Then:
+
+DESC PIPE ADVWORKS_DEV.LANDING.DIMCUSTOMER_PIPE;
+
+Verify:
+
+AUTO_INGEST = TRUE
+INTEGRATION = GCS_ADVWORKS_NOTIFICATION_INT
+23. GRANT DATABASE ACCESS TO DEPLOYMENT ROLE
+
+For example:
+
+GRANT USAGE
+ON DATABASE ADVWORKS_DEV
+TO ROLE ADVWORKS_DEV_ROLE;
+24. GRANT SCHEMA ACCESS
+GRANT USAGE
+ON SCHEMA ADVWORKS_DEV.LANDING
+TO ROLE ADVWORKS_DEV_ROLE;
+25. GRANT TABLE ACCESS
+GRANT SELECT
+ON TABLE ADVWORKS_DEV.LANDING.DIMCUSTOMER_RAW
+TO ROLE ADVWORKS_DEV_ROLE;
+
+If the role needs to insert/update the table directly:
+
+GRANT INSERT, UPDATE, DELETE
+ON TABLE ADVWORKS_DEV.LANDING.DIMCUSTOMER_RAW
+TO ROLE ADVWORKS_DEV_ROLE;
+
+For a Snowpipe-owned ingestion table, direct DML permissions should generally be minimized.
+
+26. GRANT STAGE ACCESS
+GRANT USAGE
+ON STAGE ADVWORKS_DEV.LANDING.DIMCUSTOMER_STAGE
+TO ROLE ADVWORKS_DEV_ROLE;
+27. GRANT FILE FORMAT ACCESS
+GRANT USAGE
+ON FILE FORMAT ADVWORKS_DEV.LANDING.DIMCUSTOMER_JSON_FORMAT
+TO ROLE ADVWORKS_DEV_ROLE;
+28. GRANT PIPE ACCESS
+
+For monitoring/operating the pipe:
+
+GRANT MONITOR
+ON PIPE ADVWORKS_DEV.LANDING.DIMCUSTOMER_PIPE
+TO ROLE ADVWORKS_DEV_ROLE;
+
+If the role needs to operate/resume the pipe:
+
+GRANT OPERATE
+ON PIPE ADVWORKS_DEV.LANDING.DIMCUSTOMER_PIPE
+TO ROLE ADVWORKS_DEV_ROLE;
+29. GRANT INTEGRATION USAGE
+
+Depending on the role executing the deployment:
+
+GRANT USAGE
+ON INTEGRATION GCS_ADVWORKS_STORAGE_INT
+TO ROLE ADVWORKS_DEV_ROLE;
+
+And:
+
+GRANT USAGE
+ON INTEGRATION GCS_ADVWORKS_NOTIFICATION_INT
+TO ROLE ADVWORKS_DEV_ROLE;
+30. VERIFY ALL SNOWFLAKE OBJECTS
+SHOW INTEGRATIONS;
+
+Then:
+
+SHOW STAGES IN SCHEMA ADVWORKS_DEV.LANDING;
+
+Then:
+
+SHOW FILE FORMATS IN SCHEMA ADVWORKS_DEV.LANDING;
+
+Then:
+
+SHOW PIPES IN SCHEMA ADVWORKS_DEV.LANDING;
+
+Then:
+
+SHOW TABLES IN SCHEMA ADVWORKS_DEV.LANDING;
+31. TERRAFORM — DEFINE GCS
+
+For the actual infrastructure-as-code implementation:
+
+resource "google_storage_bucket" "raw" {
+  name     = var.bucket_name
+  location = var.region
+
+  uniform_bucket_level_access = true
+}
+32. TERRAFORM — DEFINE PUB/SUB TOPIC
+resource "google_pubsub_topic" "snowpipe" {
+  name = var.topic_name
+}
+33. TERRAFORM — DEFINE SUBSCRIPTION
+resource "google_pubsub_subscription" "snowpipe" {
+  name  = var.subscription_name
+  topic = google_pubsub_topic.snowpipe.id
+}
+34. TERRAFORM — GCS SERVICE AGENT → PUB/SUB
+resource "google_pubsub_topic_iam_member" "gcs_publisher" {
+  topic  = google_pubsub_topic.snowpipe.name
+  role   = "roles/pubsub.publisher"
+  member = "serviceAccount:service-${data.google_project.current.number}@gs-project-accounts.iam.gserviceaccount.com"
+}
+35. TERRAFORM — GCS NOTIFICATION
+
+Conceptually:
+
+resource "google_storage_notification" "snowpipe" {
+  bucket         = google_storage_bucket.raw.name
+  topic          = google_pubsub_topic.snowpipe.id
+  payload_format = "JSON_API_V1"
+
+  event_types = [
+    "OBJECT_FINALIZE"
+  ]
+}
+36. TERRAFORM — GCS ACCESS FOR SNOWFLAKE
+resource "google_storage_bucket_iam_member" "snowflake_reader" {
+  bucket = google_storage_bucket.raw.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${var.snowflake_gcp_service_account}"
+}
+37. TERRAFORM — PUB/SUB ACCESS FOR SNOWFLAKE
+resource "google_pubsub_subscription_iam_member" "snowflake_subscriber" {
+  subscription = google_pubsub_subscription.snowpipe.name
+  role         = "roles/pubsub.subscriber"
+  member       = "serviceAccount:${var.snowflake_pubsub_service_account}"
+}
+38. TERRAFORM — SNOWFLAKE OBJECTS
+
+Your Snowflake Terraform provider configuration would then manage objects such as:
+
+resource "snowflake_storage_integration" "gcs" {
+  name    = "GCS_ADVWORKS_STORAGE_INT"
+  enabled = true
+
+  type             = "EXTERNAL_STAGE"
+  storage_provider = "GCS"
+
+  storage_allowed_locations = [
+    "gcs://advworks-dev-raw/dimcustomer/"
+  ]
+}
+
+External stage:
+
+resource "snowflake_stage" "dimcustomer" {
+  name = "DIMCUSTOMER_STAGE"
+
+  database = "ADVWORKS_DEV"
+  schema   = "LANDING"
+
+  url = "gcs://advworks-dev-raw/dimcustomer/"
+
+  storage_integration = "GCS_ADVWORKS_STORAGE_INT"
+}
+
+Notification integration:
+
+resource "snowflake_notification_integration" "gcs" {
+  name    = "GCS_ADVWORKS_NOTIFICATION_INT"
+  enabled = true
+
+  type                  = "QUEUE"
+  notification_provider = "GCP_PUBSUB"
+
+  gcp_pubsub_subscription_name = var.pubsub_subscription_full_name
+}
+
+The exact Terraform resource arguments should be aligned with the Snowflake provider version because provider schemas can differ.
+
+39. TERRAFORM INITIALIZATION
+
+From the Terraform repository:
+
+terraform init
+40. TERRAFORM FORMAT
+terraform fmt -recursive
+41. TERRAFORM VALIDATION
+terraform validate
+
+Expected:
+
+Success! The configuration is valid.
+42. TERRAFORM PLAN
+terraform plan
+
+Review:
+
+GCS bucket
+Pub/Sub topic
+Pub/Sub subscription
+GCS notification
+IAM
+Snowflake integration
+Snowflake stage
+Snowflake notification integration
+Snowpipe
+grants
+43. TERRAFORM APPLY
+
+After review/approval:
+
+terraform apply
+44. FIRST-TIME INFRASTRUCTURE VERIFICATION
+
+At this point verify everything.
+
+GCS BUCKET
+   ↓
+PUB/SUB TOPIC
+   ↓
+PUB/SUB SUBSCRIPTION
+   ↓
+GCS NOTIFICATION
+   ↓
+GCS IAM
+   ↓
+SNOWFLAKE STORAGE INTEGRATION
+   ↓
+STORAGE IAM
+   ↓
+FILE FORMAT
+   ↓
+EXTERNAL STAGE
+   ↓
+NOTIFICATION INTEGRATION
+   ↓
+PUB/SUB IAM
+   ↓
+LANDING TABLE
+   ↓
+PIPE
+   ↓
+PIPE GRANTS
+PART B — ACTUAL RUNTIME DATA FLOW
+
+Once all infrastructure above has been created one time, the normal data flow becomes much shorter.
+
+45. SOURCE FILE IS CREATED
+
+Python/Airflow creates:
+
+customer_batch_001.json
+46. AIRFLOW UPLOADS FILE TO GCS
+gcloud storage cp \
+  customer_batch_001.json \
+  gs://$BUCKET_NAME/dimcustomer/
+
+Runtime:
+
+Python
+  ↓
+Airflow
+  ↓
+GCS
+47. GCS RECEIVES OBJECT
+gs://advworks-dev-raw/dimcustomer/customer_batch_001.json
+48. GCS GENERATES OBJECT_FINALIZE EVENT
+GCS
+ ↓
+OBJECT_FINALIZE
+49. GCS PUBLISHES EVENT TO PUB/SUB TOPIC
+
+Because we created:
+
+GCS Notification
+        ↓
+TOPIC
+
+the event is published:
+
+GCS
+ ↓
+PUB/SUB TOPIC
+50. PUB/SUB DELIVERS MESSAGE TO SUBSCRIPTION
+TOPIC
+ ↓
+SUBSCRIPTION
+
+The message contains information identifying the newly created GCS object.
+
+51. SNOWFLAKE RECEIVES PUB/SUB EVENT
+
+Through:
+
+Snowflake Notification Integration
+
+the event reaches the Snowpipe notification mechanism.
+
+Pub/Sub Subscription
+       ↓
+Snowflake Notification Integration
+       ↓
+Snowpipe
+52. SNOWPIPE IS TRIGGERED
+
+Because:
+
+AUTO_INGEST = TRUE
+
+Snowpipe reacts to the notification.
+
+New file event
+      ↓
+Snowpipe
+53. SNOWPIPE CHECKS EXTERNAL STAGE
+Snowpipe
+   ↓
+DIMCUSTOMER_STAGE
+   ↓
+GCS
+54. SNOWPIPE READS FILE
+
+Snowflake uses:
+
+Storage Integration
+       ↓
+GCP IAM
+       ↓
+GCS
+
+to access the file.
+
+55. FILE FORMAT IS APPLIED
+
+For JSON:
+
+DIMCUSTOMER_JSON_FORMAT
+        ↓
+JSON parsing
+56. SNOWPIPE EXECUTES COPY INTO
+
+Conceptually:
+
+COPY INTO ADVWORKS_DEV.LANDING.DIMCUSTOMER_RAW
+FROM @ADVWORKS_DEV.LANDING.DIMCUSTOMER_STAGE;
+57. DATA ENTERS LANDING TABLE
+GCS FILE
+   ↓
+SNOWPIPE
+   ↓
+LANDING.DIMCUSTOMER_RAW
+58. VERIFY PIPE
+SELECT SYSTEM$PIPE_STATUS(
+    'ADVWORKS_DEV.LANDING.DIMCUSTOMER_PIPE'
+);
+59. VERIFY DATA
+SELECT *
+FROM ADVWORKS_DEV.LANDING.DIMCUSTOMER_RAW
+LIMIT 10;
+60. VERIFY ROW COUNT
+SELECT COUNT(*)
+FROM ADVWORKS_DEV.LANDING.DIMCUSTOMER_RAW;
+61. VERIFY FILE METADATA
+
+If using the VARIANT + metadata design:
+
+SELECT
+    SOURCE_FILE_NAME,
+    LOAD_TIMESTAMP,
+    COUNT(*) AS RECORD_COUNT
+FROM ADVWORKS_DEV.LANDING.DIMCUSTOMER_RAW
+GROUP BY
+    SOURCE_FILE_NAME,
+    LOAD_TIMESTAMP
+ORDER BY LOAD_TIMESTAMP DESC;
+🔥 COMPLETE CREATION PATH
+
+This is the entire first-time creation sequence condensed into one flow:
+
+01  GCP PROJECT
+ ↓
+02  Enable Storage API
+ ↓
+03  Enable Pub/Sub API
+ ↓
+04  Create GCS BUCKET
+ ↓
+05  Create GCS PREFIX/PATH
+ ↓
+06  Create Pub/Sub TOPIC
+ ↓
+07  Create Pub/Sub SUBSCRIPTION
+ ↓
+08  Get GCS SERVICE AGENT
+ ↓
+09  Grant GCS SERVICE AGENT → Pub/Sub PUBLISHER
+ ↓
+10  Create GCS → Pub/Sub NOTIFICATION
+ ↓
+11  Create Snowflake STORAGE INTEGRATION
+ ↓
+12  DESC STORAGE INTEGRATION
+ ↓
+13  Get Snowflake GCP SERVICE ACCOUNT
+ ↓
+14  Grant Snowflake Service Account → GCS OBJECT VIEWER
+ ↓
+15  Create Snowflake FILE FORMAT
+ ↓
+16  Create Snowflake EXTERNAL STAGE
+ ↓
+17  Test LIST @STAGE
+ ↓
+18  Create Snowflake NOTIFICATION INTEGRATION
+ ↓
+19  DESC NOTIFICATION INTEGRATION
+ ↓
+20  Get Snowflake Pub/Sub SERVICE ACCOUNT
+ ↓
+21  Grant Snowflake Service Account → Pub/Sub SUBSCRIBER
+ ↓
+22  Verify Notification Integration
+ ↓
+23  Create LANDING SCHEMA
+ ↓
+24  Create LANDING TABLE
+ ↓
+25  Create SNOWPIPE
+ ↓
+26  Configure AUTO_INGEST = TRUE
+ ↓
+27  Configure PIPE → STAGE
+ ↓
+28  Configure PIPE → LANDING TABLE
+ ↓
+29  Configure PIPE → NOTIFICATION INTEGRATION
+ ↓
+30  Grant DATABASE USAGE
+ ↓
+31  Grant SCHEMA USAGE
+ ↓
+32  Grant TABLE permissions
+ ↓
+33  Grant STAGE USAGE
+ ↓
+34  Grant FILE FORMAT USAGE
+ ↓
+35  Grant PIPE MONITOR
+ ↓
+36  Grant PIPE OPERATE if required
+ ↓
+37  Grant STORAGE INTEGRATION USAGE
+ ↓
+38  Grant NOTIFICATION INTEGRATION USAGE
+ ↓
+39  Terraform INIT
+ ↓
+40  Terraform FMT
+ ↓
+41  Terraform VALIDATE
+ ↓
+42  Terraform PLAN
+ ↓
+43  Code Review / PR
+ ↓
+44  Approval
+ ↓
+45  Terraform APPLY
+ ↓
+46  Verify GCS
+ ↓
+47  Verify Pub/Sub
+ ↓
+48  Verify IAM
+ ↓
+49  Verify Storage Integration
+ ↓
+50  Verify External Stage
+ ↓
+51  Verify Notification Integration
+ ↓
+52  Verify Landing Table
+ ↓
+53  Verify Snowpipe
+ ↓
+54  Upload TEST FILE
+ ↓
+55  Verify GCS EVENT
+ ↓
+56  Verify Pub/Sub MESSAGE
+ ↓
+57  Verify Snowpipe Trigger
+ ↓
+58  Verify PIPE STATUS
+ ↓
+59  Verify LANDING TABLE
+ ↓
+60  Verify ROW COUNT
+ ↓
+61  Verify DATA
+ ↓
+62  END-TO-END INGESTION SUCCESS
+🔥 COMPLETE RUNTIME DATA PATH
+
+After first-time creation, steps 1–44 above do not happen for every file.
+
+The normal runtime is:
+
+SOURCE
+   ↓
+PYTHON
+   ↓
+AIRFLOW
+   ↓
+GCS BUCKET
+   ↓
+OBJECT_FINALIZE
+   ↓
+GCS NOTIFICATION
+   ↓
+PUB/SUB TOPIC
+   ↓
+PUB/SUB SUBSCRIPTION
+   ↓
+SNOWFLAKE NOTIFICATION INTEGRATION
+   ↓
+SNOWPIPE
+   ↓
+EXTERNAL STAGE
+   ↓
+STORAGE INTEGRATION
+   ↓
+GCS IAM
+   ↓
+GCS FILE
+   ↓
+FILE FORMAT
+   ↓
+COPY INTO
+   ↓
+SNOWFLAKE LANDING TABLE
+   ↓
+DATA QUALITY
+   ↓
+DBT PREPARE
+   ↓
+DBT NORMALIZE
+   ↓
+DBT SCHEMATIZE
+   ↓
+MARKETPLACE
+   ↓
+TABLEAU / DATA PRODUCT
+🧠 AND THE SECURITY/IAM PATH RUNS ACROSS IT
+
+This is the part I particularly want you to keep separate in your mind:
+
+                         GCS
+                          │
+             ┌────────────┴────────────┐
+             │                         │
+             ▼                         ▼
+       GCS Service Agent        Snowflake GCP
+             │                   Service Account
+             │                         │
+             ▼                         ▼
+    Pub/Sub Publisher          GCS Object Viewer
+             │                         │
+             ▼                         ▼
+          TOPIC                    BUCKET
+             │
+             ▼
+       SUBSCRIPTION
+             │
+             ▼
+   Snowflake Pub/Sub
+      Service Account
+             │
+             ▼
+    Pub/Sub Subscriber
+             │
+             ▼
+   Notification Integration
+             │
+             ▼
+          SNOWPIPE
+             │
+             ▼
+        LANDING TABLE
+
+So there are two completely different IAM relationships that are easy to confuse:
+
+GCS Service Agent
+      ↓
+Pub/Sub Publisher
+      ↓
+TOPIC
+
+versus:
+
+Snowflake Pub/Sub Service Account
+      ↓
+Pub/Sub Subscriber
+      ↓
+SUBSCRIPTION
+
+and separately:
+
+Snowflake Storage Service Account
+      ↓
+GCS Object Viewer
+      ↓
+BUCKET / OBJECTS
+
+That distinction is critical when troubleshooting Snowpipe.
+
+🎯 The complete mental model
+                 ┌───────────────────────────┐
+                 │        GCS BUCKET         │
+                 └─────────────┬─────────────┘
+                               │
+                        OBJECT_CREATED
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │ GCS NOTIFICATION    │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │    PUB/SUB TOPIC    │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │  PUB/SUB SUBSCRIBE  │
+                    └──────────┬──────────┘
+                               │
+                         IAM SUBSCRIBER
+                               │
+                               ▼
+              ┌────────────────────────────────┐
+              │ SNOWFLAKE NOTIFICATION         │
+              │ INTEGRATION                    │
+              └───────────────┬────────────────┘
+                              │
+                              ▼
+                       ┌─────────────┐
+                       │  SNOWPIPE   │
+                       └──────┬──────┘
+                              │
+                              ▼
+                     ┌────────────────┐
+                     │ EXTERNAL STAGE │
+                     └───────┬────────┘
+                             │
+                      STORAGE IAM
+                             │
+                             ▼
+                         GCS FILE
+                             │
+                       FILE FORMAT
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │ COPY INTO       │
+                    └────────┬────────┘
+                             │
+                             ▼
+                  ┌──────────────────────┐
+                  │ SNOWFLAKE LANDING   │
+                  │ TABLE               │
+                  └──────────────────────┘
+

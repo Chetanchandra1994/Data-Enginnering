@@ -1,0 +1,88 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+
+# ============================================================
+# 1. TERRAFORM CI VALIDATION
+# ============================================================
+
+- stage: TerraformValidation
+  displayName: 'Terraform CI Validation'
+
+  jobs:
+    - job: ValidateTerraform
+      displayName: 'Validate Terraform'
+
+      steps:
+
+        # ----------------------------------------------------
+        # Checkout
+        # ----------------------------------------------------
+
+        - checkout: self
+
+        # ----------------------------------------------------
+        # Install Terraform
+        # ----------------------------------------------------
+
+        - script: |
+            curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip \
+              -o /tmp/terraform.zip
+
+            rm -rf /tmp/terraform-install
+            mkdir -p /tmp/terraform-install
+
+            unzip -o /tmp/terraform.zip \
+              -d /tmp/terraform-install
+
+            chmod +x /tmp/terraform-install/terraform
+
+            echo "##vso[task.prependpath]/tmp/terraform-install"
+
+            terraform version
+
+          displayName: 'Install Terraform'
+
+        # ----------------------------------------------------
+        # Terraform Format Check
+        # ----------------------------------------------------
+
+        - script: |
+            cd terraform
+
+            terraform fmt -check -recursive
+
+          displayName: 'Terraform Format Check'
+
+        # ----------------------------------------------------
+        # Terraform Init
+        # ----------------------------------------------------
+
+        - script: |
+            cd terraform
+
+            terraform init -backend=false
+
+          displayName: 'Terraform Init'
+
+        # ----------------------------------------------------
+        # Terraform Validate
+        # ----------------------------------------------------
+
+        - script: |
+            cd terraform
+
+            terraform validate
+
+          displayName: 'Terraform Validate'
