@@ -1,0 +1,5 @@
+The latest proven state is:
+
+Local JSONL → GCS → GCS Notification → Pub/Sub → Snowflake Notification Integration → Snowpipe → LANDING.DIM_CUSTOMER = 5,000 rows
+
+So the next learning step should be idempotency + duplicate-file handling, because this is a critical production Data Engineering concept.

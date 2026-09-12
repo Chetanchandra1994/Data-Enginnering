@@ -1,0 +1,2521 @@
+# SOP — Manual to Automated Snowpipe Pipeline using Terraform, GCP WIF and Azure DevOps
+
+## 1. Purpose
+
+This SOP documents how the Snowpipe ingestion infrastructure was migrated from a manually provisioned Snowflake/GCP setup to a **Terraform-managed, Azure DevOps CI/CD controlled deployment**.
+
+The objective was to achieve:
+
+```text
+Developer Code
+     ↓
+Git Repository
+     ↓
+Azure DevOps CI Validation
+     ↓
+GCP Workload Identity Federation
+     ↓
+Terraform PLAN
+     ↓
+Plan Artifact
+     ↓
+DEV Approval
+     ↓
+Terraform APPLY
+     ↓
+GCP + Snowflake Infrastructure
+     ↓
+GCS File
+     ↓
+Pub/Sub
+     ↓
+Snowpipe
+     ↓
+Snowflake LANDING
+```
+
+The implementation also established the foundation for:
+
+```text
+DEV → TEST → PREPROD → PROD
+```
+
+with controlled promotion through CI/CD.
+
+---
+
+# 2. Starting Point — Manual Snowpipe Pipeline
+
+Initially, the Snowpipe pipeline contained manually created resources.
+
+The architecture was:
+
+```text
+SQL Server
+    ↓
+Python Extraction
+    ↓
+GCS
+    ↓
+GCS Notification
+    ↓
+Pub/Sub
+    ↓
+Snowflake Notification Integration
+    ↓
+Snowpipe
+    ↓
+Snowflake LANDING
+```
+
+Several components were created manually:
+
+### GCP
+
+* GCS bucket
+* Pub/Sub topic
+* Pub/Sub subscription
+* GCS notification
+* Pub/Sub IAM
+* Snowflake subscriber permissions
+
+### Snowflake
+
+* Database
+* Schemas
+* External stages
+* File formats
+* Landing tables
+* Notification integration
+* Storage integration
+* Pipes
+
+This worked, but had several enterprise problems:
+
+* Manual provisioning
+* Configuration drift
+* Difficult environment replication
+* No reliable audit trail
+* Higher chance of configuration mistakes
+* Difficult rollback
+* Difficult DEV → TEST → PROD promotion
+* Developers could accidentally modify infrastructure manually
+* Infrastructure was not completely represented in Git
+
+Therefore, the objective became:
+
+> **Make Terraform the source of truth for infrastructure and Azure DevOps the controlled deployment mechanism.**
+
+---
+
+# 3. Target Automated Architecture
+
+The final design separates responsibilities.
+
+```text
+                 GIT
+                  │
+                  ▼
+          Azure DevOps Pipeline
+                  │
+        ┌─────────┴─────────┐
+        │                   │
+        ▼                   ▼
+ Terraform Validation     GCP WIF
+                              │
+                              ▼
+                       Terraform PLAN
+                              │
+                              ▼
+                       Plan Artifact
+                              │
+                              ▼
+                         DEV Approval
+                              │
+                              ▼
+                       Terraform APPLY
+                              │
+             ┌────────────────┴────────────────┐
+             │                                 │
+             ▼                                 ▼
+           GCP                              Snowflake
+             │                                 │
+       ┌─────┴─────┐                   ┌──────┴──────┐
+       │           │                   │             │
+      GCS       Pub/Sub             Stage        Snowpipe
+       │           │                   │             │
+       └───────────┴───────────────────┴─────────────┘
+                              │
+                              ▼
+                       LANDING TABLE
+```
+
+---
+
+# 4. Terraform Repository Structure
+
+The important project structure became:
+
+```text
+Data-pipeline-end-to-end/
+│
+├── Terraform-azure-pipelines.yml
+│
+├── terraform/
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── locals.tf
+│   ├── versions.tf
+│   ├── tables.tf
+│   ├── stages.tf
+│   ├── pipes.tf
+│   ├── file-formats.tf
+│   ├── gcp-pubsub.tf
+│   │
+│   ├── config/
+│   │   ├── tables.yml
+│   │   ├── stages.yml
+│   │   ├── pipes.yml
+│   │   └── file-formats.yml
+│   │
+│   ├── environments/
+│   │   ├── dev.tfvars
+│   │   └── test.tfvars
+│   │
+│   └── templates/
+│       ├── terraform-plan.yml
+│       └── google-wif-auth.yml
+│
+├── DBT/
+├── python-ingestion/
+├── Snowflake/
+└── README.md
+```
+
+Important:
+
+The current templates are:
+
+```text
+terraform/templates/terraform-plan.yml
+terraform/templates/google-wif-auth.yml
+```
+
+The older duplicate templates under the root `templates/` directory are **not the active templates**.
+
+---
+
+# 5. Terraform Backend and State
+
+Terraform state was moved to GCS.
+
+```hcl
+terraform {
+  required_version = ">= 1.5.0"
+
+  backend "gcs" {
+    bucket = "electric-tesla-507710-k2-tfstate"
+    prefix = "terraform/state/dev"
+  }
+
+  required_providers {
+    snowflake = {
+      source  = "snowflakedb/snowflake"
+      version = "~> 2.0"
+    }
+
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 8.0"
+    }
+  }
+}
+```
+
+This means Terraform state is no longer stored only on the developer's machine.
+
+Instead:
+
+```text
+Terraform
+   ↓
+GCS Remote Backend
+   ↓
+Shared State
+```
+
+This is essential for CI/CD.
+
+---
+
+# 6. Terraform Providers
+
+## Snowflake provider
+
+Snowflake uses key-pair authentication.
+
+```hcl
+provider "snowflake" {
+  organization_name = var.snowflake_organization_name
+  account_name      = var.snowflake_account_name
+  user              = var.snowflake_user
+
+  authenticator = "SNOWFLAKE_JWT"
+
+  private_key = file(var.snowflake_private_key_path)
+
+  private_key_passphrase = var.snowflake_private_key_passphrase
+
+  role = var.snowflake_role
+
+  preview_features_enabled = [
+    "snowflake_notification_integration_resource",
+    "snowflake_table_resource",
+    "snowflake_pipe_resource"
+  ]
+}
+```
+
+## Google provider
+
+```hcl
+provider "google" {
+  project = var.gcp_project_id
+  region  = var.gcp_region
+}
+```
+
+---
+
+# 7. Environment Configuration
+
+DEV:
+
+```hcl
+snowflake_organization_name = "QNFANFA"
+snowflake_account_name      = "QI17075"
+snowflake_user              = "CHETANCHANDRA81"
+snowflake_role              = "ACCOUNTADMIN"
+
+snowflake_warehouse = "ETL_WH_DEV"
+snowflake_database  = "ADVWORKS_DEV"
+
+environment = "dev"
+
+gcp_project_id     = "electric-tesla-507710-k2"
+gcp_project_number = "776178390591"
+gcp_region         = "northamerica-northeast1"
+gcp_bucket_name    = "advworks-dev-ingestion"
+```
+
+TEST uses its own Snowflake database/warehouse:
+
+```text
+ADVWORKS_TEST
+ETL_WH_TEST
+```
+
+while currently using the same GCS bucket.
+
+This shared bucket is a known architecture consideration for later production hardening.
+
+---
+
+# 8. Metadata-Driven Terraform
+
+Instead of writing one Terraform resource per table/pipe, configuration was moved into YAML.
+
+## tables.yml
+
+```yaml
+fact_internet_sales:
+  database: ADVWORKS
+  tables:
+    - name: FACT_INTERNET_SALES
+      landing_type: variant
+
+dim_customer:
+  database: ADVWORKS
+  tables:
+    - name: DIM_CUSTOMER
+      landing_type: variant
+
+dim_product:
+  database: ADVWORKS
+  tables:
+    - name: DIM_PRODUCT
+      landing_type: variant
+```
+
+## stages.yml
+
+```yaml
+fact_internet_sales:
+  stage_fact_internet_sales:
+    gcs_path: gcs://advworks-dev-ingestion/fact_internet_sales/
+
+dim_customer:
+  stage_dim_customer:
+    gcs_path: gcs://advworks-dev-ingestion/dim_customer/
+
+dim_product:
+  stage_dim_product:
+    gcs_path: gcs://advworks-dev-ingestion/dim_product/
+```
+
+## pipes.yml
+
+```yaml
+fact_internet_sales:
+  pipe_fact_internet_sales:
+    stage: stage_fact_internet_sales
+    stage_subdir: ""
+    file_format: json_ff
+    table: FACT_INTERNET_SALES
+
+dim_customer:
+  pipe_dim_customer:
+    stage: stage_dim_customer
+    stage_subdir: ""
+    file_format: json_ff
+    table: DIM_CUSTOMER
+
+dim_product:
+  pipe_dim_product:
+    stage: stage_dim_product
+    stage_subdir: ""
+    file_format: json_ff
+    table: DIM_PRODUCT
+```
+
+Terraform reads these using:
+
+```hcl
+yamldecode()
+```
+
+and converts them into maps used by `for_each`.
+
+This gives us:
+
+```text
+One Terraform resource definition
+            +
+Metadata
+            =
+Many physical resources
+```
+
+This is much more scalable than duplicating Terraform blocks.
+
+---
+
+# 9. Snowflake Landing Tables
+
+Landing tables were standardized around:
+
+```text
+RAW_DATA
+SOURCE_FILE
+LOAD_TIMESTAMP
+```
+
+Terraform:
+
+```hcl
+resource "snowflake_table" "landing_variant" {
+  for_each = {
+    for table in local.tables_map : table.key => table
+    if table.landing_type == "variant"
+  }
+
+  database = var.snowflake_database
+  schema   = snowflake_schema.landing.name
+  name     = each.value.table_name
+
+  column {
+    name = "RAW_DATA"
+    type = "VARIANT"
+  }
+
+  column {
+    name = "SOURCE_FILE"
+    type = "VARCHAR"
+  }
+
+  column {
+    name = "LOAD_TIMESTAMP"
+    type = "TIMESTAMP_NTZ"
+
+    default {
+      expression = "CURRENT_TIMESTAMP()"
+    }
+  }
+}
+```
+
+Why VARIANT?
+
+Because the landing layer should preserve the raw source structure before transformation.
+
+---
+
+# 10. Snowflake External Stages
+
+Stages point Snowflake toward GCS.
+
+```hcl
+resource "snowflake_stage_external_gcs" "gcs" {
+  for_each = local.stages_map
+
+  database = var.snowflake_database
+  schema   = snowflake_schema.landing.name
+
+  name = upper(each.value.stage_name)
+
+  url = each.value.gcs_path
+
+  storage_integration = "ADVWORKS_GCS_INT"
+}
+```
+
+Architecture:
+
+```text
+Snowflake Stage
+      │
+      ▼
+GCS Prefix
+```
+
+---
+
+# 11. Snowflake File Formats
+
+JSON file formats were also metadata-driven.
+
+```hcl
+resource "snowflake_file_format_json" "json" {
+  for_each = local.file_formats_map
+
+  database = var.snowflake_database
+  schema   = snowflake_schema.landing.name
+
+  name = upper(
+    "FF_${each.value.source}_${each.value.format_name}"
+  )
+}
+```
+
+---
+
+# 12. Snowpipe
+
+The Snowpipes are generated dynamically.
+
+```hcl
+resource "snowflake_pipe" "landing" {
+  for_each = local.pipes_map
+
+  database = var.snowflake_database
+  schema   = snowflake_schema.landing.name
+
+  name = upper(each.value.pipe_name)
+
+  auto_ingest = true
+
+  integration = snowflake_notification_integration.gcp.name
+
+  copy_statement = <<-SQL
+    COPY INTO ${var.snowflake_database}.${snowflake_schema.landing.name}.${each.value.table}
+    (
+      RAW_DATA,
+      SOURCE_FILE
+    )
+    FROM (
+      SELECT
+        $1,
+        METADATA$FILENAME
+      FROM @${var.snowflake_database}.${snowflake_schema.landing.name}.${upper(each.value.stage)}
+    )
+    FILE_FORMAT = (
+      FORMAT_NAME =
+      '${var.snowflake_database}.${snowflake_schema.landing.name}.${upper("FF_${each.value.source}_${each.value.file_format}")}'
+    )
+    ON_ERROR = 'CONTINUE'
+  SQL
+
+  depends_on = [
+    snowflake_table.landing_variant
+  ]
+}
+```
+
+---
+
+# 13. Challenge — Terraform Created Pipe Before Table
+
+One of the important Terraform issues we encountered was dependency ordering.
+
+Terraform understands dependencies when they are directly referenced.
+
+However, the pipe's SQL contains the target table name inside a string.
+
+Terraform therefore did not automatically understand:
+
+```text
+PIPE
+ ↓
+requires
+ ↓
+TABLE
+```
+
+This caused a same-apply ordering problem.
+
+### Fix
+
+We explicitly added:
+
+```hcl
+depends_on = [
+  snowflake_table.landing_variant
+]
+```
+
+Now Terraform creates:
+
+```text
+Database
+ ↓
+Schema
+ ↓
+Table
+ ↓
+Pipe
+```
+
+### Interview lesson
+
+Terraform's dependency graph is based on references.
+
+If a dependency is hidden inside a generated string or otherwise cannot be inferred, use `depends_on` deliberately.
+
+---
+
+# 14. Challenge — COPY INTO Did Not Load Multiple Columns Correctly
+
+Initially we needed to load:
+
+```text
+RAW_DATA
+SOURCE_FILE
+```
+
+from a JSON file.
+
+Simply referencing the stage without explicitly selecting the data caused problems because the landing table had multiple columns.
+
+### Fix
+
+We used:
+
+```sql
+COPY INTO target_table
+(
+    RAW_DATA,
+    SOURCE_FILE
+)
+FROM (
+    SELECT
+        $1,
+        METADATA$FILENAME
+    FROM @stage
+)
+```
+
+This gives:
+
+```text
+$1
+ ↓
+RAW_DATA
+
+METADATA$FILENAME
+ ↓
+SOURCE_FILE
+```
+
+### Interview lesson
+
+`METADATA$FILENAME` is useful for:
+
+* lineage
+* debugging
+* auditing
+* duplicate detection
+* identifying source files
+* troubleshooting Snowpipe
+
+---
+
+# 15. GCP Pub/Sub Automation
+
+The GCP side was also moved into Terraform.
+
+The architecture is:
+
+```text
+GCS
+ │
+ │ OBJECT_FINALIZE
+ ▼
+Pub/Sub Topic
+ │
+ ▼
+Pub/Sub Subscription
+ │
+ ▼
+Snowflake Notification Integration
+ │
+ ▼
+Snowpipe
+```
+
+The Terraform-created topic is:
+
+```text
+${environment}-gcs-events
+```
+
+DEV:
+
+```text
+dev-gcs-events
+```
+
+Subscription:
+
+```text
+dev-gcs-events-sub
+```
+
+---
+
+# 16. GCS Publisher IAM
+
+The GCS service agent needs permission to publish messages to the Pub/Sub topic.
+
+```hcl
+locals {
+  gcs_service_agent_email =
+    "service-${var.gcp_project_number}@gs-projects.iam.gserviceaccount.com"
+}
+
+resource "google_pubsub_topic_iam_member" "gcs_publisher" {
+  topic  = google_pubsub_topic.snowpipe.name
+  role   = "roles/pubsub.publisher"
+
+  member =
+    "serviceAccount:${local.gcs_service_agent_email}"
+}
+```
+
+Without this:
+
+```text
+GCS object created
+       ↓
+Notification cannot publish
+       ↓
+Pub/Sub never receives event
+       ↓
+Snowpipe never receives notification
+```
+
+---
+
+# 17. GCS Notification
+
+Terraform creates the GCS event notification.
+
+Conceptually:
+
+```text
+GCS OBJECT_FINALIZE
+        ↓
+Pub/Sub Topic
+```
+
+This means a newly uploaded object generates an event.
+
+---
+
+# 18. Snowflake Notification Integration
+
+Snowflake is connected to the GCP Pub/Sub subscription.
+
+The resulting architecture is:
+
+```text
+GCS
+ ↓
+Pub/Sub
+ ↓
+Snowflake Notification Integration
+ ↓
+Snowpipe
+```
+
+The DEV integration became:
+
+```text
+DEV_GCS_PUBSUB_INT
+```
+
+and uses:
+
+```text
+dev-gcs-events-sub
+```
+
+---
+
+# 19. Snowflake Subscriber IAM
+
+The Snowflake-generated GCP service account requires access to consume Pub/Sub messages.
+
+Terraform manages:
+
+```hcl
+resource "google_pubsub_subscription_iam_member" "snowflake_subscriber" {
+  subscription =
+    google_pubsub_subscription.snowpipe.name
+
+  role = "roles/pubsub.subscriber"
+
+  member =
+    "serviceAccount:${snowflake_notification_integration.gcp.gcp_pubsub_service_account}"
+}
+```
+
+We also grant:
+
+```text
+roles/monitoring.viewer
+```
+
+to the Snowflake service account for monitoring-related access.
+
+---
+
+# 20. Important Design Understanding — pipes.yml Does NOT Create Pub/Sub
+
+This was an important architecture distinction.
+
+`pipes.yml` controls:
+
+```text
+Snowpipe metadata
+```
+
+It does NOT control:
+
+```text
+Pub/Sub topic
+Pub/Sub subscription
+GCS notification
+IAM
+```
+
+Those are environment-level infrastructure resources.
+
+Therefore:
+
+```text
+pipes.yml
+   ↓
+Snowflake pipes
+
+gcp-pubsub.tf
+   ↓
+GCP event infrastructure
+```
+
+This separation is important for enterprise Terraform design.
+
+---
+
+# 21. Azure DevOps CI/CD
+
+After Terraform infrastructure was working locally, we automated deployment through Azure DevOps.
+
+The deployment pipeline was intentionally separated into stages.
+
+The conceptual flow:
+
+```text
+1. Terraform Validation
+          ↓
+2. GCP WIF Authentication
+          ↓
+3. Terraform PLAN DEV
+          ↓
+4. Publish DEV Plan Artifact
+          ↓
+5. DEV Approval
+          ↓
+6. Terraform APPLY DEV
+          ↓
+7. Verify DEV Infrastructure
+```
+
+---
+
+# 22. Stage 1 — Terraform Validation
+
+The pipeline installs Terraform and validates the code.
+
+```yaml
+- script: |
+    cd terraform
+    terraform fmt -check -recursive
+  displayName: 'Terraform Format Check'
+```
+
+Then:
+
+```yaml
+- script: |
+    cd terraform
+    terraform init -backend=false
+  displayName: 'Terraform Init'
+```
+
+Then:
+
+```yaml
+- script: |
+    cd terraform
+    terraform validate
+  displayName: 'Terraform Validate'
+```
+
+### Why backend=false?
+
+For validation we do not need to connect to the remote Terraform state.
+
+We only want to validate:
+
+```text
+Syntax
+Configuration
+Provider configuration
+Terraform structure
+```
+
+This keeps CI validation lightweight.
+
+---
+
+# 23. Challenge — Azure DevOps Stages Are Isolated
+
+This was one of the most important CI/CD lessons.
+
+We initially expected:
+
+```text
+Stage 1
+  ↓
+Authentication
+  ↓
+Stage 2
+  ↓
+Terraform Plan
+```
+
+to retain the Google authentication.
+
+That assumption was incorrect.
+
+Azure DevOps stages/jobs are isolated execution environments.
+
+Therefore:
+
+```text
+Stage A
+Google authentication
+       X
+Stage B
+No automatic authentication
+```
+
+The authentication must be performed again wherever Google access is required.
+
+### Correct design
+
+Every stage that needs GCP access must execute:
+
+```text
+Azure DevOps
+    ↓
+Azure service connection
+    ↓
+GCP WIF
+    ↓
+Google credentials
+    ↓
+Terraform / gcloud
+```
+
+This is a very important interview lesson.
+
+---
+
+# 24. GCP Workload Identity Federation
+
+We did not store a GCP service-account JSON key in Azure DevOps.
+
+Instead:
+
+```text
+Azure DevOps
+      ↓
+Workload Identity Federation
+      ↓
+GCP STS
+      ↓
+Service Account Impersonation
+      ↓
+Terraform
+```
+
+The important identities were:
+
+```text
+GCP Project:
+electric-tesla-507710-k2
+
+Project Number:
+776178390591
+
+WIF Pool:
+azure-devops-pool
+
+WIF Provider:
+azure-devops-provider
+
+Terraform Service Account:
+terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com
+```
+
+---
+
+# 25. WIF Authentication Template
+
+The reusable template is:
+
+```yaml
+steps:
+  - task: AzureCLI@2
+    displayName: 'Authenticate to Google Cloud using WIF'
+
+    inputs:
+      azureSubscription: 'google-cloud-wif'
+      addSpnToEnvironment: true
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+
+      inlineScript: |
+        set -e
+
+        echo "$idToken" \
+          > "$(Pipeline.Workspace)/.workload_identity.jwt"
+
+        cat > "$(Pipeline.Workspace)/.workload_identity.wlconfig" <<EOF
+        {
+          "type": "external_account",
+          "audience": "//iam.googleapis.com/projects/776178390591/locations/global/workloadIdentityPools/azure-devops-pool/providers/azure-devops-provider",
+          "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+          "token_url": "https://sts.googleapis.com/v1/token",
+          "credential_source": {
+            "file": "$(Pipeline.Workspace)/.workload_identity.jwt",
+            "format": {
+              "type": "text"
+            }
+          },
+          "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com:generateAccessToken"
+        }
+        EOF
+
+        export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+        gcloud auth login \
+          --cred-file="$GOOGLE_APPLICATION_CREDENTIALS" \
+          --quiet
+
+        gcloud auth list
+
+        gcloud storage buckets describe \
+          gs://electric-tesla-507710-k2-tfstate
+
+        echo "Google Cloud WIF authentication successful."
+
+        echo "##vso[task.setvariable variable=GOOGLE_APPLICATION_CREDENTIALS]$(Pipeline.Workspace)/.workload_identity.wlconfig"
+```
+
+---
+
+# 26. Why WIF Instead of Service Account JSON?
+
+Traditional approach:
+
+```text
+Azure DevOps
+      ↓
+Service Account JSON Key
+      ↓
+GCP
+```
+
+Problems:
+
+* Long-lived credentials
+* Secret management burden
+* Key rotation
+* Potential leakage
+* Larger attack surface
+
+WIF:
+
+```text
+Azure identity
+      ↓
+Short-lived federation
+      ↓
+GCP service account
+```
+
+Better enterprise security model.
+
+### Interview answer
+
+> "We used Workload Identity Federation instead of storing a long-lived GCP service-account key in Azure DevOps. Azure DevOps obtains an identity token, exchanges it through Google's Security Token Service, and impersonates a dedicated Terraform service account."
+
+---
+
+# 27. Challenge — WIF Authentication Did Not Carry Between Stages
+
+### Problem
+
+Terraform PLAN worked only when the stage had valid GCP authentication.
+
+A later stage could not automatically reuse authentication from an earlier stage.
+
+### Root cause
+
+Azure DevOps stages/jobs run in separate agents/execution contexts.
+
+### Fix
+
+The WIF authentication template was made reusable:
+
+```text
+terraform/templates/google-wif-auth.yml
+```
+
+and included in every stage requiring GCP access.
+
+This gives:
+
+```text
+Terraform PLAN stage
+      ↓
+google-wif-auth.yml
+
+Terraform APPLY stage
+      ↓
+google-wif-auth.yml
+
+Verification stage
+      ↓
+google-wif-auth.yml
+```
+
+### Interview lesson
+
+> Authentication state should not be assumed to persist across CI/CD stages. Each isolated execution context must establish its own credentials.
+
+---
+
+# 28. Stage 3 — Terraform PLAN DEV
+
+The reusable Terraform plan template receives:
+
+```yaml
+parameters:
+  - name: environment
+    type: string
+```
+
+Terraform is installed:
+
+```yaml
+curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip \
+  -o /tmp/terraform.zip
+```
+
+Then:
+
+```yaml
+terraform init -reconfigure
+```
+
+Then:
+
+```yaml
+terraform plan \
+  -input=false \
+  -var-file="./environments/${{ parameters.environment }}.tfvars" \
+  -out="$(Build.ArtifactStagingDirectory)/${{ parameters.environment }}.tfplan"
+```
+
+For DEV:
+
+```text
+terraform plan
+       +
+dev.tfvars
+       ↓
+dev.tfplan
+```
+
+---
+
+# 29. Snowflake Private Key Handling
+
+Snowflake Terraform authentication requires the private key.
+
+We used Azure DevOps Secure Files:
+
+```yaml
+- task: DownloadSecureFile@1
+  name: snowflakeKey
+  displayName: 'Download Snowflake Private Key'
+
+  inputs:
+    secureFile: 'snowflake_tf_key.p8'
+```
+
+Then:
+
+```yaml
+env:
+  TF_VAR_snowflake_private_key_path:
+    $(snowflakeKey.secureFilePath)
+
+  TF_VAR_snowflake_private_key_passphrase:
+    $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
+```
+
+The private key is therefore not committed to Git.
+
+---
+
+# 30. Challenge — Secret Was Previously Committed
+
+At one point a Snowflake passphrase file had been committed to the public GitHub repository.
+
+This was a serious security issue.
+
+### Fix
+
+We:
+
+1. Removed the secret from Git tracking.
+2. Added secret files to `.gitignore`.
+3. Installed `git-filter-repo`.
+4. Rewrote Git history.
+5. Restored required local changes.
+6. Force-pushed the cleaned history.
+7. Committed the security changes.
+
+Important commit:
+
+```text
+853f012
+```
+
+### Lesson
+
+Deleting a secret from the latest commit is not enough.
+
+If the secret exists in Git history:
+
+```text
+git history
+    ↓
+secret still recoverable
+```
+
+History rewriting and credential rotation may be required.
+
+### Interview lesson
+
+> "When a credential is committed, I treat it as compromised. Removing it from the working tree is insufficient; the history must be cleaned and the credential should be rotated."
+
+---
+
+# 31. Stage 4 — Publish DEV Plan Artifact
+
+The Terraform plan is saved:
+
+```text
+dev.tfplan
+```
+
+and published:
+
+```yaml
+- task: PublishPipelineArtifact@1
+  displayName: 'Publish Terraform Plan'
+
+  inputs:
+    targetPath:
+      '$(Build.ArtifactStagingDirectory)/${{ parameters.environment }}.tfplan'
+
+    artifact:
+      'terraform-plan-${{ parameters.environment }}'
+```
+
+The principle is:
+
+```text
+PLAN
+  ↓
+Immutable Artifact
+  ↓
+Approval
+  ↓
+APPLY
+```
+
+This is safer than running a fresh `terraform plan` after approval.
+
+---
+
+# 32. Why Plan Artifacts Matter
+
+Without an artifact:
+
+```text
+Plan
+ ↓
+Approval
+ ↓
+New plan
+ ↓
+Apply
+```
+
+The infrastructure could theoretically change between plan and apply.
+
+With a plan artifact:
+
+```text
+Plan
+ ↓
+Saved
+ ↓
+Approved
+ ↓
+Same Plan
+ ↓
+Apply
+```
+
+This provides stronger deployment control.
+
+---
+
+# 33. Stage 5 — DEV Approval
+
+DEV deployment is protected by an Azure DevOps approval.
+
+Conceptually:
+
+```text
+Terraform Plan
+      ↓
+Plan Artifact
+      ↓
+DEV Environment
+      ↓
+Approval
+      ↓
+Terraform Apply
+```
+
+The approval provides a human control point.
+
+This is particularly useful in enterprise environments where:
+
+* Production deployments require approval
+* Change management is required
+* Separation of duties matters
+* Infrastructure changes need review
+
+---
+
+# 34. Stage 6 — Terraform APPLY DEV
+
+After approval:
+
+```text
+terraform apply
+```
+
+is executed against the approved plan.
+
+The important principle is:
+
+```text
+terraform plan
+      ↓
+approved plan
+      ↓
+terraform apply approved plan
+```
+
+rather than allowing developers to independently apply arbitrary changes.
+
+---
+
+# 35. Challenge — Terraform State / Workspace Confusion
+
+This was one of the biggest practical Terraform lessons.
+
+We initially ran a TEST operation while Terraform was using the wrong state/workspace context.
+
+Terraform then wanted to treat DEV infrastructure as the infrastructure represented by the TEST configuration.
+
+This could have caused destructive changes.
+
+We stopped the operation before applying it.
+
+### Lesson
+
+Terraform configuration is not enough.
+
+You must understand:
+
+```text
+Configuration
++
+Backend
++
+Workspace
++
+State
++
+Variable file
+```
+
+all together.
+
+---
+
+# 36. Our Workspace Design
+
+We eventually established:
+
+```text
+default workspace
+       ↓
+DEV state
+
+test workspace
+       ↓
+TEST state
+```
+
+There is intentionally **no separate `dev` workspace**.
+
+The default workspace acts as DEV.
+
+This is important because the backend contains:
+
+```hcl
+prefix = "terraform/state/dev"
+```
+
+Terraform workspaces are layered on top of the backend state structure.
+
+---
+
+# 37. Terraform State Lock Issue
+
+We also encountered a stale Terraform state lock:
+
+```text
+1789053038571447
+```
+
+Before force-unlocking, we verified that no Terraform process was actively running.
+
+Then the stale lock was force-unlocked.
+
+Conceptually:
+
+```text
+Terraform operation interrupted
+        ↓
+State lock remains
+        ↓
+New Terraform operation blocked
+        ↓
+Verify no active Terraform process
+        ↓
+Force unlock
+```
+
+### Important interview lesson
+
+Never blindly run:
+
+```text
+terraform force-unlock
+```
+
+A lock may mean another Terraform process is legitimately modifying state.
+
+---
+
+# 38. Challenge — Existing Physical Resources Were Not in Terraform State
+
+We had resources that physically existed in Snowflake but were not correctly represented in Terraform state.
+
+For example:
+
+```text
+Tables
+Pipes
+Database
+Schemas
+Warehouse
+```
+
+Terraform could therefore interpret the situation as:
+
+```text
+Terraform:
+"I need to create this."
+
+Snowflake:
+"It already exists."
+```
+
+This leads to errors such as:
+
+```text
+object already exists
+```
+
+### Fix
+
+We used controlled state/import/reconciliation where appropriate.
+
+For TEST, existing resources were imported into Terraform state.
+
+The important concept is:
+
+```text
+Physical resource
+       +
+Terraform state
+       +
+Terraform configuration
+       =
+Terraform-managed resource
+```
+
+All three must agree.
+
+---
+
+# 39. DEV Clean Rebuild
+
+For DEV, we deliberately cleaned up the old manually-created landing objects.
+
+We dropped:
+
+```sql
+DROP TABLE IF EXISTS ADVWORKS_DEV.LANDING.FACT_INTERNET_SALES;
+
+DROP TABLE IF EXISTS ADVWORKS_DEV.LANDING.DIM_CUSTOMER;
+
+DROP TABLE IF EXISTS ADVWORKS_DEV.LANDING.DIM_PRODUCT;
+```
+
+Then we removed the old physical pipes:
+
+```sql
+DROP PIPE IF EXISTS ADVWORKS_DEV.LANDING.PIPE_DIM_CUSTOMER;
+
+DROP PIPE IF EXISTS ADVWORKS_DEV.LANDING.PIPE_DIM_PRODUCT;
+
+DROP PIPE IF EXISTS ADVWORKS_DEV.LANDING.PIPE_FACT_INTERNET_SALES;
+```
+
+Then Terraform recreated them.
+
+This gave us a clean ownership model:
+
+```text
+Terraform
+    ↓
+Owns DEV infrastructure
+```
+
+rather than:
+
+```text
+Manual resources
++
+Terraform resources
++
+Unknown ownership
+```
+
+---
+
+# 40. Challenge — Terraform Detected a Missing Physical Resource
+
+During the DEV rebuild, Terraform discovered that the physical DIM_PRODUCT table was missing even though Terraform state expected it.
+
+Terraform therefore planned to recreate it.
+
+This demonstrated an important Terraform principle:
+
+> Terraform refreshes its state against real infrastructure.
+
+The final apply reconciled the state and infrastructure.
+
+---
+
+# 41. Final DEV Terraform State
+
+The final DEV state contained:
+
+```text
+GCP
+ ├── Pub/Sub topic
+ ├── Pub/Sub subscription
+ ├── GCS notification
+ ├── GCS publisher IAM
+ ├── Snowflake subscriber IAM
+ └── Monitoring viewer IAM
+
+Snowflake
+ ├── Database
+ ├── Warehouse
+ ├── Schemas
+ ├── File formats
+ ├── External stages
+ ├── Landing tables
+ ├── Notification integration
+ └── Snowpipes
+```
+
+The final apply completed:
+
+```text
+Apply complete!
+Resources: 4 added, 0 changed, 0 destroyed.
+```
+
+---
+
+# 42. DEV Infrastructure Verification
+
+After Terraform APPLY, we verified Terraform state.
+
+We also verified Snowflake pipes:
+
+```sql
+SHOW PIPES IN SCHEMA ADVWORKS_DEV.LANDING;
+```
+
+The three pipes were:
+
+```text
+PIPE_DIM_CUSTOMER
+PIPE_DIM_PRODUCT
+PIPE_FACT_INTERNET_SALES
+```
+
+All pointed to:
+
+```text
+DEV_GCS_PUBSUB_INT
+```
+
+and:
+
+```text
+dev-gcs-events-sub
+```
+
+---
+
+# 43. Verify Landing Table Structure
+
+We verified the tables contained:
+
+```text
+RAW_DATA       VARIANT
+SOURCE_FILE    TEXT
+LOAD_TIMESTAMP TIMESTAMP_NTZ
+```
+
+This validated that Terraform created the expected physical schema.
+
+---
+
+# 44. Controlled End-to-End DEV Test
+
+Before testing DEV, TEST Snowpipes were paused because DEV and TEST currently use the same GCS bucket.
+
+TEST pipes were paused:
+
+```sql
+ALTER PIPE ADVWORKS_TEST.LANDING.PIPE_DIM_CUSTOMER
+SET PIPE_EXECUTION_PAUSED = TRUE;
+
+ALTER PIPE ADVWORKS_TEST.LANDING.PIPE_DIM_PRODUCT
+SET PIPE_EXECUTION_PAUSED = TRUE;
+
+ALTER PIPE ADVWORKS_TEST.LANDING.PIPE_FACT_INTERNET_SALES
+SET PIPE_EXECUTION_PAUSED = TRUE;
+```
+
+We verified:
+
+```sql
+SELECT SYSTEM$PIPE_STATUS(
+    'ADVWORKS_TEST.LANDING.PIPE_DIM_CUSTOMER'
+);
+```
+
+and the pipes reported:
+
+```text
+executionState: PAUSED
+pendingFileCount: 0
+```
+
+This prevented the DEV test file from unintentionally being processed by TEST.
+
+---
+
+# 45. DEV Snowpipe Test
+
+We uploaded a customer file under a unique filename:
+
+```powershell
+gcloud storage cp ".\python-ingestion\output\DimCustomer_batch_001.jsonl" "gs://advworks-dev-ingestion/dim_customer/DEV_TEST_DimCustomer_001.jsonl"
+```
+
+Result:
+
+```text
+Completed files 1/1 | 3.8MiB/3.8MiB
+```
+
+---
+
+# 46. Verify Snowpipe
+
+We executed:
+
+```sql
+SELECT SYSTEM$PIPE_STATUS(
+    'ADVWORKS_DEV.LANDING.PIPE_DIM_CUSTOMER'
+);
+```
+
+Result showed:
+
+```text
+executionState: RUNNING
+pendingFileCount: 0
+lastIngestedFilePath: DEV_TEST_DimCustomer_001.jsonl
+```
+
+Notification channel:
+
+```text
+projects/electric-tesla-507710-k2/subscriptions/dev-gcs-events-sub
+```
+
+Outstanding messages:
+
+```text
+0
+```
+
+This proved the event had been processed.
+
+---
+
+# 47. Verify Snowflake Data
+
+```sql
+SELECT COUNT(*)
+FROM ADVWORKS_DEV.LANDING.DIM_CUSTOMER;
+```
+
+Result:
+
+```text
+5000
+```
+
+And:
+
+```sql
+SELECT
+    SOURCE_FILE,
+    COUNT(*)
+FROM ADVWORKS_DEV.LANDING.DIM_CUSTOMER
+GROUP BY SOURCE_FILE;
+```
+
+Result:
+
+```text
+dim_customer/DEV_TEST_DimCustomer_001.jsonl    5000
+```
+
+Therefore the complete pipeline was proven:
+
+```text
+Local JSONL
+     ↓
+GCS
+     ↓
+GCS OBJECT_FINALIZE
+     ↓
+Pub/Sub Topic
+     ↓
+Pub/Sub Subscription
+     ↓
+Snowflake Notification Integration
+     ↓
+Snowpipe
+     ↓
+Snowflake LANDING.DIM_CUSTOMER
+```
+
+---
+
+# 48. Important Observation — Actual Batch Size
+
+We initially expected the customer file to contain 1,000 records.
+
+The actual file contained:
+
+```text
+5000
+```
+
+and Snowflake received:
+
+```text
+5000
+```
+
+Therefore the ingestion path was correct.
+
+The discrepancy was in our assumption about the extraction batch size, not Snowpipe.
+
+This is an important debugging principle:
+
+> Always validate source record count independently instead of assuming the expected batch size.
+
+---
+
+# 49. Full Implementation Sequence
+
+The complete implementation sequence should be remembered as:
+
+```text
+PHASE 1 — Understand Existing Manual Pipeline
+        ↓
+PHASE 2 — Design Terraform Ownership
+        ↓
+PHASE 3 — Create Terraform Providers
+        ↓
+PHASE 4 — Create Snowflake Database/Schemas/Warehouse
+        ↓
+PHASE 5 — Create Landing Tables
+        ↓
+PHASE 6 — Create File Formats
+        ↓
+PHASE 7 — Create GCS External Stages
+        ↓
+PHASE 8 — Create Pub/Sub Topic
+        ↓
+PHASE 9 — Create Pub/Sub Subscription
+        ↓
+PHASE 10 — Create GCS Notification
+        ↓
+PHASE 11 — Create GCS Publisher IAM
+        ↓
+PHASE 12 — Create Snowflake Notification Integration
+        ↓
+PHASE 13 — Create Snowflake Subscriber IAM
+        ↓
+PHASE 14 — Create Snowpipes
+        ↓
+PHASE 15 — Add Terraform Dependencies
+        ↓
+PHASE 16 — Validate Locally
+        ↓
+PHASE 17 — Configure GCS Remote State
+        ↓
+PHASE 18 — Configure Azure DevOps
+        ↓
+PHASE 19 — Configure GCP WIF
+        ↓
+PHASE 20 — Terraform Validation
+        ↓
+PHASE 21 — Terraform PLAN
+        ↓
+PHASE 22 — Publish Plan Artifact
+        ↓
+PHASE 23 — DEV Approval
+        ↓
+PHASE 24 — Terraform APPLY
+        ↓
+PHASE 25 — Verify Infrastructure
+        ↓
+PHASE 26 — End-to-End GCS → Snowpipe Test
+```
+
+---
+
+# 50. Problems We Encountered — Master Troubleshooting Table
+
+| Problem                                   | Root Cause                                    | Fix                                                       | Learning                              |
+| ----------------------------------------- | --------------------------------------------- | --------------------------------------------------------- | ------------------------------------- |
+| Terraform tried wrong environment changes | Wrong workspace/state context                 | Stop plan, inspect workspace/state, use correct workspace | State is critical                     |
+| Terraform state lock                      | Stale/interrupted operation                   | Verify no active Terraform process, then force-unlock     | Never blindly force unlock            |
+| Physical resource already existed         | Manual resource not reconciled with Terraform | Import/reconcile or cleanly recreate                      | State ≠ infrastructure                |
+| Pipe created before table                 | Terraform couldn't infer dependency           | `depends_on`                                              | Understand Terraform dependency graph |
+| COPY did not map columns correctly        | Multi-column target needed explicit mapping   | `SELECT $1, METADATA$FILENAME`                            | Understand Snowflake COPY semantics   |
+| WIF worked in one stage but not another   | Azure DevOps stages are isolated              | Authenticate WIF in every required stage                  | CI agents are ephemeral               |
+| Secret existed in Git history             | Secret was previously committed               | Remove, rewrite history, force push, rotate if required   | Git history matters                   |
+| TEST could consume DEV file               | DEV and TEST share GCS bucket/prefix          | Pause TEST pipes during controlled DEV test               | Environment isolation                 |
+| Expected 1,000 rows but received 5,000    | Incorrect assumption about source batch size  | Validate source file independently                        | Never assume record counts            |
+| Terraform detected missing physical table | State expected object but object was absent   | Terraform recreated it                                    | Terraform refresh reconciles reality  |
+| Manual and Terraform ownership overlapped | Infrastructure was partially manual           | Clean/reconcile state and establish Terraform ownership   | Single source of truth                |
+
+---
+
+# 51. What Terraform Owns
+
+Terraform should own infrastructure:
+
+```text
+GCP
+ ├── Pub/Sub
+ ├── GCS notifications
+ ├── IAM
+ └── service integration
+
+Snowflake
+ ├── Database
+ ├── Warehouse
+ ├── Schemas
+ ├── Tables
+ ├── Stages
+ ├── File formats
+ ├── Notification integrations
+ └── Pipes
+```
+
+Terraform should NOT become the place for transformation logic.
+
+---
+
+# 52. What dbt Owns
+
+dbt owns:
+
+```text
+LANDING
+   ↓
+PREPARE
+   ↓
+NORMALIZE
+   ↓
+SCHEMATIZE
+   ↓
+MARKETPLACE
+```
+
+along with:
+
+```text
+SQL transformations
+Tests
+Documentation
+Lineage
+Model dependencies
+```
+
+Therefore:
+
+```text
+Terraform = Infrastructure
+
+dbt = Data Transformation
+```
+
+This separation is extremely important for interviews.
+
+---
+
+# 53. What Azure DevOps Owns
+
+Azure DevOps owns:
+
+```text
+CI/CD
+Deployment orchestration
+Validation
+Terraform plan
+Plan artifact
+Approval
+Terraform apply
+Environment promotion
+```
+
+So the enterprise responsibility model is:
+
+```text
+Git
+ ↓
+Azure DevOps
+ ↓
+Terraform
+ ↓
+Infrastructure
+
+Git
+ ↓
+Azure DevOps
+ ↓
+dbt
+ ↓
+Transformations
+```
+
+---
+
+# 54. Important Production Architecture Issue to Remember
+
+Currently:
+
+```text
+DEV
+  \
+   → advworks-dev-ingestion
+  /
+TEST
+```
+
+Both environments use the same GCS bucket.
+
+This means a file uploaded under a matching prefix can potentially generate events relevant to both environments.
+
+For our controlled test we handled this by pausing TEST pipes.
+
+However, production-grade environment isolation would ideally be:
+
+```text
+DEV
+ ↓
+gs://advworks-dev-ingestion
+
+TEST
+ ↓
+gs://advworks-test-ingestion
+
+PREPROD
+ ↓
+gs://advworks-preprod-ingestion
+
+PROD
+ ↓
+gs://advworks-prod-ingestion
+```
+
+This should be treated as a **future architecture hardening topic**, not something we need to stop the current learning roadmap for.
+
+---
+
+# 55. Enterprise Deployment Model
+
+The final model we are learning toward is:
+
+```text
+Developer
+   ↓
+Feature Branch
+   ↓
+Pull Request
+   ↓
+Code Review
+   ↓
+CI Validation
+   ↓
+DEV PLAN
+   ↓
+DEV APPLY
+   ↓
+DEV Testing
+   ↓
+TEST PLAN
+   ↓
+TEST Approval
+   ↓
+TEST APPLY
+   ↓
+PREPROD
+   ↓
+PROD Approval
+   ↓
+PROD APPLY
+```
+
+This gives controlled promotion.
+
+---
+
+# 56. Core Interview Concepts Learned
+
+From this implementation, you should be able to answer:
+
+### Terraform
+
+1. What is Terraform?
+2. Why use Terraform for Snowpipe?
+3. What is Terraform state?
+4. Why use remote state?
+5. What is a Terraform workspace?
+6. What is the difference between configuration and state?
+7. What happens if a resource exists physically but not in state?
+8. What is `terraform import`?
+9. What is `depends_on`?
+10. What is Terraform plan?
+11. Why save a plan artifact?
+12. What happens when Terraform detects drift?
+13. How do you handle state locking?
+14. Why should `force-unlock` be used carefully?
+15. How do you manage DEV/TEST/PROD?
+16. Why use metadata-driven Terraform?
+17. What is `for_each`?
+18. What is `yamldecode()`?
+19. What is infrastructure drift?
+
+---
+
+# 57. GCP Interview Concepts
+
+You should be able to explain:
+
+```text
+GCS
+ ↓
+OBJECT_FINALIZE
+ ↓
+Pub/Sub
+ ↓
+Subscription
+```
+
+Questions:
+
+1. Why use Pub/Sub?
+2. What is a topic?
+3. What is a subscription?
+4. What is the difference between topic and subscription?
+5. Why does GCS need publisher permission?
+6. Why does Snowflake need subscriber permission?
+7. What is IAM?
+8. What is Workload Identity Federation?
+9. Why use WIF instead of service-account keys?
+10. What is service-account impersonation?
+11. What is Google STS?
+12. Why does authentication need to happen in every Azure DevOps stage?
+
+---
+
+# 58. Snowflake Interview Concepts
+
+You should be able to explain:
+
+```text
+External Stage
+       ↓
+File Format
+       ↓
+Snowpipe
+       ↓
+LANDING
+```
+
+Questions:
+
+1. What is Snowpipe?
+2. What is auto-ingest?
+3. What is a notification integration?
+4. What is a storage integration?
+5. What is the difference between storage and notification integration?
+6. How does Snowpipe know a file arrived?
+7. What is `METADATA$FILENAME`?
+8. Why use VARIANT in the landing layer?
+9. What happens when the same file is uploaded again?
+10. How do you troubleshoot Snowpipe?
+11. What does `SYSTEM$PIPE_STATUS()` tell you?
+12. What is `pendingFileCount`?
+13. What is `notificationChannelName`?
+14. What does `lastIngestedFilePath` tell you?
+
+---
+
+# 59. CI/CD Interview Scenario
+
+### Interviewer:
+
+> How did you implement controlled Terraform deployment?
+
+### Answer:
+
+> "I separated Terraform deployment into validation, authentication, planning, artifact publication, approval, and apply stages. Terraform code is first formatted and validated. Each stage that requires GCP access establishes Workload Identity Federation because Azure DevOps execution stages are isolated. Terraform then generates a DEV plan using the environment-specific tfvars file. The plan is published as an artifact, and after approval the approved plan is applied. Finally, we verify the created GCP and Snowflake infrastructure."
+
+---
+
+# 60. Terraform State Interview Scenario
+
+### Interviewer:
+
+> You accidentally ran Terraform using the wrong workspace. What did you do?
+
+### Strong answer:
+
+> "I stopped the operation before applying it because the plan indicated that Terraform was trying to reconcile the wrong environment. I checked the active workspace, backend configuration, state resources and environment tfvars. We established that the default workspace represented DEV while the test workspace represented TEST. I then operated against the correct state and reconciled existing resources rather than allowing Terraform to make destructive changes."
+
+---
+
+# 61. WIF Interview Scenario
+
+### Interviewer:
+
+> What issue did you face with WIF?
+
+### Strong answer:
+
+> "Initially we assumed authentication from one Azure DevOps stage would be available to subsequent stages. That was incorrect because stages and jobs run in isolated execution contexts. We therefore created a reusable WIF authentication template and invoke it in every stage that requires GCP access. The template creates an external-account credential configuration and authenticates through Google's STS and service-account impersonation."
+
+---
+
+# 62. Snowpipe Troubleshooting Interview Scenario
+
+### Interviewer:
+
+> A file exists in GCS but Snowflake did not ingest it. How would you troubleshoot?
+
+### Answer:
+
+I would trace the pipeline from left to right:
+
+```text
+1. Does file exist in GCS?
+        ↓
+2. Was OBJECT_FINALIZE generated?
+        ↓
+3. Did Pub/Sub receive the message?
+        ↓
+4. Is the subscription receiving messages?
+        ↓
+5. Is Snowflake notification integration correct?
+        ↓
+6. Is Snowpipe running?
+        ↓
+7. Is PIPE_EXECUTION_PAUSED?
+        ↓
+8. Does SYSTEM$PIPE_STATUS show pending messages?
+        ↓
+9. Does the external stage point to correct GCS path?
+        ↓
+10. Does file format match?
+        ↓
+11. Does COPY INTO succeed?
+        ↓
+12. Does the target table contain the rows?
+```
+
+This is much stronger than simply saying:
+
+> "I would check Snowpipe."
+
+---
+
+# 63. Most Important Learning From This Project
+
+The biggest lesson is that a data pipeline is not just:
+
+```text
+Python → GCS → Snowflake
+```
+
+A production pipeline requires:
+
+```text
+Data ingestion
++
+Infrastructure as Code
++
+IAM
++
+Authentication
++
+State management
++
+CI/CD
++
+Deployment control
++
+Environment isolation
++
+Monitoring
++
+Error handling
++
+Data quality
++
+Security
++
+Testing
++
+Operational troubleshooting
+```
+
+That is exactly why this project is valuable for your Data Engineering interviews.
+
+---
+
+# 64. Final Mental Model
+
+When you revise this project, remember these five layers:
+
+## Layer 1 — Data
+
+```text
+SQL Server
+ ↓
+Python
+ ↓
+GCS
+```
+
+## Layer 2 — Event Driven Ingestion
+
+```text
+GCS
+ ↓
+Pub/Sub
+ ↓
+Snowpipe
+ ↓
+LANDING
+```
+
+## Layer 3 — Infrastructure
+
+```text
+Terraform
+ ↓
+GCP + Snowflake infrastructure
+```
+
+## Layer 4 — Deployment
+
+```text
+Git
+ ↓
+Azure DevOps
+ ↓
+WIF
+ ↓
+Plan
+ ↓
+Approval
+ ↓
+Apply
+```
+
+## Layer 5 — Transformation
+
+```text
+LANDING
+ ↓
+dbt
+ ↓
+PREPARE
+ ↓
+NORMALIZE
+ ↓
+SCHEMATIZE
+ ↓
+MARKETPLACE
+```
+
+And eventually:
+
+```text
+Airflow
+ ↓
+Orchestrates the entire workflow
+```
+
+---
+
+# 65. The One-Sentence Interview Summary
+
+If an interviewer asks:
+
+> "Tell me about the data pipeline project you implemented."
+
+Your short answer should be:
+
+> "I built an end-to-end data ingestion pipeline where data is extracted from SQL Server using Python, landed in GCS, event notifications are propagated through Pub/Sub, Snowpipe automatically loads the raw data into Snowflake LANDING, and the entire GCP and Snowflake ingestion infrastructure is managed through metadata-driven Terraform. I then implemented Azure DevOps CI/CD with Terraform validation, GCP Workload Identity Federation, plan artifacts, environment approvals and controlled deployment, while dbt manages downstream transformations and data quality."
+
+---
+
+# 66. Revision Checklist
+
+Before moving to the next roadmap item, you should be able to explain without looking at this document:
+
+### Terraform
+
+* [ ] State
+* [ ] Remote backend
+* [ ] Workspace
+* [ ] Import
+* [ ] Lock
+* [ ] Drift
+* [ ] `for_each`
+* [ ] `yamldecode`
+* [ ] `depends_on`
+* [ ] Plan
+* [ ] Apply
+
+### GCP
+
+* [ ] GCS
+* [ ] Object finalize
+* [ ] Pub/Sub topic
+* [ ] Subscription
+* [ ] Publisher IAM
+* [ ] Subscriber IAM
+* [ ] WIF
+* [ ] STS
+* [ ] Service-account impersonation
+
+### Snowflake
+
+* [ ] Storage integration
+* [ ] Notification integration
+* [ ] External stage
+* [ ] File format
+* [ ] Snowpipe
+* [ ] Auto-ingest
+* [ ] VARIANT
+* [ ] `METADATA$FILENAME`
+* [ ] `SYSTEM$PIPE_STATUS`
+
+### Azure DevOps
+
+* [ ] CI validation
+* [ ] WIF per stage
+* [ ] Terraform plan
+* [ ] Plan artifact
+* [ ] Approval
+* [ ] Apply
+* [ ] Environment promotion
+
+### Production
+
+* [ ] Environment isolation
+* [ ] Security
+* [ ] Secrets
+* [ ] Idempotency
+* [ ] Monitoring
+* [ ] Error handling
+* [ ] Data quality
+* [ ] Cost optimization
+* [ ] Disaster recovery
+
+---
+
+# 67. Recommended Interview Revision Method
+
+Do not memorize the YAML or Terraform line-by-line.
+
+Instead remember:
+
+```text
+WHY
+ ↓
+WHAT
+ ↓
+HOW
+ ↓
+PROBLEM
+ ↓
+FIX
+ ↓
+TRADE-OFF
+ ↓
+PRODUCTION IMPROVEMENT
+```
+
+For example:
+
+```text
+Why WIF?
+    ↓
+Avoid long-lived GCP keys.
+
+How?
+    ↓
+Azure identity → STS → service-account impersonation.
+
+Problem?
+    ↓
+Authentication didn't persist across stages.
+
+Fix?
+    ↓
+Run WIF authentication in every required stage.
+
+Production improvement?
+    ↓
+Use dedicated service accounts and least-privilege IAM.
+```
+
+That is the level of understanding expected from a strong Data Engineer rather than simply being able to reproduce Terraform syntax.

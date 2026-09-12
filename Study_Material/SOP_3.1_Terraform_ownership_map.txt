@@ -1,0 +1,121 @@
+Quick ownership map
+Who / Component	Creates / Owns	Provides access to
+Azure DevOps Admin	Project, repos, pipelines, environments, service connections	Developers, pipeline identities
+Azure DevOps Service Connection	Azure → GCP federation trust	Allows Azure DevOps pipeline to authenticate to GCP
+GCP IAM Admin	IAM roles, WIF pool/provider, service accounts	Grants Azure DevOps identity permission to impersonate Terraform SA
+GCP WIF	Federated authentication	Azure DevOps → GCP without JSON key
+Terraform CI Service Account	Dedicated automation identity	Terraform gets GCP permissions through impersonation
+GCP IAM	roles/pubsub.publisher	GCS service agent → Pub/Sub topic
+GCP IAM	roles/pubsub.subscriber	Snowflake notification SA → Pub/Sub subscription
+GCP GCS	Bucket + object storage	Snowflake storage integration accesses objects
+GCS Service Agent	Publishes GCS events	Pub/Sub topic
+Pub/Sub	Topic + subscription	Delivers GCS events to Snowflake
+Snowflake ACCOUNTADMIN / security admin	Snowflake integrations, roles, grants	Gives Snowflake access to GCS/Pub/Sub
+Snowflake Storage Integration	GCS access configuration	Snowflake stage → GCS
+Snowflake Notification Integration	Pub/Sub connection	Snowpipe → Pub/Sub
+Snowpipe	Automated ingestion	Loads GCS files into LANDING
+Snowflake Terraform user	Terraform authentication	Terraform can create/manage Snowflake objects
+Azure DevOps Secure Files / Variable Groups	Snowflake private key + passphrase	Terraform pipeline
+Terraform	Physical infrastructure declared in code	Creates/reconciles GCP + Snowflake resources
+dbt	Transformations/tests/docs	Reads LANDING and creates downstream models
+The important access chain
+
+This is the one I would memorize:
+
+Azure DevOps
+      │
+      │ WIF
+      ▼
+GCP WIF Provider
+      │
+      │ impersonates
+      ▼
+terraform-ci Service Account
+      │
+      │ IAM permissions
+      ▼
+GCP Infrastructure
+      │
+      ├── GCS
+      ├── Pub/Sub
+      └── IAM
+
+And separately:
+
+Terraform
+    │
+    │ Snowflake JWT / private key
+    ▼
+Snowflake Terraform User
+    │
+    │ ACCOUNTADMIN / appropriate role
+    ▼
+Snowflake Infrastructure
+    │
+    ├── Database
+    ├── Schemas
+    ├── Tables
+    ├── Stages
+    ├── Integrations
+    └── Pipes
+
+Then the runtime data access is different:
+
+GCS
+ │
+ │ OBJECT_FINALIZE
+ ▼
+Pub/Sub
+ │
+ │ subscriber permission
+ ▼
+Snowflake Notification Integration
+ │
+ ▼
+Snowpipe
+ │
+ │ storage integration
+ ▼
+GCS
+ │
+ ▼
+Snowflake LANDING
+The 4 identities you should never confuse
+Identity	Purpose
+Azure DevOps identity	Proves the pipeline is allowed to federate into GCP
+terraform-ci@...	Terraform's GCP automation identity
+GCS service agent	Publishes GCS events to Pub/Sub
+Snowflake notification service account	Reads Pub/Sub notifications for Snowpipe
+
+And there is a separate Snowflake Terraform identity used by Terraform to create/manage Snowflake objects.
+
+Interview shortcut
+
+If asked “Who gives access to whom?”, think:
+
+WHO                         ACCESS TO                 WHY
+
+Azure DevOps
+   ↓ WIF
+GCP Terraform SA            GCP infrastructure        Terraform provisioning
+
+GCS Service Agent
+   ↓ publisher
+Pub/Sub Topic               GCS events                Notify file creation
+
+Snowflake Notification SA
+   ↓ subscriber
+Pub/Sub Subscription        Snowpipe events           Consume notifications
+
+Snowflake Storage Integration
+   ↓ GCS access
+GCS Bucket                  Read source files         Snowpipe ingestion
+
+Terraform Snowflake User
+   ↓ Snowflake role
+Snowflake objects           Create/manage infra       IaC provisioning
+
+Most important distinction:
+Terraform creates/provisions the infrastructure; IAM grants the identities permission; runtime service accounts perform the actual data movement.
+
+That distinction will be very useful when we turn this project into your interview questions.
