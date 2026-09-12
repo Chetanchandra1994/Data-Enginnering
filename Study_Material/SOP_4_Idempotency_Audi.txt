@@ -1,0 +1,496 @@
+The latest proven state is:
+
+Local JSONL → GCS → GCS Notification → Pub/Sub → Snowflake Notification Integration → Snowpipe → LANDING.DIM_CUSTOMER = 5,000 rows
+
+So the next learning step should be idempotency + duplicate-file handling, because this is a critical production Data Engineering concept.
+
+Re-upload the exact same GCS object
+
+Now execute the same upload again:
+
+gcloud storage cp ".\python-ingestion\output\DimCustomer_batch_001.jsonl" "gs://advworks-dev-ingestion/dim_customer/DEV_TEST_DimCustomer_001.jsonl"
+
+This creates another GCS finalize event for the same object.
+
+Do not run REFRESH this time.
+
+Wait ~30–60 seconds.
+
+Then:
+
+SELECT COUNT(*)
+FROM ADVWORKS_DEV.LANDING.DIM_CUSTOMER;
+Expected
+
+Still:
+
+24,484
+
+And:
+
+SELECT SOURCE_FILE, COUNT(*)
+FROM ADVWORKS_DEV.LANDING.DIM_CUSTOMER
+WHERE SOURCE_FILE = 'dim_customer/DEV_TEST_DimCustomer_001.jsonl'
+GROUP BY SOURCE_FILE;
+
+should remain:
+
+5000
+
+If that happens, we've properly demonstrated Snowpipe file-level duplicate protection under normal notification-driven ingestion.
+
+Interview answer
+
+If asked:
+
+How do you prevent duplicate ingestion with Snowpipe?
+
+A good answer is:
+
+"Snowpipe maintains ingestion metadata at the file level. When a previously ingested file generates another notification, Snowpipe doesn't normally load it again. 
+However, I don't rely on that alone for end-to-end idempotency. I also design audit keys, source-file tracking, load timestamps, 
+business keys and downstream merge logic depending on the pipeline."
+
+That's much stronger than simply saying "Snowpipe prevents duplicates."
+
+Don't say:
+
+"Snowpipe guarantees idempotency."
+
+That's too broad.
+
+Say:
+
+"Snowpipe maintains file ingestion metadata and normally prevents the same file from being automatically loaded again. 
+However, REFRESH can discover files that aren't recorded as loaded by that pipe, and application-level idempotency still needs to be designed for renamed files, 
+regenerated files, CDC, retries, and downstream transformations."
+
+Next - > Pipeline Monitoring & Audit
+
+What we're going to learn
+
+A production pipeline needs to answer:
+
+What happened to my file?
+
+For example:
+
+DimCustomer_batch_019.jsonl
+        ↓
+Was it uploaded?
+        ↓
+Did GCS receive it?
+        ↓
+Did Pub/Sub receive the event?
+        ↓
+Did Snowpipe process it?
+        ↓
+How many rows were loaded?
+        ↓
+Did dbt process those rows?
+        ↓
+Did data-quality tests pass?
+        ↓
+Did it reach the final model?
+
+This is called pipeline observability / lineage / auditability.
+
+1. Infrastructure-level monitoring
+
+We already have several checks.
+
+GCS
+gcloud storage ls "gs://advworks-dev-ingestion/dim_customer/"
+
+This answers:
+
+Did the file arrive in GCS?
+
+2. Pub/Sub
+
+We can inspect the subscription:
+
+gcloud pubsub subscriptions describe dev-gcs-events-sub --project=electric-tesla-507710-k2
+
+This answers things such as:
+
+subscription exists
+topic connection
+acknowledgement configuration
+retry/dead-letter configuration if configured
+3. Snowpipe
+
+We already learned this:
+
+SELECT SYSTEM$PIPE_STATUS(
+    'ADVWORKS_DEV.LANDING.PIPE_DIM_CUSTOMER'
+);
+
+This answers:
+
+Is the pipe running?
+Is there a backlog?
+What was the last ingested file?
+When was it ingested?
+Are messages waiting?
+
+This is one of our primary operational checks.
+
+4. LANDING audit
+
+Our landing tables already have:
+
+RAW_DATA
+SOURCE_FILE
+LOAD_TIMESTAMP
+
+That is actually very useful.
+
+For example:
+
+SELECT
+    SOURCE_FILE,
+    COUNT(*) AS ROW_COUNT,
+    MIN(LOAD_TIMESTAMP) AS FIRST_LOAD_TIME,
+    MAX(LOAD_TIMESTAMP) AS LAST_LOAD_TIME
+FROM ADVWORKS_DEV.LANDING.DIM_CUSTOMER
+GROUP BY SOURCE_FILE
+ORDER BY LAST_LOAD_TIME DESC;
+
+This gives us a basic file-level audit.
+
+For our current data, we can see something like:
+
+SOURCE_FILE                                  ROW_COUNT
+------------------------------------------------------
+dim_customer/DEV_TEST_DimCustomer_001.jsonl     5000
+dim_customer/DimCustomer_batch_001.jsonl        1000
+...
+But production systems need something better
+
+Instead of relying only on the actual business tables, we normally create an audit/control table.
+
+For example:
+
+PIPELINE_AUDIT
+------------------------------------------------------
+RUN_ID
+PIPELINE_NAME
+SOURCE_SYSTEM
+SOURCE_FILE
+START_TIME
+END_TIME
+STATUS
+ROWS_READ
+ROWS_WRITTEN
+ERROR_COUNT
+ERROR_MESSAGE
+
+Then a pipeline execution could produce:
+
+RUN_ID     SOURCE_FILE             STATUS    ROWS
+--------------------------------------------------
+10001      batch_001.jsonl         SUCCESS   1000
+10002      batch_002.jsonl         SUCCESS   1000
+10003      batch_003.jsonl         FAILED       0
+10004      batch_003.jsonl         SUCCESS   1000
+
+Now an engineer can answer:
+
+"What happened to batch 003?"
+
+without manually inspecting every system.
+
+5. We're going to implement a simple audit framework
+
+Our practice project doesn't need an enormous enterprise monitoring platform.
+
+We'll create:
+
+ADVWORKS_DEV
+   │
+   └── AUDIT
+        │
+        └── PIPELINE_AUDIT
+
+with fields covering:
+
+pipeline
+environment
+source
+file
+run
+status
+row counts
+timestamps
+error information
+
+Then we'll use it later with:
+
+Python
+   ↓
+GCS
+   ↓
+Snowpipe
+   ↓
+dbt
+   ↓
+Airflow
+
+so the same audit concept survives when Airflow becomes the orchestrator.
+
+/*
+Create the Audit Schema
+
+Run this in Snowflake:
+*/
+CREATE SCHEMA IF NOT EXISTS ADVWORKS_DEV.AUDIT; -- Schema AUDIT successfully created.
+
+
+--Then verify:
+SHOW SCHEMAS LIKE 'AUDIT' IN DATABASE ADVWORKS_DEV;
+/*
+created_on	name	is_default	is_current	database_name	owner	comment	options	retention_time	owner_role_type	classification_profile_database	classification_profile_schema	classification_profile	object_visibility	is_nested
+2026-09-12 05:08:15.022 -0700	AUDIT	N	Y	ADVWORKS_DEV	ACCOUNTADMIN			1	ROLE					false
+*/
+
+-- — Create PIPELINE_AUDIT
+CREATE OR REPLACE TABLE ADVWORKS_DEV.AUDIT.PIPELINE_AUDIT (
+    RUN_ID              VARCHAR,
+    PIPELINE_NAME       VARCHAR,
+    ENVIRONMENT         VARCHAR,
+    SOURCE_SYSTEM       VARCHAR,
+    SOURCE_OBJECT       VARCHAR,
+    TARGET_OBJECT       VARCHAR,
+    STATUS               VARCHAR,
+    START_TIME           TIMESTAMP_NTZ,
+    END_TIME             TIMESTAMP_NTZ,
+    ROWS_READ            NUMBER,
+    ROWS_WRITTEN         NUMBER,
+    ERROR_COUNT          NUMBER,
+    ERROR_MESSAGE        VARCHAR,
+    CREATED_AT           TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+DESC TABLE ADVWORKS_DEV.AUDIT.PIPELINE_AUDIT;
+/*
+name	type	kind	null?	default	primary key	unique key	check	expression	comment	policy name	privacy domain	write default
+RUN_ID	VARCHAR(16777216)	COLUMN	Y		N	N						
+PIPELINE_NAME	VARCHAR(16777216)	COLUMN	Y		N	N						
+ENVIRONMENT	VARCHAR(16777216)	COLUMN	Y		N	N						
+SOURCE_SYSTEM	VARCHAR(16777216)	COLUMN	Y		N	N						
+SOURCE_OBJECT	VARCHAR(16777216)	COLUMN	Y		N	N						
+TARGET_OBJECT	VARCHAR(16777216)	COLUMN	Y		N	N						
+STATUS	VARCHAR(16777216)	COLUMN	Y		N	N						
+START_TIME	TIMESTAMP_NTZ(9)	COLUMN	Y		N	N						
+END_TIME	TIMESTAMP_NTZ(9)	COLUMN	Y		N	N						
+ROWS_READ	NUMBER(38,0)	COLUMN	Y		N	N						
+ROWS_WRITTEN	NUMBER(38,0)	COLUMN	Y		N	N						
+ERROR_COUNT	NUMBER(38,0)	COLUMN	Y		N	N						
+ERROR_MESSAGE	VARCHAR(16777216)	COLUMN	Y		N	N						
+CREATED_AT	TIMESTAMP_NTZ(9)	COLUMN	Y	CURRENT_TIMESTAMP()	N	N						
+*/
+
+--— Record Our First Successful Pipeline Run
+
+/* For this first record, we'll represent the actual DIM_CUSTOMER Snowpipe ingestion that we just validated.
+
+Use:
+
+Pipeline: GCS_TO_SNOWFLAKE_SNOWPIPE
+Environment: DEV
+Source: GCS
+File: DEV_TEST_DimCustomer_001.jsonl
+Target: ADVWORKS_DEV.LANDING.DIM_CUSTOMER
+Status: SUCCESS
+Rows written: 5000
+
+We'll generate a unique RUN_ID using Snowflake.
+*/
+
+-- Run:
+INSERT INTO ADVWORKS_DEV.AUDIT.PIPELINE_AUDIT
+(
+    RUN_ID,
+    PIPELINE_NAME,
+    ENVIRONMENT,
+    SOURCE_SYSTEM,
+    SOURCE_OBJECT,
+    TARGET_OBJECT,
+    STATUS,
+    START_TIME,
+    END_TIME,
+    ROWS_READ,
+    ROWS_WRITTEN,
+    ERROR_COUNT,
+    ERROR_MESSAGE
+)
+SELECT
+    UUID_STRING(),
+    'GCS_TO_SNOWFLAKE_SNOWPIPE',
+    'DEV',
+    'GCS',
+    'dim_customer/DEV_TEST_DimCustomer_001.jsonl',
+    'ADVWORKS_DEV.LANDING.DIM_CUSTOMER',
+    'SUCCESS',
+    CURRENT_TIMESTAMP() - INTERVAL '1 MINUTE',
+    CURRENT_TIMESTAMP(),
+    5000,
+    5000,
+    0,
+    NULL;
+/*
+number of rows inserted
+1
+*/
+
+--Then verify:
+
+SELECT
+    RUN_ID,
+    PIPELINE_NAME,
+    ENVIRONMENT,
+    SOURCE_OBJECT,
+    TARGET_OBJECT,
+    STATUS,
+    ROWS_READ,
+    ROWS_WRITTEN,
+    ERROR_COUNT,
+    START_TIME,
+    END_TIME
+FROM ADVWORKS_DEV.AUDIT.PIPELINE_AUDIT
+ORDER BY CREATED_AT DESC;
+/*
+RUN_ID	PIPELINE_NAME	ENVIRONMENT	SOURCE_OBJECT	TARGET_OBJECT	STATUS	ROWS_READ	ROWS_WRITTEN	ERROR_COUNT	START_TIME	END_TIME
+d5358bad-6c47-4a19-8502-7cb80e81693b	GCS_TO_SNOWFLAKE_SNOWPIPE	DEV	dim_customer/DEV_TEST_DimCustomer_001.jsonl	ADVWORKS_DEV.LANDING.DIM_CUSTOMER	SUCCESS	5000	5000	0	2026-09-12 06:20:23.632	2026-09-12 06:21:23.632
+*/
+
+
+/*
+What we're demonstrating
+
+We're creating this relationship:
+
+GCS file
+   │
+   ▼
+Snowpipe
+   │
+   ▼
+LANDING.DIM_CUSTOMER
+   │
+   ▼
+PIPELINE_AUDIT
+
+So instead of simply knowing:
+
+"There are 5,000 rows."
+
+we can eventually answer:
+
+Which pipeline loaded them, from which source, into which target, when, with how many rows, and whether it succeeded?
+
+That's the foundation for production observability.
+*/
+
+##############################################################################################
+— Record a Failed Pipeline Run
+
+Before moving on, we need to understand how production pipelines capture failures.
+
+We'll deliberately insert a simulated failure into the audit table.
+
+This is better than intentionally breaking Snowpipe and wasting time troubleshooting infrastructure.
+*/
+-- Run:
+
+INSERT INTO ADVWORKS_DEV.AUDIT.PIPELINE_AUDIT
+(
+    RUN_ID,
+    PIPELINE_NAME,
+    ENVIRONMENT,
+    SOURCE_SYSTEM,
+    SOURCE_OBJECT,
+    TARGET_OBJECT,
+    STATUS,
+    START_TIME,
+    END_TIME,
+    ROWS_READ,
+    ROWS_WRITTEN,
+    ERROR_COUNT,
+    ERROR_MESSAGE
+)
+SELECT
+    UUID_STRING(),
+    'GCS_TO_SNOWFLAKE_SNOWPIPE',
+    'DEV',
+    'GCS',
+    'dim_customer/INVALID_FILE.jsonl',
+    'ADVWORKS_DEV.LANDING.DIM_CUSTOMER',
+    'FAILED',
+    CURRENT_TIMESTAMP() - INTERVAL '30 SECONDS',
+    CURRENT_TIMESTAMP(),
+    0,
+    0,
+    1,
+    'Source file could not be processed';
+
+
+/*
+
+*/
+
+-- Then query:
+
+SELECT
+    RUN_ID,
+    SOURCE_OBJECT,
+    STATUS,
+    ROWS_READ,
+    ROWS_WRITTEN,
+    ERROR_COUNT,
+    ERROR_MESSAGE
+FROM ADVWORKS_DEV.AUDIT.PIPELINE_AUDIT
+ORDER BY CREATED_AT DESC;
+/*
+RUN_ID	SOURCE_OBJECT	STATUS	ROWS_READ	ROWS_WRITTEN	ERROR_COUNT	ERROR_MESSAGE
+4a65f595-7084-4adb-bfcf-7c13e4cccb8c	dim_customer/INVALID_FILE.jsonl	FAILED	0	0	1	Source file could not be processed
+d5358bad-6c47-4a19-8502-7cb80e81693b	dim_customer/DEV_TEST_DimCustomer_001.jsonl	SUCCESS	5000	5000	0	
+*/
+
+
+/*
+
+Why this matters
+
+Now our audit table represents both:
+
+SUCCESS
+FAILED
+
+which gives us the foundation for:
+
+                   PIPELINE
+                      │
+              ┌───────┴───────┐
+              │               │
+           SUCCESS           FAILED
+              │               │
+        rows written      error captured
+              │               │
+              └───────┬───────┘
+                      ↓
+                 AUDIT TABLE
+
+*/
+
+If asked "How do you monitor a data pipeline?", don't answer only:
+
+"I check whether the Airflow DAG is green."
+
+Instead:
+
+"I monitor both orchestration and data-level outcomes. I track execution status, source and target objects, start/end times, rows read/written, 
+error counts and error details in an audit layer. The orchestration tool provides task-level visibility, while the audit framework provides data-level traceability."
+
+That's the distinction we're building toward.

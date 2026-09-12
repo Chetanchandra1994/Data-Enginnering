@@ -1,0 +1,283 @@
+— Decide the Incremental Strategy
+
+For this project, we'll implement two different incremental patterns, because both are important for interviews and real pipelines.
+
+Pattern	AdventureWorks implementation	Captures updates?	Use
+Watermark / high-water mark	CustomerKey	❌ No	Append-only data
+CDC / change tracking	SQL Server source with change information	✅ Yes	Production INSERT/UPDATE/DELETE
+
+For our current DimCustomer, we'll first implement:
+
+Pattern 1 — Key-based incremental loading
+
+Instead of extracting all 18,484 customers every time:
+
+First run
+CustomerKey > 0
+        ↓
+1 → 18484
+
+we store:
+
+LAST_CUSTOMER_KEY = 18484
+
+Next run:
+
+WHERE CustomerKey > 18484
+
+If 20 new customers arrive:
+
+18485
+18486
+...
+18504
+
+we extract only those 20.
+
+But there is an important limitation
+
+Suppose customer 1000 changes:
+
+CustomerKey = 1000
+YearlyIncome = 50000 → 70000
+
+The query:
+
+WHERE CustomerKey > 18484
+
+will never see that update.
+
+So this pattern is suitable only when the source is append-only or when updates are handled separately.
+
+That's exactly the distinction interviewers expect you to understand.
+
+Step 3 — Create a Watermark Control Table
+
+We'll make the watermark persistent instead of hard-coding:
+
+18484
+
+Create this in your AdventureWorks practice control database/schema.
+
+For now, since we're using the same SQL Server database for the project, create:
+
+CREATE TABLE dbo.ETL_Watermark
+(
+    PIPELINE_NAME       VARCHAR(200) NOT NULL,
+    SOURCE_OBJECT       VARCHAR(200) NOT NULL,
+    WATERMARK_COLUMN    VARCHAR(100) NOT NULL,
+    WATERMARK_VALUE     VARCHAR(100) NULL,
+    UPDATED_AT          DATETIME2 NOT NULL
+        DEFAULT SYSDATETIME(),
+
+    CONSTRAINT PK_ETL_Watermark
+        PRIMARY KEY (PIPELINE_NAME, SOURCE_OBJECT)
+);
+
+Then create our initial watermark:
+
+INSERT INTO dbo.ETL_Watermark
+(
+    PIPELINE_NAME,
+    SOURCE_OBJECT,
+    WATERMARK_COLUMN,
+    WATERMARK_VALUE
+)
+VALUES
+(
+    'DIM_CUSTOMER_INCREMENTAL',
+    'dbo.DimCustomer',
+    'CustomerKey',
+    '0'
+);
+
+Verify:
+
+SELECT *
+FROM dbo.ETL_Watermark;
+
+You should see approximately:
+
+DIM_CUSTOMER_INCREMENTAL
+dbo.DimCustomer
+CustomerKey
+0
+2026-...
+Step 4 — Extract Only New Customers
+
+Now instead of:
+
+SELECT *
+FROM dbo.DimCustomer;
+
+we dynamically use the stored watermark:
+
+SELECT
+    CustomerKey,
+    GeographyKey,
+    CustomerAlternateKey,
+    Title,
+    FirstName,
+    MiddleName,
+    LastName,
+    NameStyle,
+    BirthDate,
+    MaritalStatus,
+    Suffix,
+    Gender,
+    EmailAddress,
+    YearlyIncome,
+    TotalChildren,
+    NumberChildrenAtHome,
+    EnglishEducation,
+    SpanishEducation,
+    FrenchEducation,
+    EnglishOccupation,
+    SpanishOccupation,
+    FrenchOccupation,
+    HouseOwnerFlag,
+    NumberCarsOwned,
+    AddressLine1,
+    AddressLine2,
+    Phone,
+    DateFirstPurchase,
+    CommuteDistance
+FROM dbo.DimCustomer
+WHERE CustomerKey >
+(
+    SELECT CAST(WATERMARK_VALUE AS INT)
+    FROM dbo.ETL_Watermark
+    WHERE PIPELINE_NAME = 'DIM_CUSTOMER_INCREMENTAL'
+      AND SOURCE_OBJECT = 'dbo.DimCustomer'
+);
+
+Initially:
+
+WATERMARK_VALUE = 0
+
+so this returns all customers.
+
+After the first successful load, we'll update the watermark to:
+
+18484
+
+The next execution will return only:
+
+CustomerKey > 18484
+Step 5 — Why We Don't Update the Watermark Immediately
+
+This is very important for production pipelines.
+
+Do not do this:
+
+Extract
+  ↓
+Update watermark
+  ↓
+Load
+
+because if the load fails:
+
+Extract ✅
+Watermark updated ✅
+Snowpipe/load ❌
+
+you've now lost the ability to extract those rows again.
+
+Instead:
+
+Read watermark
+      ↓
+Extract incremental rows
+      ↓
+Write files
+      ↓
+GCS
+      ↓
+Snowpipe
+      ↓
+Validate successful load
+      ↓
+Update watermark
+
+So the watermark represents:
+
+The highest source value that has been successfully processed.
+
+This connects directly to the audit table we just created.
+
+Step 6 — Simulate the First Incremental Run
+
+Before we modify the Python extractor, let's prove the concept directly in SQL.
+
+Run:
+
+SELECT
+    MAX(CustomerKey) AS MAX_CUSTOMER_KEY,
+    COUNT(*) AS ROW_COUNT
+FROM dbo.DimCustomer;
+
+We expect approximately:
+
+MAX_CUSTOMER_KEY = 29483
+ROW_COUNT        = 18484
+
+Then check our current watermark:
+
+SELECT
+    PIPELINE_NAME,
+    SOURCE_OBJECT,
+    WATERMARK_VALUE
+FROM dbo.ETL_Watermark
+WHERE PIPELINE_NAME = 'DIM_CUSTOMER_INCREMENTAL';
+
+The initial value should be:
+
+0
+
+Now execute the incremental query from Step 4.
+
+That gives us the first incremental batch.
+
+The architecture we're building
+              SQL Server
+                  │
+                  ▼
+          ETL_Watermark
+          ┌──────────────┐
+          │ last key     │
+          │ 0            │
+          └──────┬───────┘
+                 │
+                 ▼
+        SELECT CustomerKey
+        > watermark
+                 │
+                 ▼
+          Python Extract
+                 │
+                 ▼
+             GCS file
+                 │
+                 ▼
+             Snowpipe
+                 │
+                 ▼
+        Snowflake LANDING
+                 │
+                 ▼
+             dbt MERGE
+                 │
+                 ▼
+          Successful load
+                 │
+                 ▼
+        Update watermark
+
+Once this works, we'll move the exact logic into your Python extraction code, so you learn the actual implementation rather than leaving it as a SQL-only exercise.
+
+After that we'll tackle the much more important part:
+
+How do we capture UPDATE and DELETE when CustomerKey doesn't change?
+
+That's where we'll move from watermark → CDC/change tracking → MERGE, which is the production-level pattern you need for interviews.
