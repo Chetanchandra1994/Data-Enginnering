@@ -1,0 +1,2239 @@
+# CDC, Incremental Loading, SCD Type 1 & SCD Type 2
+
+## AdventureWorks Data Engineering Practice Project
+
+---
+
+# 1. Objective
+
+Implement and understand an end-to-end change-data pipeline:
+
+```text
+SQL Server Source
+      │
+      │ New / Changed Data
+      ▼
+CDC / Incremental Detection
+      │
+      ▼
+Python Extraction
+      │
+      ▼
+GCS
+      │
+      ▼
+Pub/Sub Notification
+      │
+      ▼
+Snowpipe
+      │
+      ▼
+Snowflake LANDING
+      │
+      ├───────────────┐
+      ▼               ▼
+     SCD1            SCD2
+      │               │
+      ▼               ▼
+Current State       Historical State
+```
+
+The important distinction is:
+
+```text
+CDC = How do I identify changes?
+
+SCD1 = How do I store changes when I only want the latest value?
+
+SCD2 = How do I store changes when I need historical versions?
+```
+
+---
+
+# 2. CDC vs Incremental Loading vs SCD
+
+These three concepts are related but are NOT the same thing.
+
+| Concept          | Purpose                                                             |
+| ---------------- | ------------------------------------------------------------------- |
+| CDC              | Detect inserts/updates/deletes                                      |
+| Incremental Load | Extract only data that changed/newly arrived since the previous run |
+| SCD Type 1       | Store only the latest version                                       |
+| SCD Type 2       | Preserve historical versions                                        |
+
+Example:
+
+Customer 29487 initially:
+
+```text
+Email = old@example.com
+Income = 80000
+```
+
+Later:
+
+```text
+Email = new@example.com
+Income = 90000
+```
+
+CDC asks:
+
+```text
+Did customer 29487 change?
+```
+
+SCD1 says:
+
+```text
+Keep only new@example.com / 90000
+```
+
+SCD2 says:
+
+```text
+Keep both versions and mark which one is current
+```
+
+---
+
+# 3. Our Source Table
+
+Source:
+
+```text
+AdventureWorksDW2022.dbo.DimCustomer
+```
+
+Important column:
+
+```text
+CustomerKey
+```
+
+The table contains approximately 18K customers.
+
+We verified that CustomerKey is an IDENTITY column:
+
+```sql
+SELECT
+    COLUMNPROPERTY(
+        OBJECT_ID('dbo.DimCustomer'),
+        'CustomerKey',
+        'IsIdentity'
+    ) AS IsIdentity;
+```
+
+Result:
+
+```text
+1
+```
+
+Therefore:
+
+```text
+CustomerKey increases for newly inserted customers.
+```
+
+However:
+
+```text
+CustomerKey DOES NOT change when an existing customer is updated.
+```
+
+This distinction is critical.
+
+---
+
+# 4. Important CDC Limitation in Our Source
+
+Our AdventureWorks `DimCustomer` table does NOT have a reliable:
+
+```text
+ModifiedDate
+UpdatedAt
+CreatedAt
+LastModifiedTimestamp
+```
+
+Therefore:
+
+```text
+CustomerKey > previous_watermark
+```
+
+can detect:
+
+```text
+NEW RECORDS
+```
+
+but cannot detect:
+
+```text
+UPDATES TO EXISTING RECORDS
+```
+
+Example:
+
+```text
+CustomerKey = 29487
+Email = old@example.com
+```
+
+Later:
+
+```text
+CustomerKey = 29487
+Email = new@example.com
+```
+
+CustomerKey remains:
+
+```text
+29487
+```
+
+Therefore:
+
+```sql
+WHERE CustomerKey > 29487
+```
+
+will NOT detect the update.
+
+This is one of the most important interview points.
+
+---
+
+# 5. CDC Strategies
+
+In a production system, CDC can be implemented using several mechanisms.
+
+## Option 1 — High-Watermark
+
+Example:
+
+```sql
+WHERE CustomerKey > :last_watermark
+```
+
+Good for:
+
+```text
+new records
+```
+
+Not sufficient for:
+
+```text
+updates
+deletes
+```
+
+---
+
+## Option 2 — Modified Timestamp
+
+If source has:
+
+```text
+ModifiedDate
+```
+
+then:
+
+```sql
+WHERE ModifiedDate > :last_watermark
+```
+
+can detect both:
+
+```text
+INSERT
+UPDATE
+```
+
+assuming the timestamp is reliable.
+
+---
+
+## Option 3 — SQL Server Change Tracking
+
+SQL Server can maintain changed primary keys.
+
+Conceptually:
+
+```text
+Source Table
+     │
+     ▼
+Change Tracking
+     │
+     ▼
+Changed CustomerKeys
+     │
+     ▼
+Read current records
+```
+
+---
+
+## Option 4 — SQL Server CDC
+
+SQL Server CDC captures row-level changes including operation information.
+
+Conceptually:
+
+```text
+INSERT
+UPDATE
+DELETE
+```
+
+are captured separately.
+
+---
+
+## Option 5 — Database Log / Enterprise CDC
+
+Production platforms may use tools such as:
+
+```text
+Debezium
+Kafka
+Oracle GoldenGate
+Qlik Replicate
+Fivetran
+AWS DMS
+Azure Data Factory CDC
+```
+
+depending on the environment.
+
+---
+
+# 6. Our Practice Approach
+
+Because AdventureWorks does not provide a reliable modification timestamp, we implemented:
+
+```text
+CustomerKey watermark
+```
+
+for demonstrating:
+
+```text
+incremental INSERT detection
+```
+
+Then we separately demonstrated:
+
+```text
+SCD1 UPDATE
+SCD2 UPDATE
+```
+
+using a manually generated update event.
+
+This is intentionally different from claiming that the CustomerKey watermark provides complete CDC.
+
+---
+
+# 7. Step 1 — Create Watermark Control Table
+
+Run in SQL Server.
+
+```sql
+CREATE TABLE dbo.ETL_Watermark
+(
+    PIPELINE_NAME       VARCHAR(200) NOT NULL,
+    SOURCE_OBJECT       VARCHAR(200) NOT NULL,
+    WATERMARK_COLUMN    VARCHAR(100) NOT NULL,
+    WATERMARK_VALUE     VARCHAR(100) NULL,
+    UPDATED_AT          DATETIME2 NOT NULL
+        DEFAULT SYSDATETIME(),
+
+    CONSTRAINT PK_ETL_Watermark
+        PRIMARY KEY
+        (
+            PIPELINE_NAME,
+            SOURCE_OBJECT
+        )
+);
+```
+
+Purpose:
+
+```text
+Store the last successfully processed position.
+```
+
+---
+
+# 8. Step 2 — Register the Pipeline
+
+```sql
+INSERT INTO dbo.ETL_Watermark
+(
+    PIPELINE_NAME,
+    SOURCE_OBJECT,
+    WATERMARK_COLUMN,
+    WATERMARK_VALUE
+)
+VALUES
+(
+    'DIM_CUSTOMER_INCREMENTAL',
+    'dbo.DimCustomer',
+    'CustomerKey',
+    '0'
+);
+```
+
+Initial state:
+
+```text
+Pipeline:
+DIM_CUSTOMER_INCREMENTAL
+
+Source:
+dbo.DimCustomer
+
+Watermark:
+0
+```
+
+---
+
+# 9. Step 3 — Establish the Initial Baseline
+
+We already had the historical customer data loaded.
+
+Therefore we treated the existing source data as already processed.
+
+Check:
+
+```sql
+SELECT
+    MAX(CustomerKey) AS MAX_CUSTOMER_KEY,
+    COUNT(*) AS ROW_COUNT
+FROM dbo.DimCustomer;
+```
+
+Result:
+
+```text
+MAX_CUSTOMER_KEY = 29483
+ROW_COUNT        = 18484
+```
+
+Therefore:
+
+```sql
+UPDATE dbo.ETL_Watermark
+SET
+    WATERMARK_VALUE = '29483',
+    UPDATED_AT = SYSDATETIME()
+WHERE PIPELINE_NAME = 'DIM_CUSTOMER_INCREMENTAL'
+  AND SOURCE_OBJECT = 'dbo.DimCustomer';
+```
+
+Verify:
+
+```sql
+SELECT *
+FROM dbo.ETL_Watermark
+WHERE PIPELINE_NAME = 'DIM_CUSTOMER_INCREMENTAL';
+```
+
+Expected:
+
+```text
+DIM_CUSTOMER_INCREMENTAL
+dbo.DimCustomer
+CustomerKey
+29483
+```
+
+---
+
+# 10. Step 4 — Insert New Source Records
+
+For testing incremental ingestion, insert new customers.
+
+Example:
+
+```sql
+INSERT INTO dbo.DimCustomer
+(
+    GeographyKey,
+    CustomerAlternateKey,
+    FirstName,
+    LastName,
+    BirthDate,
+    MaritalStatus,
+    Gender,
+    EmailAddress,
+    YearlyIncome,
+    TotalChildren,
+    NumberChildrenAtHome,
+    EnglishEducation,
+    EnglishOccupation,
+    HouseOwnerFlag,
+    NumberCarsOwned,
+    AddressLine1,
+    Phone,
+    DateFirstPurchase,
+    CommuteDistance
+)
+VALUES
+(
+    1,
+    'INCR_TEST_001',
+    'Incremental',
+    'Test001',
+    '1993-04-12',
+    'S',
+    'F',
+    'incremental.test001@example.com',
+    80000,
+    1,
+    0,
+    'Bachelors',
+    'Professional',
+    'Y',
+    2,
+    '100 Incremental Street',
+    '555-0101',
+    '2026-09-12',
+    '2-5 Miles'
+);
+```
+
+Repeat for additional test records.
+
+SQL Server automatically generates:
+
+```text
+CustomerKey = 29484
+29485
+29486
+```
+
+---
+
+# 11. Step 5 — Validate Source Changes
+
+```sql
+SELECT
+    COUNT(*) AS ROW_COUNT,
+    MAX(CustomerKey) AS MAX_CUSTOMER_KEY
+FROM dbo.DimCustomer;
+```
+
+Expected:
+
+```text
+ROW_COUNT = 18487
+MAX       = 29486
+```
+
+Therefore:
+
+```text
+Previous watermark = 29483
+New records        = 29484, 29485, 29486
+```
+
+---
+
+# 12. Step 6 — Python Reads the Watermark
+
+Python function:
+
+```python
+def get_watermark(cursor, pipeline_name):
+    query = """
+        SELECT WATERMARK_VALUE
+        FROM dbo.ETL_Watermark
+        WHERE PIPELINE_NAME = ?
+    """
+
+    cursor.execute(query, pipeline_name)
+
+    row = cursor.fetchone()
+
+    if row:
+        return int(row[0])
+
+    return 0
+```
+
+The pipeline therefore starts from:
+
+```text
+29483
+```
+
+---
+
+# 13. Step 7 — Extract Only New Records
+
+Core incremental query:
+
+```sql
+SELECT TOP (?)
+    *
+FROM dbo.DimCustomer
+WHERE CustomerKey > ?
+ORDER BY CustomerKey;
+```
+
+Python implementation:
+
+```python
+def extract_incremental_batch(
+    cursor,
+    table_name,
+    watermark_column,
+    watermark_value,
+    batch_size
+):
+    query = f"""
+        SELECT TOP (?)
+            *
+        FROM dbo.{table_name}
+        WHERE [{watermark_column}] > ?
+        ORDER BY [{watermark_column}]
+    """
+
+    cursor.execute(
+        query,
+        batch_size,
+        watermark_value
+    )
+
+    columns = [column[0] for column in cursor.description]
+
+    rows = cursor.fetchall()
+
+    records = [
+        dict(zip(columns, row))
+        for row in rows
+    ]
+
+    return records
+```
+
+---
+
+# 14. Step 8 — Generate a Unique Run ID
+
+We added:
+
+```python
+RUN_ID = datetime.now().strftime("%Y%m%d_%H%M%S")
+```
+
+Example:
+
+```text
+20260912_224240
+```
+
+This is important because two incremental runs should not produce the same filename.
+
+---
+
+# 15. Step 9 — Generate Incremental File
+
+Filename pattern:
+
+```python
+filename = (
+    f"{file_prefix}_"
+    f"incremental_"
+    f"{RUN_ID}_"
+    f"{batch_number:03d}.jsonl"
+)
+```
+
+Example:
+
+```text
+DimCustomer_batch_incremental_20260912_224240_001.jsonl
+```
+
+---
+
+# 16. Step 10 — Upload Incremental File to GCS
+
+Example:
+
+```powershell
+gcloud storage cp ".\python-ingestion\output\DimCustomer_batch_incremental_20260912_224240_001.jsonl" "gs://advworks-dev-ingestion/dim_customer/"
+```
+
+Architecture:
+
+```text
+SQL Server
+     │
+     ▼
+Python
+     │
+     ▼
+JSONL
+     │
+     ▼
+GCS
+```
+
+---
+
+# 17. Step 11 — Update Watermark
+
+After extraction/upload in our current practice implementation:
+
+```sql
+UPDATE dbo.ETL_Watermark
+SET
+    WATERMARK_VALUE = ?,
+    UPDATED_AT = SYSDATETIME()
+WHERE PIPELINE_NAME = 'DIM_CUSTOMER_INCREMENTAL'
+  AND SOURCE_OBJECT = 'dbo.DimCustomer';
+```
+
+Example:
+
+```text
+29483 → 29486
+```
+
+The Python output was:
+
+```text
+Current watermark: 29483
+
+Batch 001: 3 records
+Key range: 29484 -> 29486
+
+Previous watermark: 29483
+Rows extracted: 3
+New watermark: 29486
+
+Watermark updated successfully: 29486
+SUCCESS
+```
+
+---
+
+# 18. Production Improvement — Watermark Commit Point
+
+Important:
+
+Our current practice implementation updates the watermark after the GCS upload.
+
+A production implementation should preferably treat the watermark as committed only after the downstream processing is confirmed successful:
+
+```text
+SQL Server
+   │
+   ▼
+Extract
+   │
+   ▼
+GCS
+   │
+   ▼
+Pub/Sub
+   │
+   ▼
+Snowpipe
+   │
+   ▼
+Snowflake validation
+   │
+   ▼
+SUCCESS
+   │
+   ▼
+Update watermark
+```
+
+Why?
+
+Suppose:
+
+```text
+Source extraction = SUCCESS
+GCS upload        = SUCCESS
+Snowpipe           = FAILED
+Watermark          = already updated
+```
+
+Then the next run might skip those records.
+
+Therefore, production systems normally coordinate:
+
+```text
+source checkpoint
++
+pipeline audit
++
+downstream success
+```
+
+before advancing the checkpoint.
+
+---
+
+# 19. Step 12 — Test Rerun With No New Data
+
+Run the Python pipeline again.
+
+Expected:
+
+```text
+Current watermark: 29486
+
+Rows extracted: 0
+
+New watermark: 29486
+
+No new records found.
+Watermark unchanged.
+SUCCESS
+```
+
+This proves:
+
+```text
+Already processed records are not extracted again.
+```
+
+---
+
+# 20. Step 13 — Add Another Customer
+
+Insert:
+
+```text
+INCR_TEST_004
+```
+
+SQL Server generates:
+
+```text
+CustomerKey = 29487
+```
+
+Validate:
+
+```sql
+SELECT
+    CustomerKey,
+    CustomerAlternateKey,
+    EmailAddress,
+    YearlyIncome
+FROM dbo.DimCustomer
+WHERE CustomerKey = 29487;
+```
+
+---
+
+# 21. Step 14 — Run Incremental Extraction Again
+
+Current watermark:
+
+```text
+29486
+```
+
+Source:
+
+```text
+29487
+```
+
+Query:
+
+```sql
+WHERE CustomerKey > 29486
+```
+
+returns:
+
+```text
+29487
+```
+
+GCS file:
+
+```text
+DimCustomer_batch_incremental_20260912_225153_001.jsonl
+```
+
+Python output:
+
+```text
+Current watermark: 29486
+
+Batch 001: 1 records
+Key range: 29487 -> 29487
+
+Rows extracted: 1
+
+New watermark: 29487
+
+Watermark updated successfully: 29487
+SUCCESS
+```
+
+---
+
+# 22. Step 15 — GCS Validation
+
+Validate the uploaded file:
+
+```powershell
+gcloud storage cat "gs://advworks-dev-ingestion/dim_customer/DimCustomer_batch_incremental_20260912_225153_001.jsonl"
+```
+
+Expected:
+
+```json
+{
+    "CustomerKey": 29487,
+    "CustomerAlternateKey": "INCR_TEST_004",
+    "EmailAddress": "incremental.test004@example.com",
+    "YearlyIncome": 80000
+}
+```
+
+---
+
+# 23. Step 16 — Snowpipe Automatically Ingests the File
+
+Architecture:
+
+```text
+GCS
+ │
+ │ OBJECT_FINALIZE
+ ▼
+Pub/Sub
+ │
+ ▼
+Snowflake Notification Integration
+ │
+ ▼
+Snowpipe
+ │
+ ▼
+LANDING.DIM_CUSTOMER
+```
+
+No manual `COPY INTO` is required.
+
+---
+
+# 24. Step 17 — Check Snowpipe Status
+
+```sql
+SELECT SYSTEM$PIPE_STATUS(
+    'ADVWORKS_DEV.LANDING.PIPE_DIM_CUSTOMER'
+);
+```
+
+Expected:
+
+```text
+executionState = RUNNING
+pendingFileCount = 0
+lastIngestedFilePath = DimCustomer_batch_incremental_...
+numOutstandingMessagesOnChannel = 0
+```
+
+---
+
+# 25. Step 18 — Validate the Incremental Record in LANDING
+
+```sql
+SELECT
+    RAW_DATA:CustomerKey::INT AS CUSTOMER_KEY,
+    RAW_DATA:CustomerAlternateKey::STRING AS CUSTOMER_ALTERNATE_KEY,
+    SOURCE_FILE,
+    LOAD_TIMESTAMP
+FROM ADVWORKS_DEV.LANDING.DIM_CUSTOMER
+WHERE SOURCE_FILE LIKE
+    '%DimCustomer_batch_incremental_20260912_225153_001.jsonl%';
+```
+
+Expected:
+
+```text
+29487
+INCR_TEST_004
+dim_customer/DimCustomer_batch_incremental_...
+timestamp
+```
+
+---
+
+# 26. Why LANDING Uses VARIANT
+
+Our LANDING table contains:
+
+```text
+RAW_DATA       VARIANT
+SOURCE_FILE    TEXT
+LOAD_TIMESTAMP TIMESTAMP_NTZ
+```
+
+Example:
+
+```json
+{
+  "CustomerKey": 29487,
+  "FirstName": "Incremental",
+  "EmailAddress": "incremental.test004@example.com",
+  "YearlyIncome": 80000
+}
+```
+
+stored as:
+
+```text
+RAW_DATA VARIANT
+```
+
+Why?
+
+Because LANDING should preserve the source payload with minimal transformation.
+
+Benefits:
+
+```text
+Flexible schema
+Raw data preservation
+Easy schema evolution
+Replay capability
+Source auditing
+Less coupling between ingestion and transformation
+```
+
+The business structure is created later through:
+
+```text
+PREPARE
+NORMALIZE
+SCHEMATIZE
+MARKETPLACE
+```
+
+---
+
+# 27. SCD Type 1
+
+## Definition
+
+SCD Type 1 means:
+
+```text
+Overwrite the old value with the new value.
+```
+
+There is no historical version retained in the target dimension.
+
+Example:
+
+Before:
+
+```text
+CustomerKey = 29487
+Email = incremental.test004@example.com
+Income = 80000
+```
+
+After:
+
+```text
+CustomerKey = 29487
+Email = incremental.updated004@example.com
+Income = 90000
+```
+
+Target contains only:
+
+```text
+29487 | incremental.updated004@example.com | 90000
+```
+
+---
+
+# 28. Step 19 — Create SCD1 Target
+
+```sql
+CREATE OR REPLACE TABLE
+ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_INCREMENTAL
+LIKE
+ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER;
+```
+
+Verify:
+
+```sql
+SELECT COUNT(*)
+FROM ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_INCREMENTAL;
+```
+
+Initial result:
+
+```text
+0
+```
+
+---
+
+# 29. Step 20 — Initial SCD1 MERGE
+
+The important pattern is:
+
+```sql
+MERGE INTO TARGET
+USING SOURCE
+ON TARGET.CUSTOMER_KEY = SOURCE.CUSTOMER_KEY
+```
+
+Because LANDING may contain multiple versions of the same customer, we first select the latest version.
+
+```sql
+MERGE INTO ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_INCREMENTAL AS TARGET
+
+USING
+(
+    SELECT
+        RAW_DATA:CustomerKey::INT AS CUSTOMER_KEY,
+        RAW_DATA:CustomerAlternateKey::STRING AS CUSTOMER_ALTERNATE_KEY,
+        RAW_DATA:GeographyKey::INT AS GEOGRAPHY_KEY,
+        RAW_DATA:FirstName::STRING AS FIRST_NAME,
+        RAW_DATA:LastName::STRING AS LAST_NAME,
+        RAW_DATA:EmailAddress::STRING AS EMAIL_ADDRESS,
+        RAW_DATA:YearlyIncome::NUMBER(18,2) AS YEARLY_INCOME,
+        LOAD_TIMESTAMP
+    FROM ADVWORKS_DEV.LANDING.DIM_CUSTOMER
+    QUALIFY ROW_NUMBER() OVER
+    (
+        PARTITION BY RAW_DATA:CustomerKey
+        ORDER BY LOAD_TIMESTAMP DESC
+    ) = 1
+) AS SOURCE
+
+ON TARGET.CUSTOMER_KEY = SOURCE.CUSTOMER_KEY
+
+WHEN MATCHED THEN UPDATE SET
+    TARGET.EMAIL_ADDRESS = SOURCE.EMAIL_ADDRESS,
+    TARGET.YEARLY_INCOME = SOURCE.YEARLY_INCOME,
+    TARGET.UPDATED_TIMESTAMP = CURRENT_TIMESTAMP()
+
+WHEN NOT MATCHED THEN INSERT
+(
+    CUSTOMER_KEY,
+    CUSTOMER_ALTERNATE_KEY,
+    GEOGRAPHY_KEY,
+    FIRST_NAME,
+    LAST_NAME,
+    EMAIL_ADDRESS,
+    YEARLY_INCOME,
+    CREATED_TIMESTAMP,
+    UPDATED_TIMESTAMP
+)
+VALUES
+(
+    SOURCE.CUSTOMER_KEY,
+    SOURCE.CUSTOMER_ALTERNATE_KEY,
+    SOURCE.GEOGRAPHY_KEY,
+    SOURCE.FIRST_NAME,
+    SOURCE.LAST_NAME,
+    SOURCE.EMAIL_ADDRESS,
+    SOURCE.YEARLY_INCOME,
+    CURRENT_TIMESTAMP(),
+    CURRENT_TIMESTAMP()
+);
+```
+
+---
+
+# 30. Why ROW_NUMBER Is Important
+
+LANDING may contain:
+
+```text
+29487 | old email | old income | file 1
+29487 | new email | new income | file 2
+```
+
+If we directly MERGE both records, we can get:
+
+```text
+multiple source rows match target
+```
+
+or nondeterministic behavior.
+
+Therefore:
+
+```sql
+QUALIFY ROW_NUMBER() OVER
+(
+    PARTITION BY CUSTOMER_KEY
+    ORDER BY LOAD_TIMESTAMP DESC
+) = 1
+```
+
+means:
+
+```text
+For every customer,
+choose the latest event.
+```
+
+This is a very useful production/interview pattern.
+
+---
+
+# 31. Step 21 — Test SCD1 Update
+
+Update source:
+
+```sql
+UPDATE dbo.DimCustomer
+SET
+    EmailAddress = 'incremental.updated004@example.com',
+    YearlyIncome = 90000
+WHERE CustomerKey = 29487;
+```
+
+Validate:
+
+```sql
+SELECT
+    CustomerKey,
+    CustomerAlternateKey,
+    EmailAddress,
+    YearlyIncome
+FROM dbo.DimCustomer
+WHERE CustomerKey = 29487;
+```
+
+Expected:
+
+```text
+29487
+INCR_TEST_004
+incremental.updated004@example.com
+90000
+```
+
+---
+
+# 32. Important CDC Limitation Demonstrated
+
+Our watermark is:
+
+```text
+29487
+```
+
+The updated customer still has:
+
+```text
+CustomerKey = 29487
+```
+
+Therefore:
+
+```sql
+WHERE CustomerKey > 29487
+```
+
+returns nothing.
+
+This proves:
+
+```text
+High-watermark on CustomerKey
+≠ complete CDC
+```
+
+This should be stated clearly in an interview.
+
+---
+
+# 33. Step 22 — Simulate an Update Event
+
+For learning, we generated a JSON event representing the updated customer.
+
+Example:
+
+```powershell
+$json = [ordered]@{CustomerKey=29487;GeographyKey=1;CustomerAlternateKey="INCR_TEST_004";Title=$null;FirstName="Incremental";MiddleName=$null;LastName="Test004";NameStyle=$false;BirthDate="1993-04-12";MaritalStatus="S";Suffix=$null;Gender="F";EmailAddress="incremental.updated004@example.com";YearlyIncome=90000.0;TotalChildren=1;NumberChildrenAtHome=0;EnglishEducation="Bachelors";SpanishEducation=$null;FrenchEducation=$null;EnglishOccupation="Professional";SpanishOccupation=$null;FrenchOccupation=$null;HouseOwnerFlag="Y";NumberCarsOwned=2;AddressLine1="400 Incremental Street";AddressLine2=$null;Phone="555-0104";DateFirstPurchase="2026-09-12";CommuteDistance="2-5 Miles"} | ConvertTo-Json -Compress; $json | Set-Content -Path ".\python-ingestion\output\DimCustomer_update_29487.jsonl" -Encoding utf8
+```
+
+This simulates what a real CDC system would eventually deliver.
+
+---
+
+# 34. Step 23 — Upload Update Event to GCS
+
+```powershell
+gcloud storage cp ".\python-ingestion\output\DimCustomer_update_29487.jsonl" "gs://advworks-dev-ingestion/dim_customer/DimCustomer_update_29487.jsonl"
+```
+
+---
+
+# 35. Step 24 — Snowpipe Loads Update Event
+
+Check:
+
+```sql
+SELECT
+    RAW_DATA:CustomerKey::INT AS CUSTOMER_KEY,
+    RAW_DATA:EmailAddress::STRING AS EMAIL_ADDRESS,
+    RAW_DATA:YearlyIncome::NUMBER(18,2) AS YEARLY_INCOME,
+    SOURCE_FILE,
+    LOAD_TIMESTAMP
+FROM ADVWORKS_DEV.LANDING.DIM_CUSTOMER
+WHERE SOURCE_FILE LIKE '%DimCustomer_update_29487.jsonl%';
+```
+
+Expected:
+
+```text
+29487
+incremental.updated004@example.com
+90000
+DimCustomer_update_29487.jsonl
+```
+
+---
+
+# 36. Step 25 — Run SCD1 MERGE Again
+
+Run the same MERGE.
+
+Because:
+
+```text
+29487 already exists
+```
+
+the:
+
+```sql
+WHEN MATCHED
+```
+
+branch executes.
+
+Result:
+
+```text
+old value overwritten
+```
+
+Final target:
+
+```text
+29487
+INCR_TEST_004
+incremental.updated004@example.com
+90000
+```
+
+Only one current row exists.
+
+---
+
+# 37. Validate SCD1
+
+```sql
+SELECT
+    CUSTOMER_KEY,
+    CUSTOMER_ALTERNATE_KEY,
+    EMAIL_ADDRESS,
+    YEARLY_INCOME,
+    CREATED_TIMESTAMP,
+    UPDATED_TIMESTAMP
+FROM ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_INCREMENTAL
+WHERE CUSTOMER_KEY = 29487;
+```
+
+Expected:
+
+```text
+29487 | INCR_TEST_004 |
+incremental.updated004@example.com |
+90000
+```
+
+Count:
+
+```sql
+SELECT COUNT(*)
+FROM ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_INCREMENTAL
+WHERE CUSTOMER_KEY = 29487;
+```
+
+Expected:
+
+```text
+1
+```
+
+That is SCD1.
+
+---
+
+# 38. SCD Type 2
+
+## Definition
+
+SCD Type 2 preserves historical versions.
+
+Instead of:
+
+```text
+OLD → overwritten
+```
+
+we do:
+
+```text
+OLD → expired
+
+NEW → current
+```
+
+Example:
+
+```text
+29487 | old@example.com | 80000 | FALSE
+29487 | new@example.com | 90000 | TRUE
+```
+
+---
+
+# 39. Step 26 — Create SCD2 Target
+
+```sql
+CREATE OR REPLACE TABLE
+ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_SCD2
+LIKE
+ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER;
+```
+
+---
+
+# 40. Step 27 — Add SCD2 Metadata
+
+```sql
+ALTER TABLE
+ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_SCD2
+ADD COLUMN VALID_FROM TIMESTAMP_NTZ;
+```
+
+```sql
+ALTER TABLE
+ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_SCD2
+ADD COLUMN VALID_TO TIMESTAMP_NTZ;
+```
+
+```sql
+ALTER TABLE
+ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_SCD2
+ADD COLUMN IS_CURRENT BOOLEAN;
+```
+
+The resulting SCD2 metadata means:
+
+```text
+VALID_FROM = when this version became active
+
+VALID_TO   = when this version stopped being active
+
+IS_CURRENT = whether this is the current version
+```
+
+---
+
+# 41. Step 28 — Seed Initial Version
+
+The initial record is inserted as:
+
+```text
+VALID_FROM = CURRENT_TIMESTAMP()
+VALID_TO   = NULL
+IS_CURRENT = TRUE
+```
+
+Example:
+
+```sql
+INSERT INTO ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_SCD2
+(
+    CUSTOMER_KEY,
+    CUSTOMER_ALTERNATE_KEY,
+    GEOGRAPHY_KEY,
+    FIRST_NAME,
+    LAST_NAME,
+    EMAIL_ADDRESS,
+    YEARLY_INCOME,
+    CREATED_TIMESTAMP,
+    UPDATED_TIMESTAMP,
+    VALID_FROM,
+    VALID_TO,
+    IS_CURRENT
+)
+SELECT
+    RAW_DATA:CustomerKey::INT,
+    RAW_DATA:CustomerAlternateKey::STRING,
+    RAW_DATA:GeographyKey::INT,
+    RAW_DATA:FirstName::STRING,
+    RAW_DATA:LastName::STRING,
+    RAW_DATA:EmailAddress::STRING,
+    RAW_DATA:YearlyIncome::NUMBER(18,2),
+    CURRENT_TIMESTAMP(),
+    CURRENT_TIMESTAMP(),
+    CURRENT_TIMESTAMP(),
+    NULL,
+    TRUE
+FROM ADVWORKS_DEV.LANDING.DIM_CUSTOMER
+WHERE SOURCE_FILE LIKE
+    '%DimCustomer_batch_incremental_20260912_225153_001.jsonl%';
+```
+
+---
+
+# 42. Initial SCD2 State
+
+```text
+CUSTOMER_KEY = 29487
+
+EMAIL = incremental.test004@example.com
+
+INCOME = 80000
+
+VALID_FROM = timestamp 1
+VALID_TO   = NULL
+IS_CURRENT = TRUE
+```
+
+---
+
+# 43. Step 29 — Detect the Update
+
+The new CDC event says:
+
+```text
+CustomerKey = 29487
+Email = incremental.updated004@example.com
+Income = 90000
+```
+
+Therefore:
+
+```text
+Existing current record must expire.
+```
+
+---
+
+# 44. Step 30 — Expire the Old Record
+
+```sql
+UPDATE ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_SCD2 AS TARGET
+
+SET
+    VALID_TO = CURRENT_TIMESTAMP(),
+    IS_CURRENT = FALSE,
+    UPDATED_TIMESTAMP = CURRENT_TIMESTAMP()
+
+WHERE TARGET.CUSTOMER_KEY = 29487
+  AND TARGET.IS_CURRENT = TRUE
+
+  AND EXISTS
+  (
+      SELECT 1
+      FROM ADVWORKS_DEV.LANDING.DIM_CUSTOMER AS SOURCE
+      WHERE SOURCE.SOURCE_FILE LIKE
+          '%DimCustomer_update_29487.jsonl%'
+        AND SOURCE.RAW_DATA:CustomerKey::NUMBER
+            = TARGET.CUSTOMER_KEY
+  );
+```
+
+Now the old version becomes:
+
+```text
+29487
+old@example.com
+80000
+VALID_TO = timestamp
+IS_CURRENT = FALSE
+```
+
+---
+
+# 45. Step 31 — Insert New Version
+
+```sql
+INSERT INTO ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_SCD2
+(
+    CUSTOMER_KEY,
+    CUSTOMER_ALTERNATE_KEY,
+    GEOGRAPHY_KEY,
+    FIRST_NAME,
+    LAST_NAME,
+    EMAIL_ADDRESS,
+    YEARLY_INCOME,
+    CREATED_TIMESTAMP,
+    UPDATED_TIMESTAMP,
+    VALID_FROM,
+    VALID_TO,
+    IS_CURRENT
+)
+SELECT
+    RAW_DATA:CustomerKey::INT,
+    RAW_DATA:CustomerAlternateKey::STRING,
+    RAW_DATA:GeographyKey::INT,
+    RAW_DATA:FirstName::STRING,
+    RAW_DATA:LastName::STRING,
+    RAW_DATA:EmailAddress::STRING,
+    RAW_DATA:YearlyIncome::NUMBER(18,2),
+    CURRENT_TIMESTAMP(),
+    CURRENT_TIMESTAMP(),
+    CURRENT_TIMESTAMP(),
+    NULL,
+    TRUE
+FROM ADVWORKS_DEV.LANDING.DIM_CUSTOMER
+WHERE SOURCE_FILE LIKE
+    '%DimCustomer_update_29487.jsonl%';
+```
+
+---
+
+# 46. Final SCD2 Result
+
+Query:
+
+```sql
+SELECT
+    CUSTOMER_KEY,
+    EMAIL_ADDRESS,
+    YEARLY_INCOME,
+    VALID_FROM,
+    VALID_TO,
+    IS_CURRENT
+FROM ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_SCD2
+WHERE CUSTOMER_KEY = 29487
+ORDER BY VALID_FROM;
+```
+
+Expected:
+
+```text
+29487 | incremental.test004@example.com
+80000  | VALID_FROM = T1 | VALID_TO = T2 | FALSE
+
+29487 | incremental.updated004@example.com
+90000  | VALID_FROM = T2 | VALID_TO = NULL | TRUE
+```
+
+Therefore:
+
+```text
+TOTAL_VERSIONS    = 2
+CURRENT_VERSIONS  = 1
+HISTORICAL        = 1
+```
+
+---
+
+# 47. SCD2 Validation Queries
+
+## Total versions
+
+```sql
+SELECT
+    CUSTOMER_KEY,
+    COUNT(*) AS TOTAL_VERSIONS
+FROM ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_SCD2
+WHERE CUSTOMER_KEY = 29487
+GROUP BY CUSTOMER_KEY;
+```
+
+Expected:
+
+```text
+2
+```
+
+---
+
+## Current version
+
+```sql
+SELECT
+    CUSTOMER_KEY,
+    COUNT(*) AS CURRENT_VERSIONS
+FROM ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_SCD2
+WHERE CUSTOMER_KEY = 29487
+  AND IS_CURRENT = TRUE
+GROUP BY CUSTOMER_KEY;
+```
+
+Expected:
+
+```text
+1
+```
+
+---
+
+## Historical versions
+
+```sql
+SELECT
+    CUSTOMER_KEY,
+    COUNT(*) AS HISTORICAL_VERSIONS
+FROM ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_SCD2
+WHERE CUSTOMER_KEY = 29487
+  AND IS_CURRENT = FALSE
+GROUP BY CUSTOMER_KEY;
+```
+
+Expected:
+
+```text
+1
+```
+
+---
+
+# 48. SCD1 vs SCD2
+
+| Requirement         | SCD1                    | SCD2                |
+| ------------------- | ----------------------- | ------------------- |
+| Latest value        | Yes                     | Yes                 |
+| Historical value    | No                      | Yes                 |
+| Old row overwritten | Yes                     | No                  |
+| Multiple versions   | No                      | Yes                 |
+| `VALID_FROM`        | Usually No              | Yes                 |
+| `VALID_TO`          | Usually No              | Yes                 |
+| `IS_CURRENT`        | Usually No              | Yes                 |
+| Storage             | Lower                   | Higher              |
+| Query complexity    | Lower                   | Higher              |
+| Typical use         | Current-state reporting | Historical analysis |
+
+---
+
+# 49. Example Business Requirement
+
+Suppose:
+
+```text
+Customer 29487
+Income = ₹80,000
+```
+
+and six months later:
+
+```text
+Income = ₹90,000
+```
+
+### SCD1
+
+Question:
+
+```text
+What is the customer's current income?
+```
+
+Answer:
+
+```text
+₹90,000
+```
+
+Historical ₹80,000 is lost from the dimension.
+
+---
+
+### SCD2
+
+Question:
+
+```text
+What was the customer's income before the change?
+```
+
+Answer:
+
+```text
+₹80,000
+```
+
+Question:
+
+```text
+What is the current income?
+```
+
+Answer:
+
+```text
+₹90,000
+```
+
+Therefore SCD2 is useful for:
+
+```text
+historical reporting
+customer segmentation history
+regulatory/audit requirements
+point-in-time analysis
+historical dashboards
+```
+
+---
+
+# 50. Complete Execution Order
+
+The complete implementation we have performed is:
+
+```text
+STEP 1
+Create source table
+        │
+        ▼
+STEP 2
+Identify CDC/change detection strategy
+        │
+        ▼
+STEP 3
+Create ETL_Watermark
+        │
+        ▼
+STEP 4
+Establish baseline watermark
+        │
+        ▼
+STEP 5
+Insert new source records
+        │
+        ▼
+STEP 6
+Python reads watermark
+        │
+        ▼
+STEP 7
+Extract records > watermark
+        │
+        ▼
+STEP 8
+Create unique JSONL file
+        │
+        ▼
+STEP 9
+Upload JSONL to GCS
+        │
+        ▼
+STEP 10
+Pub/Sub receives GCS event
+        │
+        ▼
+STEP 11
+Snowpipe automatically loads LANDING
+        │
+        ▼
+STEP 12
+Validate Snowpipe
+        │
+        ▼
+STEP 13
+Validate LANDING
+        │
+        ├─────────────────────────┐
+        ▼                         ▼
+      SCD1                       SCD2
+        │                         │
+        ▼                         ▼
+MERGE latest version       Expire old version
+        │                         │
+        ▼                         ▼
+Current value              Insert new version
+        │                         │
+        ▼                         ▼
+One row                   Multiple historical rows
+```
+
+---
+
+# 51. Complete Testing Sequence
+
+The tests we performed were:
+
+### Test 1 — Initial baseline
+
+```text
+Source MAX(CustomerKey) = 29483
+Watermark = 29483
+```
+
+Expected:
+
+```text
+No historical records extracted.
+```
+
+---
+
+### Test 2 — Insert three customers
+
+```text
+29484
+29485
+29486
+```
+
+Expected:
+
+```text
+3 records extracted
+Watermark = 29486
+```
+
+Passed.
+
+---
+
+### Test 3 — Rerun without changes
+
+Expected:
+
+```text
+0 records extracted
+Watermark remains 29486
+```
+
+Passed.
+
+---
+
+### Test 4 — Insert another customer
+
+```text
+29487
+```
+
+Expected:
+
+```text
+1 record extracted
+Watermark = 29487
+```
+
+Passed.
+
+---
+
+### Test 5 — Snowpipe
+
+Expected:
+
+```text
+File automatically appears in LANDING.
+```
+
+Passed.
+
+---
+
+### Test 6 — SCD1 initial load
+
+Expected:
+
+```text
+29487 = one target row
+```
+
+Passed.
+
+---
+
+### Test 7 — Update customer
+
+Source:
+
+```text
+Email = incremental.updated004@example.com
+Income = 90000
+```
+
+Expected:
+
+```text
+CustomerKey remains 29487
+```
+
+Passed.
+
+---
+
+### Test 8 — Demonstrate watermark limitation
+
+Expected:
+
+```text
+CustomerKey watermark cannot detect the update.
+```
+
+Passed.
+
+This is an important CDC lesson.
+
+---
+
+### Test 9 — Simulated CDC update event
+
+Uploaded:
+
+```text
+DimCustomer_update_29487.jsonl
+```
+
+Expected:
+
+```text
+Snowpipe loads update event.
+```
+
+Passed.
+
+---
+
+### Test 10 — SCD1 update
+
+Expected:
+
+```text
+one row
+new email
+90000 income
+```
+
+Passed.
+
+---
+
+### Test 11 — SCD2 update
+
+Expected:
+
+```text
+2 total versions
+1 historical
+1 current
+```
+
+Passed.
+
+---
+
+# 52. Production Architecture We Should Eventually Use
+
+The final production design should be:
+
+```text
+                    SOURCE
+                      │
+              ┌───────┴────────┐
+              │                │
+           INSERT            UPDATE
+              │                │
+              └───────┬────────┘
+                      ▼
+                 CDC MECHANISM
+                      │
+          ┌───────────┴───────────┐
+          │                       │
+       New Row                 Changed Row
+          │                       │
+          └───────────┬───────────┘
+                      ▼
+                    Python
+                      │
+                      ▼
+                     GCS
+                      │
+                      ▼
+                   Pub/Sub
+                      │
+                      ▼
+                  Snowpipe
+                      │
+                      ▼
+                  LANDING
+                      │
+                      ▼
+               Deduplicate/latest
+                      │
+             ┌────────┴────────┐
+             ▼                 ▼
+            SCD1              SCD2
+             │                 │
+             ▼                 ▼
+       Current State      Historical State
+             │                 │
+             └────────┬────────┘
+                      ▼
+                  dbt Models
+                      │
+                      ▼
+              Marketplace / BI
+```
+
+---
+
+# 53. Interview Answer — "What is CDC?"
+
+A strong answer:
+
+> CDC, or Change Data Capture, is the mechanism used to identify inserts, updates and deletes from a source system so that only changed data is processed instead of repeatedly performing a full load. Depending on the source, I can use a high-watermark column, modification timestamp, SQL Server Change Tracking/CDC, database logs, or a dedicated CDC platform. In my AdventureWorks practice pipeline, I used CustomerKey as a high-watermark to demonstrate incremental inserts, but I explicitly treat that as insufficient for updates because CustomerKey does not change when an existing customer is modified.
+
+---
+
+# 54. Interview Answer — "How does your pipeline detect updates?"
+
+Do NOT say:
+
+> We use CustomerKey to detect updates.
+
+That would be incorrect.
+
+Say:
+
+> CustomerKey watermarking handles newly inserted records because the key increases, but it does not detect updates to existing records. For production I would use a reliable change indicator such as ModifiedDate, SQL Server Change Tracking/CDC, or database-log-based CDC. Once the changed event reaches Snowflake, I use the business key to apply the appropriate SCD strategy.
+
+---
+
+# 55. Interview Answer — "What is SCD Type 1?"
+
+> SCD Type 1 overwrites the existing dimension value with the latest value. It is appropriate when historical changes are not required and the business only needs the current state. In my implementation I use a MERGE keyed by CustomerKey, updating matched records and inserting new records.
+
+---
+
+# 56. Interview Answer — "What is SCD Type 2?"
+
+> SCD Type 2 preserves historical versions of dimension records. When a change arrives, I expire the current version by setting VALID_TO and IS_CURRENT to false, then insert the new version with a new VALID_FROM, NULL VALID_TO and IS_CURRENT=true. This allows point-in-time and historical analysis.
+
+---
+
+# 57. Interview Answer — "Can CDC and SCD be used together?"
+
+Yes.
+
+They solve different problems:
+
+```text
+CDC
+↓
+Find what changed
+
+SCD
+↓
+Decide how the changed dimension should be stored
+```
+
+For example:
+
+```text
+CDC detects:
+Customer 29487 changed
+
+SCD1:
+Overwrite current customer
+
+SCD2:
+Expire old version + create new version
+```
+
+---
+
+# 58. Golden Rules to Remember
+
+```text
+1. CDC ≠ SCD.
+
+2. CDC detects changes.
+
+3. Incremental loading reduces the amount of data extracted.
+
+4. A high-watermark can detect inserts only if the watermark column is monotonically increasing.
+
+5. A primary key is NOT automatically a CDC column.
+
+6. Updates require a reliable change indicator.
+
+7. SCD1 keeps the latest value.
+
+8. SCD2 keeps history.
+
+9. LANDING should preserve raw events.
+
+10. Deduplicate before MERGE when multiple versions can exist.
+
+11. Snowpipe handles file ingestion, not business-level SCD logic.
+
+12. dbt should handle downstream transformations/modeling.
+
+13. The watermark should ideally advance only after successful downstream processing.
+
+14. Idempotency is required so retries do not create duplicate business data.
+```
+
+# 59. Final Mental Model
+
+Remember this one sentence:
+
+> **CDC tells me WHAT changed, incremental loading tells me WHAT to extract, Snowpipe tells me HOW to ingest the file, and SCD1/SCD2 tells me HOW to maintain the dimension after the change arrives.**
+
+For your project:
+
+```text
+CDC / Incremental
+        ↓
+Python
+        ↓
+GCS
+        ↓
+Pub/Sub
+        ↓
+Snowpipe
+        ↓
+LANDING VARIANT
+        ↓
+Latest Change
+        ↓
+ ┌──────────────┐
+ │              │
+SCD1           SCD2
+ │              │
+Latest only    Full history
+```
+
+This completes the **CDC + Incremental + SCD1 + SCD2 SOP** for the work we have completed so far.

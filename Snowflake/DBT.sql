@@ -1,0 +1,247 @@
+/*
+                          SNOWFLAKE
+                              │
+                ┌───────────────┴──────────────┐
+                │                           │
+             PREPARE                   PREPARE
+                │                           │
+       DIMCUSTOMER_PREPARE          DIMPRODUCT_PREPARE
+                │                           │
+                ▼                           ▼
+           DBT PREPARE                 DBT PREPARE
+                │                           │
+                ▼                           ▼
+         DBT NORMALIZE                DBT NORMALIZE
+                │                           │
+                ▼                           ▼
+        DIM_CUSTOMER_NORMALIZE     DIM_PRODUCT_NORMALIZE
+                │                           │
+                └───────────────┬──────────────┘
+                              ▼
+                         SCHEMATIZE
+                    ┌──────────┼──────────┐
+                    ▼         ▼         ▼
+              DIM_CUSTOMER DIM_PRODUCT DIM_DATE
+
+*/
+
+SELECT
+    COUNT(*) AS ROW_COUNT,
+    MIN(FULL_DATE) AS MIN_DATE,
+    MAX(FULL_DATE) AS MAX_DATE
+FROM ADVWORKS_DEV.SCHEMATIZE.DIM_DATE;
+/*
+ROW_COUNT	MIN_DATE	MAX_DATE
+10000	2010-01-01	2037-05-18
+*/
+
+SELECT *
+FROM ADVWORKS_DEV.SCHEMATIZE.DIM_DATE
+ORDER BY FULL_DATE
+LIMIT 10;
+/*
+DATE_KEY	FULL_DATE	YEAR	QUARTER	MONTH	MONTH_NAME	DAY	DAY_OF_WEEK	DAY_NAME	WEEK_OF_YEAR	IS_WEEKDAY
+2010-01-01	2010-01-01	2010	1	1	Jan	1	5	Fri	53	TRUE
+2010-01-02	2010-01-02	2010	1	1	Jan	2	6	Sat	53	TRUE
+2010-01-03	2010-01-03	2010	1	1	Jan	3	0	Sun	53	TRUE
+2010-01-04	2010-01-04	2010	1	1	Jan	4	1	Mon	1	FALSE
+2010-01-05	2010-01-05	2010	1	1	Jan	5	2	Tue	1	TRUE
+2010-01-06	2010-01-06	2010	1	1	Jan	6	3	Wed	1	TRUE
+2010-01-07	2010-01-07	2010	1	1	Jan	7	4	Thu	1	TRUE
+2010-01-08	2010-01-08	2010	1	1	Jan	8	5	Fri	1	TRUE
+2010-01-09	2010-01-09	2010	1	1	Jan	9	6	Sat	1	TRUE
+2010-01-10	2010-01-10	2010	1	1	Jan	10	0	Sun	1	TRUE
+*/
+
+ALTER TABLE ADVWORKS_DEV.PREPARE.DIMCUSTOMER_PREPARED 
+RENAME TO ADVWORKS_DEV.PREPARE.DIMCUSTOMER_PREPARE;
+
+SELECT
+    FULL_DATE,
+    DAY_NAME,
+    DAY_OF_WEEK,
+    IS_WEEKDAY
+FROM ADVWORKS_DEV.SCHEMATIZE.DIM_DATE
+WHERE FULL_DATE BETWEEN '2010-01-01' AND '2010-01-10'
+ORDER BY FULL_DATE;
+
+SELECT
+    COUNT(*) AS ROW_COUNT,
+    COUNT(DISTINCT CUSTOMER_KEY) AS DISTINCT_CUSTOMERS,
+    MIN(CUSTOMER_KEY) AS MIN_CUSTOMER_KEY,
+    MAX(CUSTOMER_KEY) AS MAX_CUSTOMER_KEY
+FROM ADVWORKS_DEV.PREPARE.DIM_CUSTOMER_PREPARE;
+/*
+ROW_COUNT	DISTINCT_CUSTOMERS	MIN_CUSTOMER_KEY	MAX_CUSTOMER_KEY
+18484	18484	11000	29483
+*/
+
+-- Validate both
+-- Customer
+SELECT
+    COUNT(*) AS ROW_COUNT,
+    COUNT(DISTINCT CUSTOMER_KEY) AS DISTINCT_CUSTOMERS,
+    COUNT_IF(FULL_NAME IS NULL) AS NULL_FULL_NAMES
+FROM ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_NORMALIZE;
+/*
+ROW_COUNT	DISTINCT_CUSTOMERS	NULL_FULL_NAMES
+18484	18484	7830
+*/
+
+--Product
+SELECT
+    COUNT(*) AS ROW_COUNT,
+    COUNT(DISTINCT PRODUCT_KEY) AS DISTINCT_PRODUCTS,
+    MIN(PRODUCT_KEY) AS MIN_PRODUCT_KEY,
+    MAX(PRODUCT_KEY) AS MAX_PRODUCT_KEY
+FROM ADVWORKS_DEV.NORMALIZE.DIM_PRODUCT_NORMALIZE;
+/*
+ROW_COUNT	DISTINCT_PRODUCTS	MIN_PRODUCT_KEY	MAX_PRODUCT_KEY
+606	606	1	606
+*/
+
+SELECT *
+FROM ADVWORKS_DEV.PREPARE.DIM_CUSTOMER_PREPARE
+LIMIT 10;
+/*
+CUSTOMER_KEY	GEOGRAPHY_KEY	CUSTOMER_ALTERNATE_KEY	TITLE	FIRST_NAME	MIDDLE_NAME	LAST_NAME	NAME_STYLE	BIRTH_DATE	MARITAL_STATUS	SUFFIX	GENDER	EMAIL_ADDRESS	YEARLY_INCOME	TOTAL_CHILDREN	NUMBER_CHILDREN_AT_HOME	ENGLISH_EDUCATION	SPANISH_EDUCATION	FRENCH_EDUCATION	ENGLISH_OCCUPATION	SPANISH_OCCUPATION	FRENCH_OCCUPATION	HOUSE_OWNER_FLAG	NUMBER_CARS_OWNED	ADDRESS_LINE1	ADDRESS_LINE2	PHONE	DATE_FIRST_PURCHASE	COMMUTE_DISTANCE	SOURCE_FILE	LOAD_TIMESTAMP
+26000	369	AW00026000		Connor		Lopez	FALSE	1971-10-02	S		M	connor40@adventure-works.com	40000.00	0	0	Bachelors	Licenciatura	Bac + 4	Professional	Profesional	Cadre	FALSE	1	9073 Mayda Way		666-555-0112	2013-06-01	0-1 Miles	DimCustomer_batch_004.jsonl	2026-09-02 10:20:26.718
+26001	539	AW00026001		Nicholas	G	Lee	FALSE	1972-09-21	S		M	nicholas2@adventure-works.com	50000.00	0	0	Partial College	Estudios universitarios (en curso)	Baccalauréat	Skilled Manual	Obrero especializado	Technicien	FALSE	1	162 Frisbie Court		526-555-0133	2011-09-23	2-5 Miles	DimCustomer_batch_004.jsonl	2026-09-02 10:20:26.718
+26002	548	AW00026002		Samuel	J	Walker	FALSE	1973-04-01	S		M	samuel72@adventure-works.com	50000.00	0	0	Partial College	Estudios universitarios (en curso)	Baccalauréat	Skilled Manual	Obrero especializado	Technicien	FALSE	1	5509 Mt. Wilson Way		487-555-0168	2011-09-28	0-1 Miles	DimCustomer_batch_004.jsonl	2026-09-02 10:20:26.718
+26003	307	AW00026003		Denise		Subram	FALSE	1973-05-24	S		F	denise14@adventure-works.com	60000.00	0	0	Graduate Degree	Estudios de postgrado	Bac + 3	Professional	Profesional	Cadre	FALSE	1	3974 Central Ave.		564-555-0159	2011-09-10	2-5 Miles	DimCustomer_batch_004.jsonl	2026-09-02 10:20:26.718
+26004	348	AW00026004		Arthur		Washington	FALSE	1966-05-08	M		F	arthur45@adventure-works.com	60000.00	1	0	Partial College	Estudios universitarios (en curso)	Baccalauréat	Skilled Manual	Obrero especializado	Technicien	TRUE	1	8481 Cloverleaf Circle		383-555-0171	2011-09-11	0-1 Miles	DimCustomer_batch_004.jsonl	2026-09-02 10:20:26.718
+26005	547	AW00026005		Elizabeth	J	Clark	FALSE	1966-05-18	M		F	elizabeth23@adventure-works.com	60000.00	1	0	Partial College	Estudios universitarios (en curso)	Baccalauréat	Skilled Manual	Obrero especializado	Technicien	TRUE	1	2293 Tono Lane		561-555-0152	2011-09-14	0-1 Miles	DimCustomer_batch_004.jsonl	2026-09-02 10:20:26.718
+26006	607	AW00026006		Garrett		Peterson	FALSE	1965-04-22	M		M	garrett10@adventure-works.com	60000.00	4	3	Bachelors	Licenciatura	Bac + 4	Professional	Profesional	Cadre	TRUE	0	4234 Coggins Dr.		422-555-0170	2013-11-25	2-5 Miles	DimCustomer_batch_004.jsonl	2026-09-02 10:20:26.718
+26007	347	AW00026007		Jesse		Morgan	FALSE	1970-04-04	M		M	jesse13@adventure-works.com	60000.00	4	3	Bachelors	Licenciatura	Bac + 4	Professional	Profesional	Cadre	FALSE	0	8905 Candlestick Dr.		810-555-0148	2013-06-07	0-1 Miles	DimCustomer_batch_004.jsonl	2026-09-02 10:20:26.718
+26008	315	AW00026008		Jennifer		Gonzales	FALSE	1970-06-19	M		F	jennifer90@adventure-works.com	70000.00	5	5	Graduate Degree	Estudios de postgrado	Bac + 3	Professional	Profesional	Cadre	TRUE	3	9494 Buena Vista		101-555-0135	2014-01-20	10+ Miles	DimCustomer_batch_004.jsonl	2026-09-02 10:20:26.718
+26009	315	AW00026009		Luis	R	Foster	FALSE	1965-03-12	M		M	luis15@adventure-works.com	70000.00	5	5	Graduate Degree	Estudios de postgrado	Bac + 3	Professional	Profesional	Cadre	TRUE	3	9836 Hanson Lane		239-555-0151	2013-12-28	10+ Miles	DimCustomer_batch_004.jsonl	2026-09-02 10:20:26.718
+*/
+
+--#############################################################################################################################
+
+--— Validate DIM_CUSTOMER
+
+SELECT
+    COUNT(*) AS ROW_COUNT,
+    COUNT(DISTINCT CUSTOMER_KEY) AS DISTINCT_CUSTOMERS,
+    MIN(CUSTOMER_KEY) AS MIN_CUSTOMER_KEY,
+    MAX(CUSTOMER_KEY) AS MAX_CUSTOMER_KEY
+FROM ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER;
+/*
+ROW_COUNT	DISTINCT_CUSTOMERS	MIN_CUSTOMER_KEY	MAX_CUSTOMER_KEY
+18484	18484	11000	29483
+*/
+
+SELECT
+    CUSTOMER_KEY,
+    CUSTOMER_ALTERNATE_KEY,
+    FULL_NAME,
+    EMAIL_ADDRESS,
+    GENDER,
+    MARITAL_STATUS,
+    YEARLY_INCOME
+FROM ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER
+ORDER BY CUSTOMER_KEY
+LIMIT 10;
+/*
+CUSTOMER_KEY	CUSTOMER_ALTERNATE_KEY	FULL_NAME	EMAIL_ADDRESS	GENDER	MARITAL_STATUS	YEARLY_INCOME
+11000	AW00011000	Jon V Yang	jon24@adventure-works.com	M	M	90000.00
+11001	AW00011001	Eugene L Huang	eugene10@adventure-works.com	M	S	60000.00
+11002	AW00011002		ruben35@adventure-works.com	M	M	60000.00
+11003	AW00011003		christy12@adventure-works.com	F	S	70000.00
+11004	AW00011004		elizabeth5@adventure-works.com	F	S	80000.00
+11005	AW00011005		julio1@adventure-works.com	M	S	70000.00
+11006	AW00011006	Janet G Alvarez	janet9@adventure-works.com	F	S	70000.00
+11007	AW00011007		marco14@adventure-works.com	M	M	60000.00
+11008	AW00011008		rob4@adventure-works.com	F	S	60000.00
+11009	AW00011009	Shannon C Carlson	shannon38@adventure-works.com	M	S	70000.00
+*/
+
+--— Validate DIM_PRODUCT
+SELECT
+    COUNT(*) AS ROW_COUNT,
+    COUNT(DISTINCT PRODUCT_KEY) AS DISTINCT_PRODUCTS,
+    MIN(PRODUCT_KEY) AS MIN_PRODUCT_KEY,
+    MAX(PRODUCT_KEY) AS MAX_PRODUCT_KEY
+FROM ADVWORKS_DEV.SCHEMATIZE.DIM_PRODUCT;
+/*
+ROW_COUNT	DISTINCT_PRODUCTS	MIN_PRODUCT_KEY	MAX_PRODUCT_KEY
+606	606	1	606
+*/
+
+SELECT
+    STATUS,
+    COUNT(*) AS ROW_COUNT
+FROM ADVWORKS_DEV.SCHEMATIZE.DIM_PRODUCT
+GROUP BY STATUS
+ORDER BY STATUS;
+/*
+STATUS	ROW_COUNT
+ACTIVE	406
+INACTIVE	200
+*/
+
+
+SELECT
+    COUNT(*) AS ROW_COUNT,
+    MIN(FULL_DATE) AS MIN_DATE,
+    MAX(FULL_DATE) AS MAX_DATE
+FROM ADVWORKS_DEV.SCHEMATIZE.DIM_DATE;
+/*
+ROW_COUNT	MIN_DATE	MAX_DATE
+10000	2010-01-01	2037-05-18
+*/
+
+-- specifically verify weekends:
+SELECT
+    FULL_DATE,
+    DAY_NAME,
+    DAY_OF_WEEK,
+    IS_WEEKDAY
+FROM ADVWORKS_DEV.SCHEMATIZE.DIM_DATE
+WHERE DAY_OF_WEEK IN (0, 6)
+LIMIT 10;
+/*
+FULL_DATE	DAY_NAME	DAY_OF_WEEK	IS_WEEKDAY
+2010-01-02	Sat	6	FALSE
+2010-01-03	Sun	0	FALSE
+2010-01-09	Sat	6	FALSE
+2010-01-10	Sun	0	FALSE
+2010-01-16	Sat	6	FALSE
+2010-01-17	Sun	0	FALSE
+2010-01-23	Sat	6	FALSE
+2010-01-24	Sun	0	FALSE
+2010-01-30	Sat	6	FALSE
+2010-01-31	Sun	0	FALSE
+*/
+
+DESC USER CHETANCHANDRA81;
+
+
+
+
+
+/*
+
+*/
+
+
+
+
+/*
+
+*/
+
+
+
+
+/*
+
+*/
+
+
+
+
+/*
+
+*/

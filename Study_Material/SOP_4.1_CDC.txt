@@ -1,66 +1,305 @@
-— Decide the Incremental Strategy
+# SOP — CDC, SCD Type 1 & SCD Type 2
 
-For this project, we'll implement two different incremental patterns, because both are important for interviews and real pipelines.
+## 1. Purpose
 
-Pattern	AdventureWorks implementation	Captures updates?	Use
-Watermark / high-water mark	CustomerKey	❌ No	Append-only data
-CDC / change tracking	SQL Server source with change information	✅ Yes	Production INSERT/UPDATE/DELETE
+This SOP defines how to design, implement, validate, and explain:
 
-For our current DimCustomer, we'll first implement:
+* Change Data Capture (CDC)
+* Incremental data extraction
+* High-watermark processing
+* SCD Type 1
+* SCD Type 2
+* Duplicate/change-event handling
+* Recovery and rerun considerations
 
-Pattern 1 — Key-based incremental loading
+The implementation is based on the **AdventureWorks → Python → GCS → Pub/Sub → Snowpipe → Snowflake** practice pipeline.
 
-Instead of extracting all 18,484 customers every time:
+---
 
-First run
-CustomerKey > 0
-        ↓
-1 → 18484
+# 2. Overall Architecture
 
-we store:
+```text
+SOURCE SQL SERVER
+      |
+      | New / Changed Records
+      v
+CDC / Incremental Extraction
+      |
+      v
+Python Extraction
+      |
+      | JSONL
+      v
+GCS
+      |
+      | Object Created Event
+      v
+GCP Pub/Sub
+      |
+      v
+Snowflake Snowpipe
+      |
+      v
+LANDING
+RAW_DATA VARIANT
+      |
+      v
+PREPARE
+      |
+      v
+NORMALIZE
+      |
+      +----------------------+
+      |                      |
+      v                      v
+SCD TYPE 1              SCD TYPE 2
+Current State            Historical State
+      |                      |
+      +----------+-----------+
+                 |
+                 v
+             SCHEMATIZE
+                 |
+                 v
+             MARKETPLACE
+                 |
+                 v
+           BI / Tableau
+```
 
-LAST_CUSTOMER_KEY = 18484
+---
 
-Next run:
+# 3. What is CDC?
 
-WHERE CustomerKey > 18484
+CDC means **Change Data Capture**.
 
-If 20 new customers arrive:
+Its purpose is to identify changes occurring in a source system and move those changes downstream instead of repeatedly processing the entire source table.
 
-18485
-18486
-...
-18504
+A change can generally be:
 
-we extract only those 20.
+```text
+INSERT
+UPDATE
+DELETE
+```
 
-But there is an important limitation
+For example:
 
-Suppose customer 1000 changes:
+```text
+Before:
 
-CustomerKey = 1000
-YearlyIncome = 50000 → 70000
+CustomerKey = 29487
+Email = old@example.com
+Income = 80000
+```
 
-The query:
+After:
 
-WHERE CustomerKey > 18484
+```text
+CustomerKey = 29487
+Email = new@example.com
+Income = 90000
+```
 
-will never see that update.
+CDC identifies that the customer changed.
 
-So this pattern is suitable only when the source is append-only or when updates are handled separately.
+---
 
-That's exactly the distinction interviewers expect you to understand.
+# 4. CDC vs Incremental Load
 
-Step 3 — Create a Watermark Control Table
+These are related but not exactly the same.
 
-We'll make the watermark persistent instead of hard-coding:
+### Incremental load
 
-18484
+Processes records newer than a known high-watermark.
 
-Create this in your AdventureWorks practice control database/schema.
+Example:
 
-For now, since we're using the same SQL Server database for the project, create:
+```text
+Last processed CustomerKey = 29483
 
+Source:
+
+29484
+29485
+29486
+29487
+
+Process:
+
+CustomerKey > 29483
+```
+
+Result:
+
+```text
+29484
+29485
+29486
+29487
+```
+
+### CDC
+
+Captures actual changes, including updates and potentially deletes.
+
+Example:
+
+```text
+29487
+UPDATE Email
+UPDATE Income
+```
+
+A simple `CustomerKey > 29483` condition cannot detect this update because:
+
+```text
+29487 > 29483
+```
+
+only tells us that 29487 is a new key.
+
+If 29487 was already processed:
+
+```text
+Watermark = 29487
+```
+
+then:
+
+```text
+CustomerKey > 29487
+```
+
+will not detect another update to customer 29487.
+
+### Important interview statement
+
+> A high-watermark incremental strategy can detect newly inserted records when the watermark column is monotonically increasing, but it does not inherently detect updates or deletes to existing records. For complete CDC, I would use a reliable change indicator such as ModifiedDate, SQL Server Change Tracking/CDC, database logs, or a source-specific CDC mechanism.
+
+---
+
+# 5. Types of CDC / Change Detection
+
+## Method 1 — High-Watermark
+
+Example:
+
+```text
+CustomerKey > LastProcessedCustomerKey
+```
+
+Good for:
+
+```text
+New inserts
+```
+
+Not sufficient for:
+
+```text
+Updates
+Deletes
+```
+
+---
+
+## Method 2 — Timestamp Watermark
+
+Example:
+
+```sql
+WHERE ModifiedDate > @last_watermark
+```
+
+If:
+
+```text
+Last watermark = 2026-09-12 10:00:00
+```
+
+then:
+
+```sql
+WHERE ModifiedDate > '2026-09-12 10:00:00'
+```
+
+captures records modified afterward.
+
+This is generally better than an identity-key watermark when the source has a reliable modification timestamp.
+
+---
+
+## Method 3 — SQL Server Change Tracking / CDC
+
+The database itself records changes.
+
+This can identify:
+
+```text
+INSERT
+UPDATE
+DELETE
+```
+
+and is much more appropriate when complete change history is required.
+
+---
+
+## Method 4 — Log-Based CDC
+
+Tools can read database transaction logs and publish changes downstream.
+
+Typical enterprise technologies include:
+
+```text
+Debezium
+Kafka
+Oracle GoldenGate
+AWS DMS
+Azure Data Factory CDC
+Database-native CDC
+```
+
+The exact technology depends on the source architecture.
+
+---
+
+# 6. Our AdventureWorks Implementation
+
+Our source was:
+
+```text
+SQL Server
+AdventureWorksDW2022
+dbo.DimCustomer
+```
+
+The table did not have a reliable:
+
+```text
+ModifiedDate
+UpdatedAt
+CreatedAt
+```
+
+column.
+
+Therefore, for learning purposes, we used:
+
+```text
+CustomerKey
+```
+
+as the high-watermark.
+
+---
+
+# 7. Watermark Control Table
+
+We created:
+
+```sql
 CREATE TABLE dbo.ETL_Watermark
 (
     PIPELINE_NAME       VARCHAR(200) NOT NULL,
@@ -73,211 +312,1073 @@ CREATE TABLE dbo.ETL_Watermark
     CONSTRAINT PK_ETL_Watermark
         PRIMARY KEY (PIPELINE_NAME, SOURCE_OBJECT)
 );
+```
 
-Then create our initial watermark:
+This table stores the state of the incremental pipeline.
 
-INSERT INTO dbo.ETL_Watermark
-(
-    PIPELINE_NAME,
-    SOURCE_OBJECT,
-    WATERMARK_COLUMN,
-    WATERMARK_VALUE
-)
-VALUES
-(
-    'DIM_CUSTOMER_INCREMENTAL',
-    'dbo.DimCustomer',
-    'CustomerKey',
-    '0'
-);
+Example:
 
-Verify:
-
-SELECT *
-FROM dbo.ETL_Watermark;
-
-You should see approximately:
-
+```text
+PIPELINE_NAME
 DIM_CUSTOMER_INCREMENTAL
+
+SOURCE_OBJECT
 dbo.DimCustomer
+
+WATERMARK_COLUMN
 CustomerKey
-0
-2026-...
-Step 4 — Extract Only New Customers
 
-Now instead of:
+WATERMARK_VALUE
+29487
+```
 
-SELECT *
-FROM dbo.DimCustomer;
+Meaning:
 
-we dynamically use the stored watermark:
+> The pipeline has successfully processed records up to CustomerKey 29487.
 
-SELECT
-    CustomerKey,
-    GeographyKey,
-    CustomerAlternateKey,
-    Title,
-    FirstName,
-    MiddleName,
-    LastName,
-    NameStyle,
-    BirthDate,
-    MaritalStatus,
-    Suffix,
-    Gender,
-    EmailAddress,
-    YearlyIncome,
-    TotalChildren,
-    NumberChildrenAtHome,
-    EnglishEducation,
-    SpanishEducation,
-    FrenchEducation,
-    EnglishOccupation,
-    SpanishOccupation,
-    FrenchOccupation,
-    HouseOwnerFlag,
-    NumberCarsOwned,
-    AddressLine1,
-    AddressLine2,
-    Phone,
-    DateFirstPurchase,
-    CommuteDistance
-FROM dbo.DimCustomer
-WHERE CustomerKey >
-(
-    SELECT CAST(WATERMARK_VALUE AS INT)
-    FROM dbo.ETL_Watermark
-    WHERE PIPELINE_NAME = 'DIM_CUSTOMER_INCREMENTAL'
-      AND SOURCE_OBJECT = 'dbo.DimCustomer'
-);
+---
+
+# 8. Initial Watermark Setup
 
 Initially:
 
-WATERMARK_VALUE = 0
+```text
+MAX(CustomerKey) = 29483
+```
 
-so this returns all customers.
+Because the existing full load was considered already processed, we established:
 
-After the first successful load, we'll update the watermark to:
+```text
+Watermark = 29483
+```
 
-18484
+This establishes the baseline.
 
-The next execution will return only:
+The next incremental run searches for:
 
-CustomerKey > 18484
-Step 5 — Why We Don't Update the Watermark Immediately
+```sql
+WHERE CustomerKey > 29483
+```
 
-This is very important for production pipelines.
+---
 
-Do not do this:
+# 9. Incremental Extraction
 
-Extract
-  ↓
-Update watermark
-  ↓
-Load
+Our Python process performs:
 
-because if the load fails:
+```text
+1. Read watermark
+2. Query source
+3. Extract records greater than watermark
+4. Write JSONL
+5. Upload JSONL to GCS
+6. Determine new maximum watermark
+7. Update watermark
+```
 
-Extract ✅
-Watermark updated ✅
-Snowpipe/load ❌
+Conceptually:
 
-you've now lost the ability to extract those rows again.
+```sql
+SELECT TOP (?)
+    *
+FROM dbo.DimCustomer
+WHERE CustomerKey > ?
+ORDER BY CustomerKey;
+```
+
+---
+
+# 10. Batch Processing
+
+We do not necessarily extract millions of rows in one operation.
 
 Instead:
 
-Read watermark
-      ↓
-Extract incremental rows
-      ↓
-Write files
-      ↓
+```text
+Watermark = 29483
+
+Source:
+29484
+29485
+29486
+29487
+...
+```
+
+Python processes records in batches.
+
+Example:
+
+```text
+Batch 001
+29484 → 29486
+```
+
+Then:
+
+```text
+New watermark = 29486
+```
+
+---
+
+# 11. Why the Watermark Must Move Forward
+
+Suppose:
+
+```text
+Old watermark = 29483
+```
+
+and the extraction produces:
+
+```text
+29484
+29485
+29486
+```
+
+The new watermark becomes:
+
+```text
+29486
+```
+
+Next run:
+
+```sql
+WHERE CustomerKey > 29486
+```
+
+Therefore:
+
+```text
+29484
+29485
+29486
+```
+
+are not extracted again.
+
+This provides incremental processing.
+
+---
+
+# 12. Rerun Test
+
+We deliberately reran the pipeline without inserting any new source data.
+
+Result:
+
+```text
+Current watermark: 29486
+Rows extracted: 0
+New watermark: 29486
+```
+
+This proves the high-watermark logic works for new records.
+
+---
+
+# 13. Important Limitation
+
+Suppose:
+
+```text
+CustomerKey = 29487
+```
+
+was already processed.
+
+Later:
+
+```text
+EmailAddress
+```
+
+changes.
+
+Watermark remains:
+
+```text
+29487
+```
+
+The query:
+
+```sql
+WHERE CustomerKey > 29487
+```
+
+does not find the update.
+
+Therefore:
+
+```text
+HIGH-WATERMARK ≠ COMPLETE CDC
+```
+
+This distinction is extremely important in interviews.
+
+---
+
+# 14. CDC Production Recommendation
+
+For a production SQL Server source, prefer:
+
+```text
+Option 1:
+ModifiedDate / LastUpdatedDate
+
+or
+
+Option 2:
+SQL Server Change Tracking
+
+or
+
+Option 3:
+SQL Server CDC
+
+or
+
+Option 4:
+Transaction-log based CDC
+```
+
+depending on source capability and business requirements.
+
+---
+
+# 15. CDC Event Reaching Snowflake
+
+The incremental JSONL file is uploaded to:
+
+```text
 GCS
-      ↓
+```
+
+Example:
+
+```text
+dim_customer/
+DimCustomer_batch_incremental_20260912_225153_001.jsonl
+```
+
+GCS generates an object-finalize event.
+
+Flow:
+
+```text
+GCS
+ |
+ v
+Pub/Sub Topic
+ |
+ v
+Pub/Sub Subscription
+ |
+ v
+Snowflake Notification Integration
+ |
+ v
 Snowpipe
-      ↓
-Validate successful load
-      ↓
-Update watermark
+ |
+ v
+LANDING.DIM_CUSTOMER
+```
 
-So the watermark represents:
+---
 
-The highest source value that has been successfully processed.
+# 16. Why LANDING Uses VARIANT
 
-This connects directly to the audit table we just created.
+Our landing table uses:
 
-Step 6 — Simulate the First Incremental Run
+```text
+RAW_DATA VARIANT
+SOURCE_FILE
+LOAD_TIMESTAMP
+```
 
-Before we modify the Python extractor, let's prove the concept directly in SQL.
+The raw JSON is initially stored as:
 
-Run:
+```text
+VARIANT
+```
 
-SELECT
-    MAX(CustomerKey) AS MAX_CUSTOMER_KEY,
-    COUNT(*) AS ROW_COUNT
-FROM dbo.DimCustomer;
+because the landing layer should preserve the source payload with minimal transformation.
 
-We expect approximately:
+Example:
 
-MAX_CUSTOMER_KEY = 29483
-ROW_COUNT        = 18484
+```json
+{
+  "CustomerKey": 29487,
+  "EmailAddress": "incremental.updated004@example.com",
+  "YearlyIncome": 90000
+}
+```
 
-Then check our current watermark:
+is stored as one VARIANT object.
 
-SELECT
-    PIPELINE_NAME,
-    SOURCE_OBJECT,
-    WATERMARK_VALUE
-FROM dbo.ETL_Watermark
-WHERE PIPELINE_NAME = 'DIM_CUSTOMER_INCREMENTAL';
+Later we extract fields:
 
-The initial value should be:
+```sql
+RAW_DATA:CustomerKey::INT
+RAW_DATA:EmailAddress::STRING
+RAW_DATA:YearlyIncome::NUMBER(18,2)
+```
 
-0
+This allows the landing layer to act as a durable raw ingestion layer.
 
-Now execute the incremental query from Step 4.
+---
 
-That gives us the first incremental batch.
+# 17. SCD — Slowly Changing Dimension
 
-The architecture we're building
-              SQL Server
-                  │
-                  ▼
-          ETL_Watermark
-          ┌──────────────┐
-          │ last key     │
-          │ 0            │
-          └──────┬───────┘
-                 │
-                 ▼
-        SELECT CustomerKey
-        > watermark
-                 │
-                 ▼
-          Python Extract
-                 │
-                 ▼
-             GCS file
-                 │
-                 ▼
-             Snowpipe
-                 │
-                 ▼
-        Snowflake LANDING
-                 │
-                 ▼
-             dbt MERGE
-                 │
-                 ▼
-          Successful load
-                 │
-                 ▼
-        Update watermark
+SCD means:
 
-Once this works, we'll move the exact logic into your Python extraction code, so you learn the actual implementation rather than leaving it as a SQL-only exercise.
+> Slowly Changing Dimension.
 
-After that we'll tackle the much more important part:
+It describes how changes to dimensional attributes are managed over time.
 
-How do we capture UPDATE and DELETE when CustomerKey doesn't change?
+Example:
 
-That's where we'll move from watermark → CDC/change tracking → MERGE, which is the production-level pattern you need for interviews.
+```text
+Customer
+CustomerKey = 29487
+```
+
+Initially:
+
+```text
+Email = old@example.com
+Income = 80000
+```
+
+Later:
+
+```text
+Email = new@example.com
+Income = 90000
+```
+
+The question is:
+
+> Should we overwrite the old values or preserve the history?
+
+That is where SCD Type 1 and Type 2 come in.
+
+---
+
+# 18. SCD Type 1
+
+SCD Type 1 means:
+
+> Overwrite the old value with the latest value.
+
+Example:
+
+### Before
+
+```text
+CustomerKey | Email             | Income
+29487       | old@example.com   | 80000
+```
+
+### After
+
+```text
+CustomerKey | Email             | Income
+29487       | new@example.com   | 90000
+```
+
+There is only one current row.
+
+The old value is not retained in the dimensional table.
+
+---
+
+# 19. SCD Type 1 Implementation
+
+We created:
+
+```text
+ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_INCREMENTAL
+```
+
+and loaded the current customer state using `MERGE`.
+
+Conceptually:
+
+```sql
+MERGE INTO TARGET
+USING SOURCE
+ON TARGET.CUSTOMER_KEY = SOURCE.CUSTOMER_KEY
+
+WHEN MATCHED THEN
+    UPDATE SET
+        TARGET.EMAIL_ADDRESS = SOURCE.EMAIL_ADDRESS,
+        TARGET.YEARLY_INCOME = SOURCE.YEARLY_INCOME
+
+WHEN NOT MATCHED THEN
+    INSERT (...columns...)
+    VALUES (...source values...);
+```
+
+---
+
+# 20. Why MERGE Is Important
+
+MERGE allows us to handle both:
+
+```text
+New record
+```
+
+and:
+
+```text
+Existing record changed
+```
+
+in one operation.
+
+Conceptually:
+
+```text
+Source Customer
+      |
+      v
+Does CustomerKey exist?
+      |
+      +------ NO ------> INSERT
+      |
+      +------ YES -----> UPDATE
+```
+
+---
+
+# 21. Latest-Version Selection
+
+Because LANDING contains multiple versions of the same customer, we used:
+
+```sql
+ROW_NUMBER() OVER
+(
+    PARTITION BY RAW_DATA:CustomerKey
+    ORDER BY LOAD_TIMESTAMP DESC
+)
+```
+
+and selected:
+
+```sql
+QUALIFY ROW_NUMBER() = 1
+```
+
+This means:
+
+> For each customer, use the most recently landed version.
+
+This is a very useful production pattern.
+
+---
+
+# 22. SCD Type 1 Final Result
+
+For customer 29487:
+
+```text
+29487 | incremental.updated004@example.com | 90000
+```
+
+Only the latest state exists in the Type 1 target.
+
+Conceptually:
+
+```text
+LANDING
+
+29487 | old email | 80000
+29487 | new email | 90000
+        |
+        v
+SCD TYPE 1
+
+29487 | new email | 90000
+```
+
+The historical raw events remain available in LANDING, but the Type 1 dimension represents current state.
+
+---
+
+# 23. When to Use SCD Type 1
+
+Use Type 1 when:
+
+```text
+History is not required
+```
+
+Examples:
+
+```text
+Email correction
+Phone number correction
+Address correction
+Typographical correction
+Current customer attributes
+```
+
+Business question:
+
+> What is the customer's current value?
+
+Type 1 is usually appropriate.
+
+---
+
+# 24. SCD Type 2
+
+SCD Type 2 means:
+
+> Preserve every important version of the dimension record.
+
+Instead of overwriting:
+
+```text
+old value
+```
+
+we retain it and create a new version.
+
+Example:
+
+```text
+Before:
+
+29487 | old@example.com | 80000
+```
+
+After:
+
+```text
+29487 | old@example.com | 80000 | FALSE
+29487 | new@example.com | 90000 | TRUE
+```
+
+---
+
+# 25. SCD Type 2 Columns
+
+We added:
+
+```text
+VALID_FROM
+VALID_TO
+IS_CURRENT
+```
+
+Example:
+
+```text
+CUSTOMER_KEY
+EMAIL_ADDRESS
+YEARLY_INCOME
+VALID_FROM
+VALID_TO
+IS_CURRENT
+```
+
+---
+
+# 26. SCD Type 2 Initial Version
+
+Initial customer:
+
+```text
+29487
+old@example.com
+80000
+```
+
+stored as:
+
+```text
+VALID_FROM = timestamp
+VALID_TO   = NULL
+IS_CURRENT = TRUE
+```
+
+Meaning:
+
+> This is currently the active version.
+
+---
+
+# 27. Customer Change
+
+Customer changes:
+
+```text
+Email:
+old@example.com
+        ↓
+new@example.com
+
+Income:
+80000
+  ↓
+90000
+```
+
+SCD2 does NOT update the old record directly.
+
+Instead:
+
+### Step 1 — Expire old version
+
+```text
+VALID_TO = current timestamp
+IS_CURRENT = FALSE
+```
+
+### Step 2 — Insert new version
+
+```text
+VALID_FROM = current timestamp
+VALID_TO = NULL
+IS_CURRENT = TRUE
+```
+
+---
+
+# 28. Final SCD Type 2 Result
+
+Our actual demonstration produced:
+
+```text
+CUSTOMER_KEY | EMAIL                  | INCOME | IS_CURRENT
+-------------+------------------------+--------+-----------
+29487        | old@example.com        | 80000  | FALSE
+29487        | new@example.com        | 90000  | TRUE
+```
+
+With:
+
+```text
+Old VALID_FROM
+Old VALID_TO
+
+New VALID_FROM
+New VALID_TO = NULL
+```
+
+Therefore we preserved history.
+
+---
+
+# 29. SCD Type 1 vs Type 2
+
+| Feature             | SCD Type 1                | SCD Type 2          |
+| ------------------- | ------------------------- | ------------------- |
+| Current value       | Yes                       | Yes                 |
+| Historical value    | No                        | Yes                 |
+| Old row overwritten | Yes                       | No                  |
+| New row created     | Usually no                | Yes                 |
+| Storage             | Lower                     | Higher              |
+| Complexity          | Lower                     | Higher              |
+| Audit history       | Limited                   | Strong              |
+| Typical use         | Corrections/current state | Historical analysis |
+
+---
+
+# 30. Business Example
+
+Suppose a customer moves:
+
+```text
+Kolkata
+   ↓
+Toronto
+```
+
+### Type 1
+
+```text
+Customer | City
+29487    | Toronto
+```
+
+Business can only see the current city.
+
+### Type 2
+
+```text
+Customer | City     | Valid From | Valid To   | Current
+29487    | Kolkata  | Jan 2025   | Aug 2026   | FALSE
+29487    | Toronto  | Aug 2026   | NULL       | TRUE
+```
+
+Now the business can answer:
+
+> Where did this customer live in June 2026?
+
+This is the key business value of SCD2.
+
+---
+
+# 31. CDC vs SCD
+
+This distinction is critical.
+
+### CDC answers:
+
+> What changed in the source?
+
+Example:
+
+```text
+Customer 29487 UPDATE
+Email changed
+Income changed
+```
+
+### SCD answers:
+
+> How should those changes be represented in the dimension?
+
+Example:
+
+```text
+SCD1 → overwrite
+SCD2 → preserve history
+```
+
+Therefore:
+
+```text
+CDC
+ |
+ | detects change
+ v
+Changed Record
+ |
+ v
+SCD Strategy
+ |
+ +------ SCD1 → UPDATE
+ |
+ +------ SCD2 → EXPIRE + INSERT
+```
+
+CDC and SCD are **not the same thing**.
+
+---
+
+# 32. SCD1 and SCD2 Are Not CDC Types
+
+This is a common interview mistake.
+
+Do NOT say:
+
+> "SCD1 and SCD2 are types of CDC."
+
+Instead say:
+
+> "CDC is the mechanism used to identify or capture source changes. SCD Type 1 and Type 2 are dimensional data-management strategies that determine how those changes are represented in the target dimension."
+
+---
+
+# 33. Complete Flow We Implemented
+
+Our hands-on implementation is:
+
+```text
+SQL Server
+    |
+    | CustomerKey watermark
+    v
+Python Incremental Extraction
+    |
+    | JSONL
+    v
+GCS
+    |
+    | Object Finalize
+    v
+Pub/Sub
+    |
+    v
+Snowpipe
+    |
+    v
+Snowflake LANDING
+    |
+    | VARIANT
+    v
+PREPARE
+    |
+    v
+NORMALIZE
+    |
+    +-------------------------+
+    |                         |
+    v                         v
+SCD TYPE 1               SCD TYPE 2
+    |                         |
+    | Current State           | Historical State
+    |                         |
+    +------------+------------+
+                 |
+                 v
+             SCHEMATIZE
+```
+
+---
+
+# 34. Production-Level Improvement
+
+Our learning implementation uses:
+
+```text
+CustomerKey watermark
+```
+
+A production implementation should preferably use:
+
+```text
+Reliable change indicator
+```
+
+such as:
+
+```text
+ModifiedDate
+SQL Server CDC
+SQL Server Change Tracking
+Transaction Log CDC
+Source-specific CDC
+```
+
+Then:
+
+```text
+CDC event
+   ↓
+GCS
+   ↓
+Snowpipe
+   ↓
+LANDING
+   ↓
+Deduplicate/latest event
+   ↓
+MERGE
+   ↓
+SCD1 / SCD2
+```
+
+---
+
+# 35. Production Watermark Rule
+
+A very important production consideration:
+
+Do not consider the source watermark permanently committed merely because the file was uploaded to GCS.
+
+Ideally:
+
+```text
+Extract
+   ↓
+GCS upload
+   ↓
+Snowpipe ingestion
+   ↓
+Snowflake validation
+   ↓
+Audit SUCCESS
+   ↓
+Commit/update watermark
+```
+
+If the pipeline updates the watermark too early and downstream processing fails, records could be skipped on the next run.
+
+Therefore the safest principle is:
+
+> Advance the watermark only after the corresponding downstream processing has been successfully committed or otherwise made recoverable.
+
+---
+
+# 36. Interview Answer — "Explain Your CDC Pipeline"
+
+A strong answer:
+
+> "In my practice pipeline, I implemented incremental extraction using a high-watermark control table. Python reads the last processed watermark from SQL Server, extracts records greater than that value in batches, writes them as JSONL files to GCS, and Snowpipe automatically loads those files into a Snowflake VARIANT-based landing table through Pub/Sub notifications.
+>
+> I also implemented SCD Type 1 and Type 2 downstream. Type 1 uses MERGE to maintain the latest customer state, while Type 2 expires the previous version and inserts a new version with validity timestamps and an IS_CURRENT flag.
+>
+> One important limitation I identified is that an identity-column watermark detects new records but cannot detect updates to an existing key. In production I would use ModifiedDate, SQL Server Change Tracking/CDC, or another reliable change-capture mechanism."
+
+---
+
+# 37. Interview Answer — "How Do You Handle Updates?"
+
+Do not answer:
+
+> "I use CustomerKey."
+
+Instead:
+
+> "CustomerKey is sufficient for detecting new inserts in my learning implementation, but it is not sufficient for updates. For production I would use a reliable change indicator such as ModifiedDate or SQL Server CDC/Change Tracking. Once the changed record reaches Snowflake, I use the business key to determine whether the target should be updated using SCD1 or versioned using SCD2."
+
+---
+
+# 38. Interview Answer — "Explain SCD1 vs SCD2"
+
+> "SCD Type 1 overwrites the existing dimensional record and maintains only the latest state. SCD Type 2 preserves history by expiring the existing version and inserting a new version with effective dates and a current-row indicator. I use Type 1 when historical tracking is not required and Type 2 when the business needs point-in-time historical analysis."
+
+---
+
+# 39. Interview Scenario
+
+### Question
+
+> A customer changes their address. The business wants to know both the current address and the address they had last year. What would you use?
+
+### Answer
+
+```text
+SCD Type 2
+```
+
+because historical state is required.
+
+---
+
+### Question
+
+> A customer's email was corrected because of a typo and the business does not care about the old value.
+
+### Answer
+
+```text
+SCD Type 1
+```
+
+because only the latest state matters.
+
+---
+
+# 40. Key Takeaways
+
+Remember these five statements:
+
+```text
+1. CDC detects/captures changes.
+
+2. Incremental loading processes only data beyond a known state.
+
+3. A high-watermark is good for new records but does not inherently detect updates.
+
+4. SCD Type 1 overwrites old dimension values.
+
+5. SCD Type 2 preserves historical dimension versions.
+```
+
+And the most important architecture:
+
+```text
+CDC / Incremental Detection
+            ↓
+       Changed Data
+            ↓
+        LANDING
+            ↓
+       SCD Strategy
+        /         \
+      SCD1       SCD2
+       |           |
+   Current       History
+    State        + Current
+```
+
+# 41. What We Have Actually Proven Hands-On
+
+| Capability                       | Status |
+| -------------------------------- | ------ |
+| Watermark control table          | ✅      |
+| Initial watermark/baseline       | ✅      |
+| Incremental extraction           | ✅      |
+| Batch extraction                 | ✅      |
+| GCS incremental files            | ✅      |
+| Unique incremental filenames     | ✅      |
+| Rerun with no new data           | ✅      |
+| Snowpipe incremental ingestion   | ✅      |
+| LANDING VARIANT                  | ✅      |
+| Detect latest landed version     | ✅      |
+| SCD Type 1 MERGE                 | ✅      |
+| SCD1 update                      | ✅      |
+| SCD Type 2 historical version    | ✅      |
+| VALID_FROM                       | ✅      |
+| VALID_TO                         | ✅      |
+| IS_CURRENT                       | ✅      |
+| SCD1 vs SCD2 understanding       | ✅      |
+| CDC limitation of high-watermark | ✅      |
+| Production CDC alternatives      | ✅      |
+| Production watermark caveat      | ✅      |
+
+# Final Mental Model
+
+```text
+             SOURCE
+               |
+               v
+       +----------------+
+       | CDC / CHANGE   |
+       | DETECTION      |
+       +----------------+
+               |
+               v
+       +----------------+
+       | INCREMENTAL    |
+       | EXTRACTION     |
+       +----------------+
+               |
+               v
+             GCS
+               |
+               v
+           PUB/SUB
+               |
+               v
+           SNOWPIPE
+               |
+               v
+          RAW LANDING
+               |
+               v
+       +----------------+
+       | Latest Change  |
+       | / Dedup        |
+       +----------------+
+               |
+          +----+----+
+          |         |
+          v         v
+       SCD TYPE 1  SCD TYPE 2
+          |         |
+          v         v
+      CURRENT     HISTORY
+       STATE      + CURRENT
+          |         |
+          +----+----+
+               |
+               v
+        BUSINESS MODEL
+               |
+               v
+              BI
+```
+
+**This is the exact foundation we need before moving to error handling, retry, and idempotency.**

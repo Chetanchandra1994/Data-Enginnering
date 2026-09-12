@@ -1,0 +1,299 @@
+/*
+SCHEMATIZE.FACT_SALES
+
+We'll build it using:
+
+NORMALIZE
+    │
+    ├── PRODUCT_KEY ──→ DIM_PRODUCT ──→ PRODUCT_SK
+    │
+    ├── CUSTOMER_KEY ─→ DIM_CUSTOMER ─→ CUSTOMER_SK
+    │
+    └── DATE_KEY ─────→ DIM_DATE ─────→ DATE_SK
+
+SQL SERVER
+    60,398
+       │
+       ▼
+PYTHON EXTRACTION
+    60,398
+       │
+       ▼
+LANDING
+    60,398
+       │
+       ▼
+PREPARE
+    60,398
+       │
+       ▼
+NORMALIZE
+    60,398
+       │
+       ▼
+SCHEMATIZE
+    60,398
+       │
+       ▼
+FACT_SALES
+    60,398
+
+    We'll convert the source/business keys into surrogate-key references:
+
+NORMALIZE                    SCHEMATIZE
+
+PRODUCT_KEY ────────────────→ DIM_PRODUCT
+                                  │
+                                  ▼
+                              PRODUCT_SK
+                                  │
+                                  ▼
+                              FACT_SALES
+
+
+CUSTOMER_KEY ───────────────→ DIM_CUSTOMER
+                                  │
+                                  ▼
+                              CUSTOMER_SK
+                                  │
+                                  ▼
+                              FACT_SALES
+
+
+ORDER_DATE_KEY ─────────────→ DIM_DATE
+                                  │
+                                  ▼
+                              DATE_SK
+                                  │
+                                  ▼
+                              FACT_SALES
+
+    
+*/
+
+-- Create FACT_SALES
+CREATE OR REPLACE TABLE ADVWORKS_DEV.SCHEMATIZE.FACT_SALES
+(
+    -- Dimension foreign keys
+    PRODUCT_SK                  INTEGER,
+    CUSTOMER_SK                 INTEGER,
+    ORDER_DATE_SK               INTEGER,
+    DUE_DATE_SK                 INTEGER,
+    SHIP_DATE_SK                INTEGER,
+
+    -- Degenerate dimensions / transaction identifiers
+    SALES_ORDER_NUMBER          VARCHAR(20),
+    SALES_ORDER_LINE_NUMBER     INTEGER,
+    REVISION_NUMBER             INTEGER,
+
+    -- Measures
+    ORDER_QUANTITY              INTEGER,
+    UNIT_PRICE                  NUMBER(19,4),
+    EXTENDED_AMOUNT             NUMBER(19,4),
+    UNIT_PRICE_DISCOUNT_PCT     FLOAT,
+    DISCOUNT_AMOUNT             NUMBER(19,4),
+    PRODUCT_STANDARD_COST       NUMBER(19,4),
+    TOTAL_PRODUCT_COST          NUMBER(19,4),
+    SALES_AMOUNT                NUMBER(19,4),
+    TAX_AMT                     NUMBER(19,4),
+    FREIGHT                     NUMBER(19,4),
+
+    -- Additional transaction attributes
+    CARRIER_TRACKING_NUMBER     VARCHAR(25),
+    CUSTOMER_PO_NUMBER          VARCHAR(25),
+
+    -- Audit fields
+    SOURCE_FILE                 VARCHAR(500),
+    LOAD_TIMESTAMP              TIMESTAMP_NTZ,
+    CREATED_TIMESTAMP           TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+-- LOAD DATA
+
+INSERT INTO ADVWORKS_DEV.SCHEMATIZE.FACT_SALES
+(
+    PRODUCT_SK,
+    CUSTOMER_SK,
+    ORDER_DATE_SK,
+    DUE_DATE_SK,
+    SHIP_DATE_SK,
+
+    SALES_ORDER_NUMBER,
+    SALES_ORDER_LINE_NUMBER,
+    REVISION_NUMBER,
+
+    ORDER_QUANTITY,
+    UNIT_PRICE,
+    EXTENDED_AMOUNT,
+    UNIT_PRICE_DISCOUNT_PCT,
+    DISCOUNT_AMOUNT,
+    PRODUCT_STANDARD_COST,
+    TOTAL_PRODUCT_COST,
+    SALES_AMOUNT,
+    TAX_AMT,
+    FREIGHT,
+
+    CARRIER_TRACKING_NUMBER,
+    CUSTOMER_PO_NUMBER,
+
+    SOURCE_FILE,
+    LOAD_TIMESTAMP
+)
+SELECT
+    P.PRODUCT_SK,
+    C.CUSTOMER_SK,
+    OD.DATE_SK,
+    DD.DATE_SK,
+    SD.DATE_SK,
+
+    N.SALES_ORDER_NUMBER,
+    N.SALES_ORDER_LINE_NUMBER,
+    N.REVISION_NUMBER,
+
+    N.ORDER_QUANTITY,
+    N.UNIT_PRICE,
+    N.EXTENDED_AMOUNT,
+    N.UNIT_PRICE_DISCOUNT_PCT,
+    N.DISCOUNT_AMOUNT,
+    N.PRODUCT_STANDARD_COST,
+    N.TOTAL_PRODUCT_COST,
+    N.SALES_AMOUNT,
+    N.TAX_AMT,
+    N.FREIGHT,
+
+    N.CARRIER_TRACKING_NUMBER,
+    N.CUSTOMER_PO_NUMBER,
+
+    N.SOURCE_FILE,
+    N.LOAD_TIMESTAMP
+
+FROM ADVWORKS_DEV.NORMALIZE.FACTINTERNETSALES_NORMALIZED N
+
+INNER JOIN ADVWORKS_DEV.SCHEMATIZE.DIM_PRODUCT P
+    ON N.PRODUCT_KEY = P.PRODUCT_KEY
+
+INNER JOIN ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER C
+    ON N.CUSTOMER_KEY = C.CUSTOMER_KEY
+
+INNER JOIN ADVWORKS_DEV.SCHEMATIZE.DIM_DATE OD
+    ON N.ORDER_DATE_KEY = OD.DATE_SK
+
+INNER JOIN ADVWORKS_DEV.SCHEMATIZE.DIM_DATE DD
+    ON N.DUE_DATE_KEY = DD.DATE_SK
+
+INNER JOIN ADVWORKS_DEV.SCHEMATIZE.DIM_DATE SD
+    ON N.SHIP_DATE_KEY = SD.DATE_SK; -- 60398
+
+-- First validation
+SELECT COUNT(*) AS FACT_SALES_COUNT
+FROM ADVWORKS_DEV.SCHEMATIZE.FACT_SALES; -- 60398
+
+-- validate the surrogate keys:
+SELECT
+    COUNT(*) AS TOTAL_ROWS,
+
+    COUNT_IF(PRODUCT_SK IS NULL) AS NULL_PRODUCT_SK,
+    COUNT_IF(CUSTOMER_SK IS NULL) AS NULL_CUSTOMER_SK,
+    COUNT_IF(ORDER_DATE_SK IS NULL) AS NULL_ORDER_DATE_SK,
+    COUNT_IF(DUE_DATE_SK IS NULL) AS NULL_DUE_DATE_SK,
+    COUNT_IF(SHIP_DATE_SK IS NULL) AS NULL_SHIP_DATE_SK,
+
+    COUNT_IF(SALES_ORDER_NUMBER IS NULL) AS NULL_ORDER_NUMBER,
+    COUNT_IF(SALES_ORDER_LINE_NUMBER IS NULL) AS NULL_ORDER_LINE_NUMBER,
+    COUNT_IF(SALES_AMOUNT IS NULL) AS NULL_SALES_AMOUNT
+
+FROM ADVWORKS_DEV.SCHEMATIZE.FACT_SALES;
+/*
+TOTAL_ROWS	NULL_PRODUCT_SK	NULL_CUSTOMER_SK	NULL_ORDER_DATE_SK	NULL_DUE_DATE_SK	NULL_SHIP_DATE_SK	NULL_ORDER_NUMBER	NULL_ORDER_LINE_NUMBER	NULL_SALES_AMOUNT
+60398	0	0	0	0	0	0	0	0
+*/
+
+-- Validate fact grain
+SELECT
+    SALES_ORDER_NUMBER,
+    SALES_ORDER_LINE_NUMBER,
+    COUNT(*) AS ROW_COUNT
+FROM ADVWORKS_DEV.SCHEMATIZE.FACT_SALES
+GROUP BY
+    SALES_ORDER_NUMBER,
+    SALES_ORDER_LINE_NUMBER
+HAVING COUNT(*) > 1
+ORDER BY SALES_ORDER_NUMBER; -- Query produced no results
+
+-- Financial reconciliation
+SELECT
+    COUNT(*) AS ROW_COUNT,
+
+    SUM(SALES_AMOUNT) AS TOTAL_SALES,
+    SUM(TOTAL_PRODUCT_COST) AS TOTAL_PRODUCT_COST,
+    SUM(TAX_AMT) AS TOTAL_TAX,
+    SUM(FREIGHT) AS TOTAL_FREIGHT,
+
+    MIN(SALES_AMOUNT) AS MIN_SALES_AMOUNT,
+    MAX(SALES_AMOUNT) AS MAX_SALES_AMOUNT
+
+FROM ADVWORKS_DEV.SCHEMATIZE.FACT_SALES;
+/*
+ROW_COUNT	TOTAL_SALES	TOTAL_PRODUCT_COST	TOTAL_TAX	TOTAL_FREIGHT	MIN_SALES_AMOUNT	MAX_SALES_AMOUNT
+60398	29358677.2207	17277793.5757	2348694.2301	733969.6091	2.2900	3578.2700
+*/
+
+--Product FK validation
+SELECT COUNT(*) AS ORPHAN_PRODUCT_ROWS
+FROM ADVWORKS_DEV.SCHEMATIZE.FACT_SALES F
+LEFT JOIN ADVWORKS_DEV.SCHEMATIZE.DIM_PRODUCT P
+    ON F.PRODUCT_SK = P.PRODUCT_SK
+WHERE P.PRODUCT_SK IS NULL; -- 0 ROWS
+
+
+--Customer FK validation
+SELECT COUNT(*) AS ORPHAN_CUSTOMER_ROWS
+FROM ADVWORKS_DEV.SCHEMATIZE.FACT_SALES F
+LEFT JOIN ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER C
+    ON F.CUSTOMER_SK = C.CUSTOMER_SK
+WHERE C.CUSTOMER_SK IS NULL; -- 0 ROWS
+
+--Order date FK
+SELECT COUNT(*) AS ORPHAN_ORDER_DATE_ROWS
+FROM ADVWORKS_DEV.SCHEMATIZE.FACT_SALES F
+LEFT JOIN ADVWORKS_DEV.SCHEMATIZE.DIM_DATE D
+    ON F.ORDER_DATE_SK = D.DATE_SK
+WHERE D.DATE_SK IS NULL; -- 0 ROWS
+
+--Due date FK
+SELECT COUNT(*) AS ORPHAN_DUE_DATE_ROWS
+FROM ADVWORKS_DEV.SCHEMATIZE.FACT_SALES F
+LEFT JOIN ADVWORKS_DEV.SCHEMATIZE.DIM_DATE D
+    ON F.DUE_DATE_SK = D.DATE_SK
+WHERE D.DATE_SK IS NULL; -- 0 ROWS
+
+--Ship date FK
+SELECT COUNT(*) AS ORPHAN_SHIP_DATE_ROWS
+FROM ADVWORKS_DEV.SCHEMATIZE.FACT_SALES F
+LEFT JOIN ADVWORKS_DEV.SCHEMATIZE.DIM_DATE D
+    ON F.SHIP_DATE_SK = D.DATE_SK
+WHERE D.DATE_SK IS NULL;  -- 0 ROWS
+
+/*
+So the warehouse currently looks like:
+
+                    SCHEMATIZE
+                         │
+          ┌────────────────┼────────────────┐
+          │              │              │
+          ▼              ▼              ▼
+    DIM_CUSTOMER    DIM_PRODUCT     DIM_DATE
+     18,484 rows      606 rows       1,139 rows
+          │              │              │
+          │              │              │
+          └────────────────┼────────────────┘
+                         │
+                         ▼
+                    FACT_SALES
+                    60,398 rows
+                         │
+                         ▼
+                 Business reporting
+*/
+
+-- Now we change gears: MARKETPLACE
