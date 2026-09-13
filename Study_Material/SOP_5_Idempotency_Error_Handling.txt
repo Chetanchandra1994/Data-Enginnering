@@ -1,0 +1,154 @@
+An idempotent pipeline can be executed multiple times with the same input without creating incorrect duplicate business data.
+
+Example:
+
+First execution:
+File: DimCustomer_001.jsonl
+Records: 1000
+
+Target:
+1000 records
+
+Pipeline accidentally runs again with the same file.
+
+A non-idempotent pipeline could produce:
+2000 records ❌
+
+An idempotent pipeline should remain:
+1000 records ✅
+
+The important distinction is:
+
+Retrying the pipeline ≠ Creating duplicate business data
+
+# Identify the Idempotency Layers
+
+Our pipeline actually has multiple opportunities for duplicates:
+
+                  Duplicate Risk
+                       │
+        ┌──────────────┼──────────────┐
+        ▼              ▼              ▼
+     Python           GCS         Snowflake
+     Layer 1        Layer 2         Layer 3        
+        │              │              │
+   duplicate file   duplicate      duplicate
+   generation       object         records
+
+Layer 1 — File idempotency
+Same filename/object uploaded again.
+Example: DimCustomer_001.jsonl
+
+Layer 2 — Event idempotency
+Same GCS event/message is delivered more than once.
+
+Layer 3 — Data idempotency
+Same business record appears more than once in LANDING.
+Example:
+29487 | old@example.com
+29487 | old@example.com
+29487 | old@example.com    
+
+Snowpipe tracks files it has already processed and normally does not ingest the exact same staged file again.
+So:
+
+Same GCS object
+       ↓
+Snowpipe
+       ↓
+No second copy
+
+This is useful, but do not conclude that your entire pipeline is idempotent.
+Why?
+Because:
+
+different file
++
+same business records
+=
+can still create duplicates.
+
+# Idempotency Test Matrix
+
+We will use this test matrix throughout Module 11:
+____________________________________________________________________________________    
+        Scenario	               |            Expected result
+___________________________________|________________________________________________        
+Same GCS object uploaded twice	   |     No duplicate Snowpipe load
+Same event in different file	   |     LANDING may contain both
+Same SCD1 event twice	           |     One target row
+Same SCD2 event twice	           |     Must not create unnecessary versions
+Pipeline rerun	                   |     Same final business state
+Python retry	                   |     No duplicate business records
+Snowpipe retry	                   |     No duplicate file processing
+dbt retry	                       |     Same model result
+Partial failure	                   |     Safe recovery
+___________________________________|________________________________________________    
+
+
+— Interview Scenario
+
+"Your pipeline processed 80% of the data and then failed. What do you do?"
+
+A strong answer is:
+I don't blindly rerun the entire pipeline. I identify the failed run using the run ID and audit information, determine the last successfully processed batch or checkpoint, 
+and restart from that point. The pipeline must be idempotent so that already-processed data isn't duplicated. I preserve the failed attempt in the audit history and 
+create a new recovery attempt. After recovery, I validate row counts, target state, and downstream dependencies before marking the recovery successful."
+
+Question
+"Your pipeline processed 80% of the data and then failed. What would you do?"
+
+Strong answer
+I would first identify the failed run using the pipeline audit and determine the last successfully processed checkpoint or batch. 
+I would avoid blindly rerunning the entire pipeline because that could create duplicates. I would retry only the failed or incomplete portion where possible. 
+The pipeline would use unique run and batch identifiers, idempotent file handling, business-key deduplication and MERGE logic so that replaying previously processed data 
+does not create duplicate target records. After recovery I would validate source-to-target row counts and update the audit status to SUCCESS. 
+For unrecoverable records, I would route them to an error or dead-letter table for investigation and replay.
+
+That's a senior-level answer because it covers:
+
+Audit
++
+Checkpoint
++
+Retry
++
+Idempotency
++
+Deduplication
++
+Recovery
++
+Validation
++
+Error handling
+
+### Interview questions you should now be able to answer:
+
+1. How do you handle pipeline failures?
+I use structured logging and audit records with a unique run ID, classify failures as transient or non-retryable, retry transient failures with exponential backoff, and 
+use checkpoints or watermarks for recovery rather than blindly rerunning the entire pipeline.
+
+2. What happens if a pipeline fails after processing 80% of the data?
+I identify the last successful checkpoint or batch, preserve the failed run in the audit table, and restart from the appropriate checkpoint. 
+Idempotent loading prevents already-processed data from being duplicated.
+
+3. What is idempotency?
+An operation is idempotent when executing it multiple times produces the same intended final state as executing it once.
+SCD1 MERGE is a practical example.
+
+4. Does Snowpipe make the entire pipeline idempotent?
+No. Snowpipe provides file-level duplicate protection for previously ingested files, but end-to-end idempotency still has to be designed 
+across extraction, storage, transformation, and target loading.
+
+5. Does your CustomerKey watermark detect updates?
+No. The CustomerKey high-watermark detects newly inserted records because the key increases, but it cannot detect changes to existing records. 
+Production CDC would require a reliable modification timestamp, SQL Server Change Tracking/CDC, or another source-specific CDC mechanism.
+
+6. What happens if GCS upload succeeds but the application times out?
+I don't assume the upload failed. I verify whether the object already exists using a deterministic or unique file identifier. 
+If it exists, I avoid creating a duplicate and continue. This is why retry logic must be combined with idempotency.
+
+7. How do you recover a failed production run?
+I use the run ID and audit information to determine what succeeded and what failed, identify the appropriate checkpoint, rerun only the required work, and 
+validate the target state before recording the recovery as successful.
