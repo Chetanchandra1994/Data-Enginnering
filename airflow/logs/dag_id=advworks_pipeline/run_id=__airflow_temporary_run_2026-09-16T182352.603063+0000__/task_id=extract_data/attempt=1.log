@@ -1,0 +1,87 @@
+{"timestamp":"2026-09-16T18:23:53.634386","level":"info","event":"DAG bundles loaded: dags-folder","logger":"airflow.dag_processing.bundles.manager.DagBundlesManager"}
+{"timestamp":"2026-09-16T18:23:53.635225","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/advworks_pipeline.py","logger":"airflow.models.dagbag.DagBag"}
+{"timestamp":"2026-09-16T18:23:53.861315Z","level":"info","event":"Starting AdventureWorks ingestion...","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:53.862434Z","level":"info","event":"======================================================================","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:53.863107Z","level":"info","event":"STAGE 8 - GCS ingestion using Airflow","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:53.863587Z","level":"info","event":"======================================================================","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:53.891596Z","level":"info","event":"Connected to Google Cloud Storage successfully!","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.059300Z","level":"info","event":"GCS bucket validated: gs://advworks-dev-ingestion","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.060109Z","level":"info","event":"","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.060772Z","level":"info","event":"======================================================================","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.061223Z","level":"info","event":"INCREMENTAL INGESTING DimCustomer","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.061626Z","level":"info","event":"======================================================================","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.065249Z","level":"info","event":"Source table: dbo.DimCustomer","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.065781Z","level":"info","event":"Watermark column: CustomerKey","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.066455Z","level":"info","event":"Current watermark: 29487","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.067673Z","level":"info","event":"","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.068135Z","level":"info","event":"----------------------------------------------------------------------","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.068601Z","level":"info","event":"DimCustomer INCREMENTAL VALIDATION","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.069073Z","level":"info","event":"----------------------------------------------------------------------","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.069499Z","level":"info","event":"Previous watermark: 29487","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.069911Z","level":"info","event":"Rows extracted:     0","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.070355Z","level":"info","event":"New watermark:      29487","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.070761Z","level":"info","event":"No new records found. Watermark unchanged.","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.071219Z","level":"info","event":"","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.071634Z","level":"info","event":"SUCCESS: DimCustomer incremental ingestion completed.","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.072040Z","level":"info","event":"","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.072437Z","level":"info","event":"======================================================================","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.072836Z","level":"info","event":"INGESTING DimProduct","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.073255Z","level":"info","event":"======================================================================","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.073728Z","level":"info","event":"Source table: dbo.DimProduct","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.074131Z","level":"info","event":"Source record count: 606","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.075572Z","level":"info","event":"Source columns discovered: 36","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.076029Z","level":"info","event":"  - ProductKey","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.076439Z","level":"info","event":"  - ProductAlternateKey","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.076998Z","level":"info","event":"  - ProductSubcategoryKey","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.077529Z","level":"info","event":"  - WeightUnitMeasureCode","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.078039Z","level":"info","event":"  - SizeUnitMeasureCode","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.078647Z","level":"info","event":"  - EnglishProductName","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.079138Z","level":"info","event":"  - SpanishProductName","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.079646Z","level":"info","event":"  - FrenchProductName","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.080177Z","level":"info","event":"  - StandardCost","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.080836Z","level":"info","event":"  - FinishedGoodsFlag","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.081374Z","level":"info","event":"  - Color","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.081952Z","level":"info","event":"  - SafetyStockLevel","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.082490Z","level":"info","event":"  - ReorderPoint","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.083011Z","level":"info","event":"  - ListPrice","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.083575Z","level":"info","event":"  - Size","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.084131Z","level":"info","event":"  - SizeRange","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.085158Z","level":"info","event":"  - Weight","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.085769Z","level":"info","event":"  - DaysToManufacture","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.087109Z","level":"info","event":"  - ProductLine","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.088259Z","level":"info","event":"  - DealerPrice","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.088849Z","level":"info","event":"  - Class","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.089317Z","level":"info","event":"  - Style","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.089887Z","level":"info","event":"  - ModelName","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.090401Z","level":"info","event":"  - LargePhoto","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.090942Z","level":"info","event":"  - EnglishDescription","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.091456Z","level":"info","event":"  - FrenchDescription","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.091946Z","level":"info","event":"  - ChineseDescription","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.092447Z","level":"info","event":"  - ArabicDescription","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.092917Z","level":"info","event":"  - HebrewDescription","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.093476Z","level":"info","event":"  - ThaiDescription","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.093960Z","level":"info","event":"  - GermanDescription","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.094494Z","level":"info","event":"  - JapaneseDescription","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.095026Z","level":"info","event":"  - TurkishDescription","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.095513Z","level":"info","event":"  - StartDate","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.096018Z","level":"info","event":"  - EndDate","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.096741Z","level":"info","event":"  - Status","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:23:56.097292Z","level":"info","event":"ORDER BY: ProductKey","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.729800Z","level":"info","event":"Uploaded to GCS: gs://advworks-dev-ingestion/dim_product/DimProduct_batch_001.jsonl","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.732197Z","level":"info","event":"Batch 001: 606 records","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.737685Z","level":"info","event":"","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.738261Z","level":"info","event":"----------------------------------------------------------------------","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.738696Z","level":"info","event":"DimProduct INGESTION VALIDATION","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.739074Z","level":"info","event":"----------------------------------------------------------------------","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.739441Z","level":"info","event":"Source count:    606","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.739815Z","level":"info","event":"Extracted count: 606","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.740181Z","level":"info","event":"Difference:      0","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.740545Z","level":"info","event":"","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.740920Z","level":"info","event":"SUCCESS: DimProduct ingestion completed.","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.741362Z","level":"info","event":"","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.741746Z","level":"info","event":"======================================================================","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.742112Z","level":"info","event":"ALL DIMENSION INGESTION COMPLETED","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.742521Z","level":"info","event":"======================================================================","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.743005Z","level":"info","event":"Ingestion result: {'status': 'success', 'tables': [{'table': 'DimCustomer', 'mode': 'INCREMENTAL', 'previous_watermark': 29487, 'rows_extracted': 0, 'new_watermark': 29487}, {'table': 'DimProduct', 'mode': 'FULL', 'source_count': 606, 'rows_extracted': 606, 'difference': 0}]}","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:01.732903","level":"info","event":"Done. Returned value was: {'status': 'success', 'tables': [{'table': 'DimCustomer', 'mode': 'INCREMENTAL', 'previous_watermark': 29487, 'rows_extracted': 0, 'new_watermark': 29487}, {'table': 'DimProduct', 'mode': 'FULL', 'source_count': 606, 'rows_extracted': 606, 'difference': 0}]}","logger":"airflow.task.operators.airflow.providers.standard.decorators.python._PythonDecoratedOperator"}
+{"timestamp":"2026-09-16T18:24:01.733185","level":"info","event":"Pushing xcom","ti":"RuntimeTaskInstance(id=UUID('01a0ab76-012b-7bcb-b32f-7421bd6b5fea'), task_id='extract_data', dag_id='advworks_pipeline', run_id='__airflow_temporary_run_2026-09-16T18:23:52.603063+00:00__', try_number=1, map_index=-1, hostname='1431aaa7f2e6', context_carrier=None, task=<Task(_PythonDecoratedOperator): extract_data>, bundle_instance=LocalDagBundle(name=dags-folder), max_tries=0, start_date=datetime.datetime(2026, 9, 16, 18, 23, 53, 579808, tzinfo=TzInfo(UTC)), end_date=None, is_mapped=False)","logger":"task"}

@@ -97,22 +97,37 @@ def json_serializer(value):
 # ============================================================
 
 def create_connection():
+    import os
 
-    connection_string = (
-        "DRIVER={ODBC Driver 18 for SQL Server};"
-        f"SERVER={SQL_SERVER};"
-        f"DATABASE={DATABASE};"
-        "Trusted_Connection=yes;"
-        "TrustServerCertificate=yes;"
-    )
+    airflow_runtime = os.getenv("AIRFLOW_RUNTIME", "false").lower() == "true"
 
-    connection = pyodbc.connect(
-        connection_string
-    )
+    if airflow_runtime:
+        airflow_sql_password = os.getenv("AIRFLOW_SQL_PASSWORD")
 
-    print("Connected successfully!")
+        if not airflow_sql_password:
+            raise RuntimeError(
+                "AIRFLOW_SQL_PASSWORD is required when AIRFLOW_RUNTIME=true."
+            )
 
-    return connection
+        connection_string = (
+            "DRIVER={ODBC Driver 18 for SQL Server};"
+            "SERVER=host.docker.internal,50791;"
+            f"DATABASE={DATABASE};"
+            "UID=airflow_ingestion;"
+            f"PWD={airflow_sql_password};"
+            "TrustServerCertificate=yes;"
+            "Encrypt=no;"
+        )
+    else:
+        connection_string = (
+            "DRIVER={ODBC Driver 17 for SQL Server};"
+            f"SERVER={SQL_SERVER};"
+            f"DATABASE={DATABASE};"
+            "Trusted_Connection=yes;"
+            "TrustServerCertificate=yes;"
+        )
+
+    return pyodbc.connect(connection_string)
 
 
 # ============================================================

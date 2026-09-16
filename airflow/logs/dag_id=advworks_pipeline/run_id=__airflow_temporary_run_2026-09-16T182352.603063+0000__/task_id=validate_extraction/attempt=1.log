@@ -1,0 +1,8 @@
+{"timestamp":"2026-09-16T18:24:02.732453","level":"info","event":"DAG bundles loaded: dags-folder","logger":"airflow.dag_processing.bundles.manager.DagBundlesManager"}
+{"timestamp":"2026-09-16T18:24:02.733022","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/advworks_pipeline.py","logger":"airflow.models.dagbag.DagBag"}
+{"timestamp":"2026-09-16T18:24:02.792611Z","level":"info","event":"Validating Airflow extraction result...","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:02.793383Z","level":"info","event":"Table: DimCustomer | Mode: INCREMENTAL | Rows: 0","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:02.793899Z","level":"info","event":"Table: DimProduct | Mode: FULL | Rows: 606","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:02.794309Z","level":"info","event":"Extraction validation successful.","chan":"stdout","logger":"task"}
+{"timestamp":"2026-09-16T18:24:02.763594","level":"info","event":"Done. Returned value was: validation_success","logger":"airflow.task.operators.airflow.providers.standard.decorators.python._PythonDecoratedOperator"}
+{"timestamp":"2026-09-16T18:24:02.763760","level":"info","event":"Pushing xcom","ti":"RuntimeTaskInstance(id=UUID('01a0ab76-012c-70fa-80ab-b9a6d9e1fa9d'), task_id='validate_extraction', dag_id='advworks_pipeline', run_id='__airflow_temporary_run_2026-09-16T18:23:52.603063+00:00__', try_number=1, map_index=-1, hostname='1431aaa7f2e6', context_carrier=None, task=<Task(_PythonDecoratedOperator): validate_extraction>, bundle_instance=LocalDagBundle(name=dags-folder), max_tries=0, start_date=datetime.datetime(2026, 9, 16, 18, 24, 2, 684003, tzinfo=TzInfo(UTC)), end_date=None, is_mapped=False)","logger":"task"}

@@ -12,22 +12,41 @@ from datetime import datetime
 def advworks_pipeline():
 
     @task
-    def extract_customer():
-        print("Extracting AdventureWorks DimCustomer data...")
-        return "customer_extract_complete"
+    def extract_data():
+        import sys
+
+        sys.path.insert(0, "/opt/airflow/python-ingestion")
+
+        from Stage_8_GCS_extract_all_tables_using_airflow import run_ingestion
+
+        print("Starting AdventureWorks ingestion...")
+
+        result = run_ingestion()
+
+        print(f"Ingestion result: {result}")
+
+        return result
 
     @task
-    def validate_extract(extract_status):
-        print(f"Validating extraction: {extract_status}")
-        return "validation_complete"
+    def validate_extraction(result):
+        print("Validating Airflow extraction result...")
 
-    @task
-    def finish(validation_status):
-        print(f"Pipeline completed: {validation_status}")
+        if result["status"] != "success":
+            raise RuntimeError("Extraction failed.")
 
-    extract_status = extract_customer()
-    validation_status = validate_extract(extract_status)
-    finish(validation_status)
+        for table in result["tables"]:
+            print(
+                f"Table: {table['table']} | "
+                f"Mode: {table['mode']} | "
+                f"Rows: {table['rows_extracted']}"
+            )
+
+        print("Extraction validation successful.")
+
+        return "validation_success"
+
+    extraction_result = extract_data()
+    validation_result = validate_extraction(extraction_result)
 
 
 advworks_pipeline()

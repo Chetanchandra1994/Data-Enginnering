@@ -1,0 +1,1671 @@
+Airflow SOP — Implementation + Production + Interview
+1. What Airflow actually does
+
+Your architecture should be understood as:
+
+                    APACHE AIRFLOW
+                         │
+              ┌──────────┼──────────┐
+              │          │          │
+              ▼          ▼          ▼
+           Python       GCS      Snowpipe
+          Extraction   Validation  Monitoring
+              │                     │
+              ▼                     ▼
+             GCS                Snowflake
+                                    │
+                                    ▼
+                                   dbt
+                                    │
+                                    ▼
+                              Data Quality
+
+Airflow's job is:
+
+Orchestrate, schedule, monitor, retry and coordinate tasks.
+
+It should not become the system responsible for doing everything itself.
+
+For example:
+
+Python → extraction
+GCS → storage
+Pub/Sub → event notification
+Snowpipe → ingestion
+Snowflake → storage/SQL processing
+dbt → transformation/modeling
+Terraform → infrastructure
+Airflow → orchestration
+
+That distinction is one of the most important Airflow interview concepts.
+
+2. Airflow Core Concepts
+
+Before writing DAGs, you should know these terms.
+
+Concept	Meaning
+DAG	Workflow definition
+DAG Run	One execution of a DAG
+Task	Individual unit of work
+Operator	Template/class used to perform work
+Task Instance	One execution of a task
+Scheduler	Decides when tasks should run
+Executor	Determines how tasks are executed
+Worker	Executes tasks in distributed executors
+XCom	Small metadata communication between tasks
+Variable	Airflow-managed configuration
+Connection	Credentials/connection configuration
+Sensor	Waits for something to happen
+Pool	Limits concurrent tasks
+Retry	Re-executes failed task
+Trigger Rule	Determines when a task can run
+Catchup	Runs historical scheduled intervals
+Backfill	Runs historical DAG intervals
+SLA/SLO	Timing/operational expectation
+Task Group	Organizes related tasks
+3. Your Current Airflow Environment
+
+You currently have:
+
+Docker Compose
+      │
+      ├── PostgreSQL
+      │
+      ├── Airflow API Server
+      │
+      ├── Scheduler
+      │
+      ├── DAG Processor
+      │
+      └── Triggerer
+
+And:
+
+LocalExecutor
+
+Your DAG is currently:
+
+extract_data
+      ↓
+validate_extraction
+
+This is a good starting point.
+
+4. SOP — Build a Production-Style DAG
+
+Your eventual DAG should look approximately like:
+
+extract_data
+     │
+     ▼
+validate_gcs
+     │
+     ▼
+wait_for_snowpipe
+     │
+     ▼
+validate_landing
+     │
+     ▼
+dbt_run
+     │
+     ▼
+dbt_test
+     │
+     ▼
+pipeline_audit
+
+With failure handling around each major stage.
+
+5. Step 61 — Production-Safe File Naming
+
+Your current DimProduct process can overwrite:
+
+DimProduct_batch_001.jsonl
+
+That isn't desirable for repeated Airflow runs.
+
+Instead:
+
+dim_product/
+    run_date=2026-09-16/
+        DimProduct_20260916_182403_001.jsonl
+
+or:
+
+dim_product/
+    DimProduct_batch_20260916_182403_001.jsonl
+
+The second approach is easier for your current project.
+
+Why?
+
+Imagine:
+
+Run 1 → DimProduct_batch_001.jsonl
+Run 2 → DimProduct_batch_001.jsonl
+Run 3 → DimProduct_batch_001.jsonl
+
+You lose historical objects.
+
+Instead:
+
+Run 1 → DimProduct_batch_20260916_182403_001.jsonl
+Run 2 → DimProduct_batch_20260916_190501_001.jsonl
+Run 3 → DimProduct_batch_20260917_090002_001.jsonl
+
+Now every run has an identifiable object.
+
+Interview question
+
+Q: Why should data pipelines avoid overwriting raw files?
+
+Answer:
+
+Raw data should generally be immutable because it provides lineage, replayability and auditability. If a pipeline fails downstream, we should be able to reprocess the original input without depending on the source system again.
+
+6. Step 62 — Create a Proper Airflow DAG
+
+Your DAG should evolve from:
+
+extract_data >> validate_extraction
+
+toward:
+
+extract_data >> validate_gcs >> validate_landing >> dbt_run >> dbt_test
+
+Example:
+
+from airflow.sdk import dag, task
+from datetime import datetime
+
+
+@dag(
+    dag_id="advworks_pipeline",
+    start_date=datetime(2026, 9, 16),
+    schedule=None,
+    catchup=False,
+    max_active_runs=1,
+    tags=["adventureworks", "data-engineering"],
+)
+def advworks_pipeline():
+
+    @task
+    def extract_data():
+        import sys
+
+        sys.path.insert(
+            0,
+            "/opt/airflow/python-ingestion"
+        )
+
+        from Stage_8_GCS_extract_all_tables_using_airflow import run_ingestion
+
+        result = run_ingestion()
+
+        if result["status"] != "success":
+            raise RuntimeError("Extraction failed.")
+
+        return result
+
+
+    @task
+    def validate_extraction(result):
+
+        if result["status"] != "success":
+            raise RuntimeError(
+                "Extraction validation failed."
+            )
+
+        for table in result["tables"]:
+            print(
+                f"{table['table']} | "
+                f"{table['mode']} | "
+                f"{table['rows_extracted']}"
+            )
+
+        return "validation_success"
+
+
+    extraction = extract_data()
+
+    validation = validate_extraction(
+        extraction
+    )
+
+    extraction >> validation
+
+
+advworks_pipeline()
+7. Step 63 — Understand XCom Properly
+
+Your current:
+
+return result
+
+from:
+
+extract_data()
+
+is using XCom.
+
+Conceptually:
+
+extract_data
+     │
+     │ result
+     ▼
+XCom
+     │
+     ▼
+validate_extraction
+
+Example:
+
+@task
+def extract():
+    return {
+        "status": "success",
+        "rows": 606
+    }
+
+
+@task
+def validate(result):
+
+    if result["status"] != "success":
+        raise RuntimeError("Failed")
+
+    print(result["rows"])
+
+Airflow handles the task dependency and XCom automatically.
+
+Important interview point
+
+Don't say:
+
+"XCom is used to transfer data between tasks."
+
+Better:
+
+"XCom is intended for small pieces of metadata or control information between tasks, such as row counts, file paths, status flags or IDs. I would not use XCom to move large datasets because that creates metadata-database pressure and is not an appropriate data-transfer mechanism."
+
+Very important.
+
+8. What should NOT go through XCom?
+
+Don't do:
+
+return 10 million customer records
+
+Instead:
+
+Python
+   ↓
+GCS
+   ↓
+XCom → GCS file path / run ID / row count
+
+Example:
+
+return {
+    "gcs_path": "gs://bucket/dim_customer/file.jsonl",
+    "rows": 10000,
+    "run_id": run_id
+}
+9. Step 64 — Airflow Task Retries
+
+Production pipelines fail.
+
+For example:
+
+SQL Server temporarily unavailable
+GCS API timeout
+Snowflake temporarily unavailable
+Network interruption
+Pub/Sub delay
+
+Configure retries:
+
+from datetime import timedelta
+
+
+@task(
+    retries=3,
+    retry_delay=timedelta(minutes=2)
+)
+def extract_data():
+    ...
+
+Conceptually:
+
+Attempt 1
+   ↓
+FAILED
+   ↓
+wait 2 min
+   ↓
+Attempt 2
+   ↓
+FAILED
+   ↓
+wait 2 min
+   ↓
+Attempt 3
+Interview
+
+Q: How do you handle transient failures in Airflow?
+
+Answer:
+
+"I configure task-level retries with an appropriate retry delay and use exponential backoff where necessary. I distinguish transient failures from permanent failures because retrying a bad SQL query or invalid schema indefinitely doesn't solve the underlying problem."
+
+10. Exponential Backoff
+
+Instead of:
+
+2 min
+2 min
+2 min
+
+you can use:
+
+2 min
+4 min
+8 min
+
+Useful when dealing with:
+
+APIs
+cloud services
+rate limits
+temporary network failures
+11. Retry ≠ Idempotency
+
+This is a very important interview question.
+
+Suppose:
+
+Task runs
+ ↓
+uploads file
+ ↓
+network response is lost
+ ↓
+Airflow thinks task failed
+ ↓
+retry
+ ↓
+uploads file again
+
+You could get duplicates.
+
+Therefore:
+
+Retries require idempotent task design.
+
+For your project:
+
+run_id
++
+unique GCS object name
++
+source watermark
++
+Snowflake deduplication
+
+helps make retries safe.
+
+12. Step 65 — Idempotent Airflow Pipeline
+
+You should be able to explain:
+
+"If I execute the same logical pipeline twice, it should not create duplicate business data."
+
+For example:
+
+CustomerKey = 29487
+
+shouldn't become:
+
+29487
+29487
+29487
+
+Your existing:
+
+watermark
++
+Snowflake MERGE
++
+SCD logic
+
+already gives you a strong foundation.
+
+13. Step 66 — Task Timeout
+
+Don't allow a task to hang forever.
+
+Concept:
+
+@task(
+    execution_timeout=timedelta(minutes=30)
+)
+def extract_data():
+    ...
+
+If extraction normally takes:
+
+5 minutes
+
+but suddenly runs for:
+
+3 hours
+
+something is probably wrong.
+
+14. Step 67 — DAG Scheduling
+
+You currently use:
+
+schedule=None
+
+Meaning:
+
+The DAG doesn't have a regular schedule.
+
+Later you can use:
+
+schedule="0 2 * * *"
+
+meaning approximately:
+
+Run every day at 02:00.
+
+Or a timetable appropriate to the business requirement.
+
+Interview question
+
+Q: Why would you use catchup=False?
+
+Answer:
+
+"If a DAG is deployed today with a historical start date, Airflow can create runs for missed scheduled intervals. For pipelines where historical backfill is not automatically desired, I use catchup=False and trigger historical processing explicitly when needed."
+
+15. Catchup vs Backfill
+
+This distinction is frequently asked.
+
+Catchup
+
+Airflow scheduler behavior for missed scheduled intervals.
+
+Backfill
+
+Explicitly requesting historical runs.
+
+Example:
+
+DAG starts:
+2026-01-01
+
+Today:
+2026-09-16
+
+With catchup enabled, Airflow may create historical runs.
+
+Backfill is something you intentionally request.
+
+16. Step 68 — Sensors
+
+Sometimes the pipeline needs to wait.
+
+Example:
+
+Airflow
+   ↓
+Wait for GCS file
+   ↓
+Continue
+
+That's a sensor-style problem.
+
+Examples:
+
+wait for file
+wait for another DAG
+wait for external task
+wait for database condition
+wait for cloud event
+Interview question
+
+Q: What is a sensor?
+
+Answer:
+
+"A sensor is a task designed to wait for an external condition before allowing downstream tasks to execute."
+
+17. Poke vs Reschedule
+
+Important Airflow concept.
+
+Poke
+
+Sensor keeps running while waiting.
+
+Reschedule
+
+Sensor releases its worker/execution slot and comes back later.
+
+For long waits:
+
+Reschedule-style behavior can be more resource efficient.
+
+Modern Airflow also has deferrable operators, which move waiting work to the triggerer.
+
+18. Step 69 — Airflow Connections
+
+Don't hard-code:
+
+username = "admin"
+password = "password"
+
+Instead use Airflow Connections / external secret management.
+
+Concept:
+
+Airflow DAG
+     ↓
+Connection
+     ↓
+SQL Server
+
+For production:
+
+Airflow
+   ↓
+Secret Manager / Vault
+   ↓
+credentials
+
+rather than credentials embedded in DAG files.
+
+19. Airflow Variables
+
+Variables are useful for configuration.
+
+Example concept:
+
+ENVIRONMENT = DEV
+GCS_BUCKET = advworks-dev-ingestion
+
+But don't abuse Variables for secrets.
+
+Interview answer
+
+"I use Variables for non-secret configuration and Connections or a secrets backend for credentials."
+
+20. Step 70 — Environment Separation
+
+Your project should eventually demonstrate:
+
+DEV
+TEST
+PROD
+
+For example:
+
+DEV
+ADVWORKS_DEV
+ETL_WH_DEV
+advworks-dev-ingestion
+
+
+TEST
+ADVWORKS_TEST
+ETL_WH_TEST
+advworks-test-ingestion
+
+
+PROD
+ADVWORKS_PROD
+ETL_WH_PROD
+advworks-prod-ingestion
+
+The DAG should ideally not contain:
+
+if environment == "prod":
+    ...
+
+everywhere.
+
+Instead configuration should control environment-specific values.
+
+21. Step 71 — Airflow Task Groups
+
+As the DAG grows:
+
+extract_customer
+extract_product
+extract_fact
+
+can become visually messy.
+
+Task groups organize them:
+
+Extract
+ ├── Customer
+ ├── Product
+ └── Fact
+
+Then:
+
+Validate
+Transform
+Test
+Audit
+
+becomes easier to understand.
+
+22. Step 72 — Dynamic Task Mapping
+
+This is an important modern Airflow concept.
+
+Suppose:
+
+100 tables
+
+Instead of manually writing:
+
+extract_customer()
+extract_product()
+extract_sales()
+...
+
+you can dynamically create task instances from a list.
+
+Concept:
+
+@task
+def get_tables():
+    return [
+        "DimCustomer",
+        "DimProduct",
+        "FactInternetSales"
+    ]
+
+
+@task
+def extract(table):
+    print(f"Extracting {table}")
+
+
+extract.expand(
+    table=get_tables()
+)
+
+Conceptually:
+
+extract
+ ├── DimCustomer
+ ├── DimProduct
+ └── FactInternetSales
+
+This is a strong interview topic.
+
+23. Step 73 — DAG Dependency Design
+
+Bad:
+
+extract_customer
+extract_product
+extract_fact
+     ↓
+     dbt
+
+if dbt should only run after all ingestion is complete.
+
+Better:
+
+             ┌── Customer ──┐
+             │              │
+             ├── Product ───┤
+Extract ─────┤              ├── Validate ── dbt
+             │              │
+             └── Fact ──────┘
+
+This represents a dependency graph rather than a simple linear script.
+
+24. Step 74 — Airflow + Snowpipe
+
+This is particularly important for your project.
+
+Airflow shouldn't manually insert every JSON record into Snowflake.
+
+Instead:
+
+Airflow
+   ↓
+Python
+   ↓
+GCS
+   ↓
+Pub/Sub
+   ↓
+Snowpipe
+   ↓
+Snowflake LANDING
+
+Airflow's responsibility is to:
+
+1. Start extraction
+2. Validate files
+3. Wait/check ingestion
+4. Validate Snowflake landing
+5. Trigger downstream transformations
+
+That's a much better architecture.
+
+25. Snowpipe Validation
+
+You need a validation task.
+
+Conceptually:
+
+@task
+def validate_landing(expected_rows):
+
+    # execute Snowflake query
+
+    actual_rows = ...
+
+    if actual_rows < expected_rows:
+        raise RuntimeError(
+            "Landing validation failed"
+        )
+
+    return actual_rows
+
+But production validation should account for:
+
+ingestion delay
+duplicate files
+late arrival
+multiple files
+previous runs
+
+Don't blindly compare total table count.
+
+26. Better Validation
+
+Instead of:
+
+SELECT COUNT(*)
+FROM LANDING.DIM_CUSTOMER_RAW;
+
+which includes old data, validate by:
+
+RUN_ID
+FILE_NAME
+LOAD_TIMESTAMP
+BATCH_ID
+
+For example:
+
+SELECT COUNT(*)
+FROM ADVWORKS_DEV.LANDING.DIM_CUSTOMER_RAW
+WHERE LOAD_TIMESTAMP >= :run_start_time;
+
+Even better, use a pipeline/batch identifier.
+
+This is an important production improvement.
+
+27. Step 75 — Airflow + dbt
+
+Eventually:
+
+Snowpipe
+   ↓
+LANDING
+   ↓
+Airflow
+   ↓
+dbt run
+   ↓
+dbt test
+
+Your dbt responsibility remains:
+
+PREPARE
+NORMALIZE
+SCHEMATIZE
+MARKETPLACE
+
+Airflow simply orchestrates it.
+
+28. dbt Failure
+
+Suppose:
+
+Snowpipe SUCCESS
+       ↓
+dbt run FAILED
+
+Airflow should mark:
+
+dbt_run = FAILED
+
+and:
+
+dbt_test
+
+should not execute unless the dependency/rules permit it.
+
+This is where task dependencies and trigger rules become useful.
+
+29. Step 76 — Trigger Rules
+
+Normally:
+
+A >> B
+
+means:
+
+B runs when A succeeds.
+
+But you may want an audit task to execute regardless.
+
+Concept:
+
+                 ┌── SUCCESS
+pipeline ────────┤
+                 └── FAILURE
+                        ↓
+                      AUDIT
+
+The audit task should be able to execute after upstream failure.
+
+This is where trigger rules come in.
+
+30. Step 77 — Audit Logging
+
+You already created:
+
+ADVWORKS_DEV.AUDIT.PIPELINE_AUDIT
+
+Now Airflow should eventually populate it automatically.
+
+Recommended fields:
+
+RUN_ID
+DAG_ID
+DAG_RUN_ID
+TASK_ID
+TRY_NUMBER
+PIPELINE_NAME
+ENVIRONMENT
+SOURCE_OBJECT
+TARGET_OBJECT
+STATUS
+START_TIME
+END_TIME
+ROWS_READ
+ROWS_WRITTEN
+ERROR_COUNT
+ERROR_MESSAGE
+CREATED_AT
+
+This gives you:
+
+Airflow
+    ↓
+Audit
+    ↓
+Snowflake
+
+and allows operational reporting.
+
+31. Step 78 — Monitoring
+
+You should monitor:
+
+DAG-level
+Success
+Failure
+Duration
+Frequency
+Task-level
+Retries
+Duration
+Failures
+Skipped
+Queued
+Data-level
+Rows extracted
+Rows loaded
+Rows rejected
+Duplicates
+Nulls
+Schema changes
+Infrastructure-level
+CPU
+Memory
+Database
+GCS
+Snowflake warehouse
+
+This distinction is excellent in interviews.
+
+32. Step 79 — Airflow Failure Scenarios
+
+You should be able to answer these without hesitation.
+
+Scenario 1
+SQL Server unavailable
+
+Response:
+
+Retry
+ ↓
+still failed
+ ↓
+DAG fails
+ ↓
+alert
+ ↓
+audit failure
+Scenario 2
+GCS upload succeeds
+Airflow crashes
+
+On retry:
+
+Use idempotent naming/checking so the same logical batch isn't blindly duplicated.
+
+Scenario 3
+Snowpipe delayed
+
+Don't immediately fail.
+
+Use:
+
+wait
+ ↓
+check
+ ↓
+timeout
+ ↓
+fail/alert
+Scenario 4
+dbt test fails
+
+Pipeline should:
+
+dbt run
+   ↓
+dbt test
+   ↓
+FAIL
+   ↓
+Audit
+   ↓
+Alert
+
+and not publish bad data downstream.
+
+33. Step 80 — Airflow Concurrency
+
+Suppose you have:
+
+500 tables
+
+and every table starts simultaneously.
+
+That can overload:
+
+SQL Server
+GCS
+Snowflake
+Airflow
+network
+
+Therefore control:
+
+DAG concurrency
+Task concurrency
+Pools
+Parallelism
+Warehouse capacity
+Interview question
+
+Q: How would you prevent Airflow from overwhelming a source database?
+
+Answer:
+
+"I would control concurrency using Airflow pools and task/DAG concurrency limits, and partition extraction workloads into controlled batches. I would also consider source-system capacity, query cost and extraction windows rather than maximizing parallelism blindly."
+
+Excellent senior-level answer.
+
+34. Step 81 — Airflow Pools
+
+Imagine SQL Server can safely handle:
+
+5 extraction queries
+
+Create a conceptual pool:
+
+SQL_SERVER_POOL
+slots = 5
+
+Then extraction tasks consume slots.
+
+Result:
+
+100 tasks
+     ↓
+only 5 execute simultaneously
+
+This protects your source system.
+
+35. Step 82 — Airflow Executor
+
+You currently use:
+
+LocalExecutor
+
+Understand the major choices:
+
+SequentialExecutor
+one task at a time
+
+Good for very small/testing environments.
+
+LocalExecutor
+multiple local processes
+
+Good for your current local practice environment.
+
+CeleryExecutor
+Scheduler
+   ↓
+Message broker
+   ↓
+Workers
+
+Useful for distributed execution.
+
+KubernetesExecutor
+Scheduler
+   ↓
+Kubernetes
+   ↓
+task-specific pods
+
+Useful for cloud-native dynamic workloads.
+
+36. Your Canam Connection
+
+This is where your experience becomes valuable.
+
+Your Canam environment already uses concepts around:
+
+GKE
+Airflow
+Celery/Kubernetes
+Cloud SQL
+PgBouncer
+Workload Identity
+GCS
+Snowflake
+
+So your interview answer can be:
+
+"For my personal project I use LocalExecutor because the objective is local orchestration. In a production environment such as our Canam architecture, distributed execution can be handled using Kubernetes/Celery-based workers depending on workload characteristics and platform standards."
+
+That demonstrates you understand why, rather than simply memorizing executor names.
+
+37. Step 83 — Airflow Metadata Database
+
+Very important.
+
+Airflow's PostgreSQL database stores metadata such as:
+
+DAG information
+Task instances
+DAG runs
+Task states
+XCom metadata
+Connections
+Variables
+Scheduling metadata
+
+It is not your business data warehouse.
+
+Don't put:
+
+10 million customer records
+
+inside Airflow's metadata DB.
+
+38. Step 84 — Scheduler
+
+Interview question:
+
+"What does the Airflow scheduler do?"
+
+Answer:
+
+"The scheduler continuously evaluates DAG schedules and task dependencies, creates DAG runs when appropriate, and determines which task instances are eligible for execution. It then submits eligible tasks to the configured executor."
+
+Don't say:
+
+"The scheduler executes all tasks."
+
+That's not universally correct.
+
+39. Step 85 — Worker
+
+For distributed executors:
+
+Scheduler
+    ↓
+Executor
+    ↓
+Worker
+    ↓
+Task
+
+With LocalExecutor, task execution happens locally rather than through separate worker containers.
+
+This is why your current architecture doesn't need:
+
+Celery Worker
+Flower
+Redis
+40. Step 86 — DAG Parsing
+
+Airflow needs to discover DAG files.
+
+Your environment has a:
+
+DAG Processor
+
+which handles DAG parsing responsibilities.
+
+Interview-level understanding:
+
+DAG Python file
+      ↓
+DAG parsing
+      ↓
+serialized/metadata representation
+      ↓
+Scheduler
+
+Therefore DAG files should not contain huge amounts of expensive code executed during import.
+
+41. Very Important — Don't Execute Work at DAG Import Time
+
+Bad:
+
+connection = pyodbc.connect(...)
+rows = connection.execute(...)
+
+at the top level of the DAG file.
+
+That code can run while Airflow is parsing the DAG.
+
+Instead:
+
+@task
+def extract():
+    connection = pyodbc.connect(...)
+    ...
+
+This is an extremely common Airflow interview/troubleshooting question.
+
+42. Step 87 — DAG Code Best Practices
+
+Keep DAG files:
+
+small
+declarative
+idempotent
+configuration-driven
+
+Don't put:
+
+5000 lines of business logic
+
+inside a DAG.
+
+Your current architecture is already moving in the right direction:
+
+DAG
+ ↓
+run_ingestion()
+ ↓
+Python module
+43. Step 88 — Separate Orchestration from Business Logic
+
+This is one of the most important principles for your project.
+
+DAG
+extract_data()
+validate_data()
+run_dbt()
+Python
+SQL extraction
+GCS upload
+watermark
+serialization
+dbt
+transformation
+tests
+models
+Terraform
+infrastructure
+
+This makes the system maintainable.
+
+44. Step 89 — Airflow Alerting
+
+Production pipeline:
+
+Task FAILED
+     ↓
+Retry
+     ↓
+Still FAILED
+     ↓
+Alert
+     ↓
+Audit
+
+Alert mechanisms can include:
+
+email
+Slack
+Teams
+PagerDuty
+monitoring platform
+incident-management platform
+
+For your project, implementation can initially be simple.
+
+The interview knowledge matters more than spending hours integrating every alert provider.
+
+45. Step 90 — Airflow Security
+
+Your local setup currently uses:
+
+Google ADC
+
+That's acceptable for local development.
+
+Production should use:
+
+Airflow
+   ↓
+Workload Identity
+   ↓
+GCP Service Account
+   ↓
+GCS
+
+rather than:
+
+Airflow
+   ↓
+user ADC
+
+or:
+
+Airflow
+   ↓
+service-account JSON key
+
+This is a major production architecture distinction.
+
+46. Step 91 — Secrets
+
+Never commit:
+
+password
+private key
+API token
+Snowflake passphrase
+service account key
+
+Your previous GitHub cleanup was therefore important.
+
+For production:
+
+Airflow
+    ↓
+Secret backend
+    ↓
+Secret Manager / Vault
+47. Step 92 — Data Quality
+
+Your pipeline should have at least:
+
+Schema validation
+Row count validation
+Null validation
+Duplicate validation
+Referential integrity
+Business rule validation
+
+Your existing dbt tests already cover some of this:
+
+fact_order_line_unique
+fact_product_integrity
+fact_customer_integrity
+fact_date_integrity
+
+So Airflow should orchestrate those tests rather than recreate them.
+
+48. Step 93 — End-to-End DAG
+
+Your final project should aim toward:
+
+                         AIRFLOW
+                            │
+                            ▼
+                    ┌──────────────┐
+                    │ Start Run    │
+                    └──────┬───────┘
+                           │
+                           ▼
+                    Extract SQL Server
+                           │
+                           ▼
+                     Validate Extract
+                           │
+                           ▼
+                         GCS
+                           │
+                           ▼
+                    Validate GCS files
+                           │
+                           ▼
+                    Pub/Sub notification
+                           │
+                           ▼
+                       Snowpipe
+                           │
+                           ▼
+                  Validate Snowflake
+                           │
+                           ▼
+                        dbt run
+                           │
+                           ▼
+                       dbt test
+                           │
+                           ▼
+                     Audit SUCCESS
+
+Failure:
+
+ANY TASK
+   │
+   ├── retry
+   │
+   ├── failure
+   │
+   └── audit + alert
+🎯 Airflow Interview Questions You Should Master
+Basic
+What is Apache Airflow?
+What is a DAG?
+What is a DAG run?
+What is a task?
+What is an operator?
+What is the scheduler?
+What is an executor?
+What is a worker?
+What is XCom?
+What are Variables?
+What are Connections?
+What is a Sensor?
+Intermediate
+LocalExecutor vs CeleryExecutor?
+LocalExecutor vs KubernetesExecutor?
+How does Airflow schedule tasks?
+How does dependency resolution work?
+What happens when a task fails?
+How do retries work?
+What is exponential backoff?
+What is catchup?
+What is backfill?
+What is a task timeout?
+What is a trigger rule?
+What are pools?
+How do you control concurrency?
+How do you pass data between tasks?
+What should and shouldn't go into XCom?
+What are sensors?
+What is task mapping?
+What are task groups?
+🔥 Senior-Level Questions
+31. How would you design an Airflow pipeline for 500 tables?
+
+Answer structure:
+
+Metadata-driven configuration
+        ↓
+Dynamic task mapping
+        ↓
+Controlled concurrency
+        ↓
+Pools
+        ↓
+Incremental extraction
+        ↓
+Idempotency
+        ↓
+Retries
+        ↓
+Data quality
+        ↓
+Audit
+        ↓
+Alerting
+32. How do you make Airflow pipelines idempotent?
+
+Answer:
+
+"I use deterministic business keys, unique batch or run identifiers, immutable raw objects where possible, watermarks or CDC checkpoints, and MERGE/upsert logic downstream. Retries should produce the same logical result rather than duplicate business records."
+
+33. How would you prevent duplicate data when Airflow retries?
+
+Answer:
+
+"I don't rely on Airflow retries alone. I design the task and downstream load to be idempotent. For example, the extraction generates a unique run or batch identifier, the raw object is uniquely identified, and Snowflake uses the appropriate key and MERGE/deduplication strategy."
+
+34. What happens if Airflow succeeds but Snowpipe hasn't loaded the data?
+
+Answer:
+
+"I would separate extraction success from downstream ingestion success. Airflow should validate that the expected batch has appeared in Snowflake before starting dbt. Because Snowpipe is asynchronous, I would use a bounded wait/check mechanism with a timeout rather than assuming that successful GCS upload means successful Snowflake ingestion."
+
+35. How would you handle a slow source database?
+
+Answer:
+
+"First I'd determine whether the problem is query performance, source contention, network throughput or extraction design. Then I'd use incremental extraction, appropriate indexing/query predicates, batching and controlled Airflow concurrency. I would avoid simply increasing parallelism because that could make the source problem worse."
+
+36. How would you handle 10 million records?
+
+Answer:
+
+"I wouldn't use XCom or the Airflow metadata database to transfer the records. I'd extract in batches to object storage, use the cloud-native ingestion mechanism to load the warehouse, and pass only metadata such as file paths, row counts and batch IDs through Airflow."
+
+37. What happens if Airflow scheduler goes down?
+
+Answer:
+
+"The scheduler is responsible for scheduling rather than being the business data store. In a properly deployed Airflow environment, the metadata database preserves DAG and task state, and scheduler availability is restored through restart or high-availability configuration depending on the deployment architecture."
+
+38. How would you design Airflow for production?
+
+Answer using this sequence:
+
+High availability
++
+metadata DB reliability
++
+distributed executor
++
+secret management
++
+IAM
++
+controlled concurrency
++
+retries
++
+idempotency
++
+data quality
++
+observability
++
+alerting
++
+audit
++
+CI/CD
++
+DEV/TEST/PROD
+
+That's a strong senior answer.
+
+🧠 The Most Important Airflow Mental Model
+
+Don't memorize Airflow commands first.
+
+Memorize this:
+
+DAG
+ │
+ ├── defines workflow
+ │
+ ▼
+Scheduler
+ │
+ ├── determines what should run
+ │
+ ▼
+Executor
+ │
+ ├── determines how tasks execute
+ │
+ ▼
+Task
+ │
+ ├── performs one unit of work
+ │
+ ▼
+External Systems
+ │
+ ├── SQL Server
+ ├── GCS
+ ├── Snowpipe
+ ├── Snowflake
+ └── dbt
+
+And:
+
+Airflow ≠ Data Warehouse
+Airflow ≠ Data Lake
+Airflow ≠ ETL Engine
+Airflow ≠ Message Broker
+Airflow ≠ Transformation Framework
+
+It is primarily the orchestrator tying those systems together.
+
+🏆 Your Airflow Interview Story
+
+For your own project, eventually answer like this:
+
+"I designed Airflow as the orchestration layer for an end-to-end AdventureWorks pipeline. SQL Server acts as the source, Python performs extraction and incremental processing, GCS is the raw landing layer, Pub/Sub and Snowpipe handle event-driven ingestion into Snowflake, and dbt performs transformation and data quality testing. Airflow coordinates these stages, manages dependencies, retries, validation, auditing and scheduling. I use XCom only for small metadata such as row counts, file paths and run information, while actual data remains in GCS or Snowflake."
+
+Then add:
+
+"For incremental processing I use watermark/CDC logic, and downstream Snowflake MERGE/SCD logic provides idempotency and history management. In production I would replace local ADC authentication with workload identity and use a secrets backend rather than storing credentials in DAG code."
+
+That one answer connects Airflow + Python + GCS + Pub/Sub + Snowpipe + Snowflake + dbt + CDC + security + production architecture.
+
+📚 Airflow SOP — Your Learning Order
+
+Don't try to implement everything above simultaneously.
+
+Use this sequence:
+
+CURRENT
+  │
+  ▼
+61. Production-safe GCS naming
+  │
+  ▼
+62. Proper DAG structure
+  │
+  ▼
+63. XCom
+  │
+  ▼
+64. Retry + timeout
+  │
+  ▼
+65. Idempotency
+  │
+  ▼
+66. Scheduling
+  │
+  ▼
+67. Sensors / waiting for Snowpipe
+  │
+  ▼
+68. Connections + Variables
+  │
+  ▼
+69. Environment configuration
+  │
+  ▼
+70. Task Groups
+  │
+  ▼
+71. Dynamic Task Mapping
+  │
+  ▼
+72. Concurrency + Pools
+  │
+  ▼
+73. Snowflake validation
+  │
+  ▼
+74. dbt orchestration
+  │
+  ▼
+75. dbt testing
+  │
+  ▼
+76. Audit logging
+  │
+  ▼
+77. Alerting
+  │
+  ▼
+78. Monitoring
+  │
+  ▼
+79. Security
+  │
+  ▼
+80. Production Airflow architecture
+  │
+  ▼
+END-TO-END AIRFLOW PIPELINE
