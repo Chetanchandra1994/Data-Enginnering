@@ -26,7 +26,7 @@ variables:
 
   # TEST Airflow deployment bucket
   - name: GCS_AIRFLOW_TEST_BUCKET
-    value: "REPLACE_WITH_AIRFLOW_TEST_BUCKET"
+    value: "advworks-airflow-test"
 
   # PROD Airflow deployment bucket
   - name: GCS_AIRFLOW_PROD_BUCKET
