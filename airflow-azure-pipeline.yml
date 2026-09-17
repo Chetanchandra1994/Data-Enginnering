@@ -24,7 +24,7 @@ variables:
   - name: GCP_PROJECT_ID
     value: "electric-tesla-507710-k2"
 
-  # TEST Airflow deployment bucket
+  # TEST Airflow deployment bucket 
   - name: GCS_AIRFLOW_TEST_BUCKET
     value: "advworks-airflow-test"
 
