@@ -4,8 +4,8 @@ trigger:
       - main
   paths:
     include:
-      - airflow/dags/*
-      - airflow/plugins/*
+      - airflow/dags/**
+      - airflow/plugins/**
 
 pr:
   branches:
@@ -13,8 +13,8 @@ pr:
       - "*"
   paths:
     include:
-      - airflow/dags/*
-      - airflow/plugins/*
+      - airflow/dags/**
+      - airflow/plugins/**
 
 variables:
   - name: python_version
@@ -24,11 +24,11 @@ variables:
   - name: GCP_PROJECT_ID
     value: "electric-tesla-507710-k2"
 
-  # TEST Airflow deployment location
+  # TEST Airflow deployment bucket
   - name: GCS_AIRFLOW_TEST_BUCKET
     value: "REPLACE_WITH_AIRFLOW_TEST_BUCKET"
 
-  # PROD Airflow deployment location
+  # PROD Airflow deployment bucket
   - name: GCS_AIRFLOW_PROD_BUCKET
     value: "REPLACE_WITH_AIRFLOW_PROD_BUCKET"
 
@@ -53,9 +53,9 @@ stages:
 
           - checkout: self
 
-          # ----------------------------------------------------
+          # --------------------------------------------------
           # Python
-          # ----------------------------------------------------
+          # --------------------------------------------------
 
           - task: UsePythonVersion@0
             displayName: "Set Python Version"
@@ -67,18 +67,18 @@ stages:
             displayName: "Verify Python Version"
 
 
-          # ----------------------------------------------------
+          # --------------------------------------------------
           # DAG / Plugin Python syntax validation
-          # ----------------------------------------------------
+          # --------------------------------------------------
 
           - script: |
               python -m compileall airflow/dags airflow/plugins
             displayName: "Compile Airflow DAGs and Plugins"
 
 
-          # ----------------------------------------------------
+          # --------------------------------------------------
           # DAG / Plugin AST validation
-          # ----------------------------------------------------
+          # --------------------------------------------------
 
           - script: |
               python - <<'PY'
@@ -123,9 +123,9 @@ stages:
             displayName: "Validate DAG and Plugin Syntax"
 
 
-          # ----------------------------------------------------
+          # --------------------------------------------------
           # Validate DAG files exist
-          # ----------------------------------------------------
+          # --------------------------------------------------
 
           - script: |
               python - <<'PY'
@@ -155,14 +155,13 @@ stages:
             displayName: "Validate DAG Files"
 
 
-          # ----------------------------------------------------
-          # Validate plugin directory if present
-          # ----------------------------------------------------
+          # --------------------------------------------------
+          # Validate plugin directory
+          # --------------------------------------------------
 
           - script: |
               if [ -d "airflow/plugins" ]; then
                 echo "Airflow plugins directory found."
-
                 find airflow/plugins -type f -print
               else
                 echo "No plugins directory found. Skipping plugin validation."
@@ -179,12 +178,10 @@ stages:
 
     dependsOn: AirflowValidation
 
-    condition: and(
-      succeeded(),
-      eq(variables['Build.SourceBranch'], 'refs/heads/main')
-    )
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
 
     jobs:
+
       - deployment: DeployAirflowTest
         displayName: "Deploy Airflow Files to TEST"
 
@@ -271,7 +268,7 @@ stages:
 
                     gcloud storage cp \
                       -r \
-                      "$(Build.SourcesDirectory)/airflow/dags/*" \
+                      "$(Build.SourcesDirectory)/airflow/dags/"* \
                       "gs://$(GCS_AIRFLOW_TEST_BUCKET)/dags/"
 
                   displayName: "Deploy DAGs to TEST"
@@ -288,10 +285,14 @@ stages:
 
                       echo "Deploying Airflow plugins to TEST..."
 
-                      gcloud storage cp \
-                        -r \
-                        "$(Build.SourcesDirectory)/airflow/plugins/*" \
-                        "gs://$(GCS_AIRFLOW_TEST_BUCKET)/plugins/"
+                      if find "$(Build.SourcesDirectory)/airflow/plugins" -type f | grep -q .; then
+                        gcloud storage cp \
+                          -r \
+                          "$(Build.SourcesDirectory)/airflow/plugins/"* \
+                          "gs://$(GCS_AIRFLOW_TEST_BUCKET)/plugins/"
+                      else
+                        echo "Plugins directory is empty. Skipping."
+                      fi
 
                     else
 
@@ -343,12 +344,10 @@ stages:
 
     dependsOn: DeployTest
 
-    condition: and(
-      succeeded(),
-      eq(variables['Build.SourceBranch'], 'refs/heads/main')
-    )
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
 
     jobs:
+
       - deployment: DeployAirflowProd
         displayName: "Deploy Airflow Files to PROD"
 
@@ -435,7 +434,7 @@ stages:
 
                     gcloud storage cp \
                       -r \
-                      "$(Build.SourcesDirectory)/airflow/dags/*" \
+                      "$(Build.SourcesDirectory)/airflow/dags/"* \
                       "gs://$(GCS_AIRFLOW_PROD_BUCKET)/dags/"
 
                   displayName: "Deploy DAGs to PROD"
@@ -452,10 +451,14 @@ stages:
 
                       echo "Deploying Airflow plugins to PROD..."
 
-                      gcloud storage cp \
-                        -r \
-                        "$(Build.SourcesDirectory)/airflow/plugins/*" \
-                        "gs://$(GCS_AIRFLOW_PROD_BUCKET)/plugins/"
+                      if find "$(Build.SourcesDirectory)/airflow/plugins" -type f | grep -q .; then
+                        gcloud storage cp \
+                          -r \
+                          "$(Build.SourcesDirectory)/airflow/plugins/"* \
+                          "gs://$(GCS_AIRFLOW_PROD_BUCKET)/plugins/"
+                      else
+                        echo "Plugins directory is empty. Skipping."
+                      fi
 
                     else
 
