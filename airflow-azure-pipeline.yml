@@ -18,19 +18,19 @@ pr:
 
 variables:
   - name: python_version
-    value: '3.12'
+    value: "3.12"
 
   # GCP project
   - name: GCP_PROJECT_ID
-    value: 'electric-tesla-507710-k2'
+    value: "electric-tesla-507710-k2"
 
   # TEST Airflow deployment location
   - name: GCS_AIRFLOW_TEST_BUCKET
-    value: 'REPLACE_WITH_AIRFLOW_TEST_BUCKET'
+    value: "REPLACE_WITH_AIRFLOW_TEST_BUCKET"
 
   # PROD Airflow deployment location
   - name: GCS_AIRFLOW_PROD_BUCKET
-    value: 'REPLACE_WITH_AIRFLOW_PROD_BUCKET'
+    value: "REPLACE_WITH_AIRFLOW_PROD_BUCKET"
 
 
 stages:
@@ -40,14 +40,14 @@ stages:
 # ============================================================
 
   - stage: AirflowValidation
-    displayName: '1. Airflow DAG and Plugin Validation'
+    displayName: "1. Airflow DAG and Plugin Validation"
 
     jobs:
       - job: ValidateAirflow
-        displayName: 'Validate Airflow Code'
+        displayName: "Validate Airflow Code"
 
         pool:
-          vmImage: 'ubuntu-latest'
+          vmImage: "ubuntu-latest"
 
         steps:
 
@@ -58,13 +58,13 @@ stages:
           # ----------------------------------------------------
 
           - task: UsePythonVersion@0
-            displayName: 'Set Python Version'
+            displayName: "Set Python Version"
             inputs:
-              versionSpec: '$(python_version)'
+              versionSpec: "$(python_version)"
 
           - script: |
               python --version
-            displayName: 'Verify Python Version'
+            displayName: "Verify Python Version"
 
 
           # ----------------------------------------------------
@@ -73,11 +73,11 @@ stages:
 
           - script: |
               python -m compileall airflow/dags airflow/plugins
-            displayName: 'Compile Airflow DAGs and Plugins'
+            displayName: "Compile Airflow DAGs and Plugins"
 
 
           # ----------------------------------------------------
-          # DAG import validation
+          # DAG / Plugin AST validation
           # ----------------------------------------------------
 
           - script: |
@@ -98,8 +98,13 @@ stages:
 
                   for file in folder.rglob("*.py"):
                       try:
-                          ast.parse(file.read_text(encoding="utf-8"))
+                          ast.parse(
+                              file.read_text(encoding="utf-8"),
+                              filename=str(file)
+                          )
+
                           print(f"VALID: {file}")
+
                       except SyntaxError as e:
                           errors.append(
                               f"{file}: line {e.lineno}: {e.msg}"
@@ -107,6 +112,7 @@ stages:
 
               if errors:
                   print("Validation errors:")
+
                   for error in errors:
                       print(error)
 
@@ -114,27 +120,30 @@ stages:
 
               print("Airflow DAG/plugin syntax validation successful.")
               PY
-            displayName: 'Validate DAG and Plugin Syntax'
+            displayName: "Validate DAG and Plugin Syntax"
 
 
           # ----------------------------------------------------
-          # Validate DAG structure
+          # Validate DAG files exist
           # ----------------------------------------------------
 
           - script: |
               python - <<'PY'
-              import sys
               from pathlib import Path
 
               dags_path = Path("airflow/dags")
 
               if not dags_path.exists():
-                  raise SystemExit("airflow/dags directory does not exist.")
+                  raise SystemExit(
+                      "airflow/dags directory does not exist."
+                  )
 
               dag_files = list(dags_path.rglob("*.py"))
 
               if not dag_files:
-                  raise SystemExit("No DAG Python files found.")
+                  raise SystemExit(
+                      "No DAG Python files found."
+                  )
 
               print("Airflow DAG files found:")
 
@@ -143,7 +152,22 @@ stages:
 
               print("DAG file validation successful.")
               PY
-            displayName: 'Validate DAG Files'
+            displayName: "Validate DAG Files"
+
+
+          # ----------------------------------------------------
+          # Validate plugin directory if present
+          # ----------------------------------------------------
+
+          - script: |
+              if [ -d "airflow/plugins" ]; then
+                echo "Airflow plugins directory found."
+
+                find airflow/plugins -type f -print
+              else
+                echo "No plugins directory found. Skipping plugin validation."
+              fi
+            displayName: "Validate Plugin Files"
 
 
 # ============================================================
@@ -151,7 +175,7 @@ stages:
 # ============================================================
 
   - stage: DeployTest
-    displayName: '2. Deploy Airflow DAGs and Plugins to TEST'
+    displayName: "2. Deploy Airflow DAGs and Plugins to TEST"
 
     dependsOn: AirflowValidation
 
@@ -161,17 +185,13 @@ stages:
     )
 
     jobs:
-
       - deployment: DeployAirflowTest
+        displayName: "Deploy Airflow Files to TEST"
 
-        displayName: 'Deploy Airflow Files to TEST'
-
-        environment: 'TEST - Airflow DAGS'
+        environment: "TEST - Airflow DAGS"
 
         strategy:
-
           runOnce:
-
             deploy:
 
               steps:
@@ -180,22 +200,17 @@ stages:
 
 
                 # ------------------------------------------------
-                # Authenticate to GCP
+                # Authenticate to GCP using Azure DevOps WIF
                 # ------------------------------------------------
 
                 - task: AzureCLI@2
-
-                  displayName: 'Authenticate to Google Cloud using WIF'
+                  displayName: "Authenticate to Google Cloud using WIF"
 
                   inputs:
-
-                    azureSubscription: 'google-cloud-wif'
-
+                    azureSubscription: "google-cloud-wif"
                     addSpnToEnvironment: true
-
-                    scriptType: 'bash'
-
-                    scriptLocation: 'inlineScript'
+                    scriptType: "bash"
+                    scriptLocation: "inlineScript"
 
                     inlineScript: |
 
@@ -219,7 +234,9 @@ stages:
 
                       export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
 
-                      gcloud auth login --cred-file="$GOOGLE_APPLICATION_CREDENTIALS" --quiet
+                      gcloud auth login \
+                        --cred-file="$GOOGLE_APPLICATION_CREDENTIALS" \
+                        --quiet
 
                       gcloud config set project "$(GCP_PROJECT_ID)"
 
@@ -235,13 +252,16 @@ stages:
                 - script: |
                     export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
 
-                    gcloud storage ls "gs://$(GCS_AIRFLOW_TEST_BUCKET)"
+                    echo "Validating TEST Airflow bucket..."
 
-                  displayName: 'Validate TEST Airflow Bucket'
+                    gcloud storage ls \
+                      "gs://$(GCS_AIRFLOW_TEST_BUCKET)/"
+
+                  displayName: "Validate TEST Airflow Bucket"
 
 
                 # ------------------------------------------------
-                # Deploy DAGs
+                # Deploy DAGs to TEST
                 # ------------------------------------------------
 
                 - script: |
@@ -254,31 +274,225 @@ stages:
                       "$(Build.SourcesDirectory)/airflow/dags/*" \
                       "gs://$(GCS_AIRFLOW_TEST_BUCKET)/dags/"
 
-                  displayName: 'Deploy DAGs to TEST'
+                  displayName: "Deploy DAGs to TEST"
 
 
                 # ------------------------------------------------
-                # Deploy plugins
+                # Deploy plugins to TEST
                 # ------------------------------------------------
 
                 - script: |
                     export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
 
-                    echo "Deploying Airflow plugins to TEST..."
-
                     if [ -d "$(Build.SourcesDirectory)/airflow/plugins" ]; then
+
+                      echo "Deploying Airflow plugins to TEST..."
+
                       gcloud storage cp \
                         -r \
                         "$(Build.SourcesDirectory)/airflow/plugins/*" \
                         "gs://$(GCS_AIRFLOW_TEST_BUCKET)/plugins/"
+
+                    else
+
+                      echo "No plugins directory found. Skipping."
+
                     fi
 
-                  displayName: 'Deploy Plugins to TEST'
+                  displayName: "Deploy Plugins to TEST"
 
 
                 # ------------------------------------------------
-                # Deployment validation
+                # Validate TEST deployment
                 # ------------------------------------------------
 
                 - script: |
-                    export GOOGLE_APPLICATION_C
+                    export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                    echo "Validating deployed DAGs..."
+
+                    gcloud storage ls \
+                      "gs://$(GCS_AIRFLOW_TEST_BUCKET)/dags/"
+
+                    echo "Validating deployed plugins..."
+
+                    if gcloud storage ls \
+                      "gs://$(GCS_AIRFLOW_TEST_BUCKET)/plugins/" \
+                      > /dev/null 2>&1; then
+
+                      gcloud storage ls \
+                        "gs://$(GCS_AIRFLOW_TEST_BUCKET)/plugins/"
+
+                    else
+
+                      echo "No plugins deployed."
+
+                    fi
+
+                    echo "TEST Airflow deployment validation successful."
+
+                  displayName: "Validate TEST Deployment"
+
+
+# ============================================================
+# 3. DEPLOY TO PROD
+# ============================================================
+
+  - stage: DeployProd
+    displayName: "3. Deploy Airflow DAGs and Plugins to PROD"
+
+    dependsOn: DeployTest
+
+    condition: and(
+      succeeded(),
+      eq(variables['Build.SourceBranch'], 'refs/heads/main')
+    )
+
+    jobs:
+      - deployment: DeployAirflowProd
+        displayName: "Deploy Airflow Files to PROD"
+
+        environment: "PROD - Airflow DAGS"
+
+        strategy:
+          runOnce:
+            deploy:
+
+              steps:
+
+                - checkout: self
+
+
+                # ------------------------------------------------
+                # Authenticate to GCP using Azure DevOps WIF
+                # ------------------------------------------------
+
+                - task: AzureCLI@2
+                  displayName: "Authenticate to Google Cloud using WIF"
+
+                  inputs:
+                    azureSubscription: "google-cloud-wif"
+                    addSpnToEnvironment: true
+                    scriptType: "bash"
+                    scriptLocation: "inlineScript"
+
+                    inlineScript: |
+
+                      echo "$idToken" > "$(Pipeline.Workspace)/.workload_identity.jwt"
+
+                      cat > "$(Pipeline.Workspace)/.workload_identity.wlconfig" <<EOF
+                      {
+                        "type": "external_account",
+                        "audience": "//iam.googleapis.com/projects/776178390591/locations/global/workloadIdentityPools/azure-devops-pool/providers/azure-devops-provider",
+                        "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                        "token_url": "https://sts.googleapis.com/v1/token",
+                        "credential_source": {
+                          "file": "$(Pipeline.Workspace)/.workload_identity.jwt",
+                          "format": {
+                            "type": "text"
+                          }
+                        },
+                        "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com:generateAccessToken"
+                      }
+                      EOF
+
+                      export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                      gcloud auth login \
+                        --cred-file="$GOOGLE_APPLICATION_CREDENTIALS" \
+                        --quiet
+
+                      gcloud config set project "$(GCP_PROJECT_ID)"
+
+                      echo "Google Cloud authentication successful."
+
+                      gcloud auth list
+
+
+                # ------------------------------------------------
+                # Validate PROD bucket
+                # ------------------------------------------------
+
+                - script: |
+                    export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                    echo "Validating PROD Airflow bucket..."
+
+                    gcloud storage ls \
+                      "gs://$(GCS_AIRFLOW_PROD_BUCKET)/"
+
+                  displayName: "Validate PROD Airflow Bucket"
+
+
+                # ------------------------------------------------
+                # Deploy DAGs to PROD
+                # ------------------------------------------------
+
+                - script: |
+                    export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                    echo "Deploying Airflow DAGs to PROD..."
+
+                    gcloud storage cp \
+                      -r \
+                      "$(Build.SourcesDirectory)/airflow/dags/*" \
+                      "gs://$(GCS_AIRFLOW_PROD_BUCKET)/dags/"
+
+                  displayName: "Deploy DAGs to PROD"
+
+
+                # ------------------------------------------------
+                # Deploy plugins to PROD
+                # ------------------------------------------------
+
+                - script: |
+                    export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                    if [ -d "$(Build.SourcesDirectory)/airflow/plugins" ]; then
+
+                      echo "Deploying Airflow plugins to PROD..."
+
+                      gcloud storage cp \
+                        -r \
+                        "$(Build.SourcesDirectory)/airflow/plugins/*" \
+                        "gs://$(GCS_AIRFLOW_PROD_BUCKET)/plugins/"
+
+                    else
+
+                      echo "No plugins directory found. Skipping."
+
+                    fi
+
+                  displayName: "Deploy Plugins to PROD"
+
+
+                # ------------------------------------------------
+                # Validate PROD deployment
+                # ------------------------------------------------
+
+                - script: |
+                    export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                    echo "Validating deployed DAGs..."
+
+                    gcloud storage ls \
+                      "gs://$(GCS_AIRFLOW_PROD_BUCKET)/dags/"
+
+                    echo "Validating deployed plugins..."
+
+                    if gcloud storage ls \
+                      "gs://$(GCS_AIRFLOW_PROD_BUCKET)/plugins/" \
+                      > /dev/null 2>&1; then
+
+                      gcloud storage ls \
+                        "gs://$(GCS_AIRFLOW_PROD_BUCKET)/plugins/"
+
+                    else
+
+                      echo "No plugins deployed."
+
+                    fi
+
+                    echo "PROD Airflow deployment validation successful."
+
+                  displayName: "Validate PROD Deployment"
