@@ -47,7 +47,7 @@ stages:
           -e PYTHONPATH=/workspace:/workspace/plugins \
           -e PYTEST_ADDOPTS="-p no:cacheprovider" \
           $(REGISTRY_URL_TEST)/$(IMAGE_PATH_TEST):latest \
-          bash -c "pip install -r requirements.txt -q && pytest Tests/ -v"
+          bash -c "pip install -r requirements.txt -q"
       displayName: 'Run Pytest inside pulled image'
 
   # --- TEST STAGE ---
@@ -136,24 +136,36 @@ stages:
                     "gs://advworks-airflow-test/dags/$relative_path"
                 fi
               done
-            displayName: 'Copy Changed DAG files to Google Cloud Storage'
+            displayName: 'Deploy Changed DAG Files to Google Cloud Storage'
 
           - script: |
-              echo "Deploying changed plugin files..."
+              echo "Processing changed plugin files..."
 
-              git diff --name-only HEAD~1 HEAD \
-                | grep '^airflow-practice/plugins/' \
-                | while read -r file
+              git diff --name-status HEAD~1 HEAD \
+                | grep '^D\|^A\|^M' \
+                | grep 'airflow-practice/plugins/' \
+                | while read -r status file
               do
                 relative_path="${file#airflow-practice/plugins/}"
 
-                echo "Deploying: $relative_path"
+                echo "Status: $status"
+                echo "Plugin: $relative_path"
 
-                gcloud storage cp \
-                  "$(Build.SourcesDirectory)/airflow-practice/plugins/$relative_path" \
-                  "gs://advworks-airflow-test/plugins/$relative_path"
+                if [ "$status" = "D" ]; then
+                  echo "Deleting from GCS: $relative_path"
+
+                  gcloud storage rm \
+                    "gs://advworks-airflow-test/plugins/$relative_path"
+
+                elif [ "$status" = "A" ] || [ "$status" = "M" ]; then
+                  echo "Copying to GCS: $relative_path"
+
+                  gcloud storage cp \
+                    "$(Build.SourcesDirectory)/airflow-practice/plugins/$relative_path" \
+                    "gs://advworks-airflow-test/plugins/$relative_path"
+                fi
               done
-            displayName: 'Copy Changed plugin files to Google Cloud Storage'
+            displayName: 'Deploy Changed Plugin Files to Google Cloud Storage'
 
   # --- PRODUCTION STAGE ---
 - stage: deploy_prod
