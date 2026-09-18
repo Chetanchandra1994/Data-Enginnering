@@ -110,19 +110,31 @@ stages:
             displayName: 'Install gcloud SDK and authenticate'
 
           - script: |
-              echo "Deploying changed DAG files..."
+              echo "Processing changed DAG files..."
 
-              git diff --name-only HEAD~1 HEAD \
-                | grep '^airflow-practice/DAGS/' \
-                | while read -r file
+              git diff --name-status HEAD~1 HEAD \
+                | grep '^D\|^A\|^M' \
+                | grep 'airflow-practice/DAGS/' \
+                | while read -r status file
               do
                 relative_path="${file#airflow-practice/DAGS/}"
 
-                echo "Deploying: $relative_path"
+                echo "Status: $status"
+                echo "DAG: $relative_path"
 
-                gcloud storage cp \
-                  "$(Build.SourcesDirectory)/airflow-practice/DAGS/$relative_path" \
-                  "gs://advworks-airflow-test/dags/$relative_path"
+                if [ "$status" = "D" ]; then
+                  echo "Deleting from GCS: $relative_path"
+
+                  gcloud storage rm \
+                    "gs://advworks-airflow-test/dags/$relative_path"
+
+                elif [ "$status" = "A" ] || [ "$status" = "M" ]; then
+                  echo "Copying to GCS: $relative_path"
+
+                  gcloud storage cp \
+                    "$(Build.SourcesDirectory)/airflow-practice/DAGS/$relative_path" \
+                    "gs://advworks-airflow-test/dags/$relative_path"
+                fi
               done
             displayName: 'Copy Changed DAG files to Google Cloud Storage'
 
