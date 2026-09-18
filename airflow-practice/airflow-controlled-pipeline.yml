@@ -252,28 +252,57 @@ stages:
           - script: |
               echo "Processing changed DAG files..."
 
-              git diff --name-status HEAD~1 HEAD \
-                | grep '^D\|^A\|^M' \
-                | grep 'airflow-practice/DAGS/' \
-                | while read -r status file
+              git diff --name-status -M HEAD~1 HEAD \
+                | while read -r status old_path new_path
               do
-                relative_path="${file#airflow-practice/DAGS/}"
+                if [[ "$status" == R* ]]; then
+                  if [[ "$old_path" != airflow-practice/DAGS/* ]] || [[ "$new_path" != airflow-practice/DAGS/* ]]; then
+                    continue
+                  fi
 
-                echo "Status: $status"
-                echo "DAG: $relative_path"
+                  old_relative_path="${old_path#airflow-practice/DAGS/}"
+                  new_relative_path="${new_path#airflow-practice/DAGS/}"
 
-                if [ "$status" = "D" ]; then
-                  echo "Deleting from PROD GCS: $relative_path"
+                  echo "Status: $status"
+                  echo "Old DAG: $old_relative_path"
+                  echo "New DAG: $new_relative_path"
+
+                  echo "Deleting old DAG from PROD GCS: $old_relative_path"
 
                   gcloud storage rm \
-                    "gs://advworks-airflow-prod/dags/$relative_path"
+                    "gs://advworks-airflow-prod/dags/$old_relative_path"
 
-                elif [ "$status" = "A" ] || [ "$status" = "M" ]; then
-                  echo "Copying to PROD GCS: $relative_path"
+                  echo "Copying renamed DAG to PROD GCS: $new_relative_path"
 
                   gcloud storage cp \
-                    "$(Build.SourcesDirectory)/airflow-practice/DAGS/$relative_path" \
-                    "gs://advworks-airflow-prod/dags/$relative_path"
+                    "$(Build.SourcesDirectory)/airflow-practice/DAGS/$new_relative_path" \
+                    "gs://advworks-airflow-prod/dags/$new_relative_path"
+
+                elif [[ "$status" == "D" || "$status" == "A" || "$status" == "M" ]]; then
+                  file="$old_path"
+
+                  if [[ "$file" != airflow-practice/DAGS/* ]]; then
+                    continue
+                  fi
+
+                  relative_path="${file#airflow-practice/DAGS/}"
+
+                  echo "Status: $status"
+                  echo "DAG: $relative_path"
+
+                  if [ "$status" = "D" ]; then
+                    echo "Deleting from PROD GCS: $relative_path"
+
+                    gcloud storage rm \
+                      "gs://advworks-airflow-prod/dags/$relative_path"
+
+                  elif [ "$status" = "A" ] || [ "$status" = "M" ]; then
+                    echo "Copying to PROD GCS: $relative_path"
+
+                    gcloud storage cp \
+                      "$(Build.SourcesDirectory)/airflow-practice/DAGS/$relative_path" \
+                      "gs://advworks-airflow-prod/dags/$relative_path"
+                  fi
                 fi
               done
             displayName: 'Deploy Changed DAG Files to PROD Google Cloud Storage'
