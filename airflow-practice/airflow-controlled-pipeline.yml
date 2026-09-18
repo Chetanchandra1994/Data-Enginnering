@@ -250,6 +250,30 @@ stages:
             displayName: 'Deploy Changed DAG Files to PROD Google Cloud Storage'
 
           - script: |
-              echo "Copying files to GCS bucket..."
-              gcloud storage cp -r $(Build.SourcesDirectory)/airflow-practice/plugins/* gs://advworks-airflow-prod/plugins/
-            displayName: 'Copy plugins files to Google Cloud Storage'
+              echo "Processing changed plugin files..."
+
+              git diff --name-status HEAD~1 HEAD \
+                | grep '^D\|^A\|^M' \
+                | grep 'airflow-practice/plugins/' \
+                | while read -r status file
+              do
+                relative_path="${file#airflow-practice/plugins/}"
+
+                echo "Status: $status"
+                echo "Plugin: $relative_path"
+
+                if [ "$status" = "D" ]; then
+                  echo "Deleting from PROD GCS: $relative_path"
+
+                  gcloud storage rm \
+                    "gs://advworks-airflow-prod/plugins/$relative_path"
+
+                elif [ "$status" = "A" ] || [ "$status" = "M" ]; then
+                  echo "Copying to PROD GCS: $relative_path"
+
+                  gcloud storage cp \
+                    "$(Build.SourcesDirectory)/airflow-practice/plugins/$relative_path" \
+                    "gs://advworks-airflow-prod/plugins/$relative_path"
+                fi
+              done
+            displayName: 'Deploy Changed Plugin Files to PROD Google Cloud Storage'
