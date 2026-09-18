@@ -47,7 +47,7 @@ stages:
           -e PYTHONPATH=/workspace:/workspace/plugins \
           -e PYTEST_ADDOPTS="-p no:cacheprovider" \
           $(REGISTRY_URL_TEST)/$(IMAGE_PATH_TEST):latest \
-          bash -c "pip install -r requirements.txt -q"
+          bash -c "pip install -r requirements.txt -q && pytest Tests/ -v"
       displayName: 'Run Pytest inside pulled image'
 
   # --- TEST STAGE ---
