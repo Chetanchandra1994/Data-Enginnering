@@ -1,0 +1,130 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+---
+x-airflow-common:
+  &airflow-common
+  image: northamerica-northeast1-docker.pkg.dev/prj-n-cdp-ingestion/airflow/custom-airflow:162729
+  environment:
+    &airflow-common-env
+    #AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    # CORRECTED: Moved connection string to the [database] section
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__BROKER_URL: amqp://airflow:airflow@rabbitmq:5672/
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
+    # IMPORTANT: Generate a key with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+    AIRFLOW__CORE__FERNET_KEY: '8_4t1Ld5YV7sS3k9n-Bv2pXgZc1R0fHwJmNlUa6I7oQ='
+    AIRFLOW__WEBSERVER__SECRET_KEY: 'some_very_long_permanent_random_string'
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 10
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    # CORRECTED: Renamed 'auth_backend' to 'auth_backends'
+    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+    AIRFLOW__WEBSERVER__BASE_URL: 'http://localhost:8080'
+    AIRFLOW__METRICS__TIMER_UNIT_CONSISTENCY: 'true'
+    AIRFLOW__LOGGING__LOGGING_CONFIG_CLASS: 'log_config.LOGGING_CONFIG'
+    PYTHONWARNINGS: "ignore:Number field should not be instantiated,ignore:invalid escape sequence"
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+    - ./config:/opt/airflow/config
+    - ${appdata}/gcloud:/home/airflow/.config/gcloud
+    #The 2 following volume can be uncommented to use Okta Portal Developper. You must properly configure webserver_config.py
+    #- ./webserver_config.py:/opt/airflow/webserver_config.py
+    # ./config.ini:/opt/airflow/config.ini
+
+  user: airflow
+  depends_on:
+    postgres:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+    restart: always
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: airflow
+      RABBITMQ_DEFAULT_PASS: airflow
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running", "-q"]
+      interval: 10s
+      retries: 5
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - 8080:8080
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: always
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: always
+  
+  airflow-worker:
+    <<: *airflow-common
+    command: celery worker
+    restart: always
+
+  airflow-triggerer:
+    <<: *airflow-common
+    command: triggerer
+    restart: always
+
+  airflow-init:
+    <<: *airflow-common
+    # CORRECTED: The command now runs the database migration and creates an admin user
+    command: >
+      bash -c "
+        airflow db upgrade
+      "
+    # NOTE: The environment variables for user creation are handled by the command now
+    # The _AIRFLOW_DB_MIGRATE variable is no longer needed as we run the command directly
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_MIGRATE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-admin}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-admin}
+
+volumes:
+  postgres-db-volume:

@@ -1,0 +1,39 @@
+from airflow import DAG
+from datetime import datetime
+
+from operators.extraction import ExtractionOperator
+from connectors.api.source.rabbitmq_source_connector import RabbitMQSourceConnector
+from connectors.cloud.target.gcs_target_connector import GCSTargetConnector
+
+with DAG(
+    dag_id='on_prem_rabbit_to_gcs_v2',
+    description='Simplified DAG using polymorphic extraction architecture',
+    schedule_interval=None,
+    start_date=datetime(2025, 1, 1),
+    catchup=False,
+    tags=['rabbitmq', 'gcs', 'salesman'],
+) as dag:    
+
+    # 1. Define the Source (RabbitMQ)
+    # This connector handles message consumption and sanitization.
+    rabbit_source = RabbitMQSourceConnector(
+        conn_id='amqp',
+        queue_name='spm.salesman.airflow',
+        batch_size=500
+    )
+
+    # 2. Define the Target (GCS)
+    # This connector handles project/bucket resolution and uploads.
+    gcs_target = GCSTargetConnector(
+        conn_id='gcs-bucket-project',
+        table_name='salesman',
+        gcs_path='raw/local_test'
+    )
+
+    # 3. Use the Orchestrator (ExtractionOperator)
+    # It manages the lifecycle and the handoff between source and target.
+    consume_and_upload = ExtractionOperator(
+        task_id='consume_and_upload',
+        source=rabbit_source,
+        targets=[gcs_target]  # Note: Wrapped in a list to support C2 pipeline logic.
+    )

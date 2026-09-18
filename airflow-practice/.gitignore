@@ -1,0 +1,7 @@
+logs/*
+*/*/__pycache__/*
+*/*/*/__pycache__/*
+**/__pycache__/
+config.ini
+airflow.cfg
+.pytest_cache

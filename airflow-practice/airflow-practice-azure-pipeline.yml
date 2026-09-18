@@ -1,0 +1,670 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - "*"
+
+variables:
+  - name: python_version
+    value: "3.10"
+
+  - name: GCP_PROJECT_ID
+    value: "electric-tesla-507710-k2"
+
+  - name: GCS_AIRFLOW_TEST_BUCKET
+    value: "advworks-airflow-test"
+
+  - name: GCS_AIRFLOW_PROD_BUCKET
+    value: "advworks-airflow-prod"
+
+stages:
+
+# ==================================================================================================
+# 1. PR / UNIT TESTS
+# ==================================================================================================
+
+  - stage: unit_tests
+    displayName: "1. PR Unit Tests"
+
+    jobs:
+
+      - job: validate_and_test
+        displayName: "Validate Selector and Run Tests"
+
+        pool:
+          vmImage: "ubuntu-latest"
+
+        steps:
+
+          - checkout: self
+
+          # ------------------------------------------------------------------------------------------
+          # Validate Airflow deployment selector
+          # ------------------------------------------------------------------------------------------
+
+          - script: |
+              python -m pip install pyyaml -q
+
+              python - <<'PY'
+              import os
+              import re
+              import yaml
+
+              title = os.environ.get("SYSTEM_PULLREQUEST_TITLE", "")
+
+              print(f"PR title: {title}")
+
+              match = re.search(
+                  r"\s*-\s*Airflow_selector:([A-Za-z0-9_-]+)\s*$",
+                  title
+              )
+
+              if not match:
+                  raise SystemExit(
+                      "ERROR: PR title must end with "
+                      "' - Airflow_selector:<selector_name>'"
+                  )
+
+              selector = match.group(1)
+
+              with open("selectors.yml", encoding="utf-8") as f:
+                  config = yaml.safe_load(f)
+
+              selectors = config.get("selectors", {})
+
+              if selector not in selectors:
+
+                  print("Available selectors:")
+
+                  for name in sorted(selectors):
+                      print(f"  - {name}")
+
+                  raise SystemExit(
+                      f"ERROR: Unknown Airflow selector: {selector}"
+                  )
+
+              print(f"Valid Airflow selector: {selector}")
+
+              print("Configured paths:")
+
+              for path in selectors[selector]:
+                  print(f"  - {path}")
+              PY
+
+            displayName: "Validate Airflow Deployment Selector"
+
+          # ------------------------------------------------------------------------------------------
+          # Install Python dependencies
+          # ------------------------------------------------------------------------------------------
+
+          - script: |
+              python -m pip install --upgrade pip
+              pip install -r requirements.txt
+              pip install pytest pyyaml
+
+            displayName: "Install Python Dependencies"
+
+          # ------------------------------------------------------------------------------------------
+          # Run tests
+          # ------------------------------------------------------------------------------------------
+
+          - script: |
+              pytest Tests/ -v
+
+            displayName: "Run Airflow Tests"
+
+
+# ==================================================================================================
+# 2. RESOLVE SELECTOR AFTER MERGE
+# ==================================================================================================
+
+  - stage: ResolveSelector
+    displayName: "2. Resolve Deployment Selector"
+
+    dependsOn: unit_tests
+
+    condition: and(
+      succeeded(),
+      eq(variables['Build.SourceBranch'], 'refs/heads/main')
+    )
+
+    jobs:
+
+      - job: ResolveAirflowSelector
+        displayName: "Resolve Selector from Merged PR"
+
+        pool:
+          vmImage: "ubuntu-latest"
+
+        steps:
+
+          - checkout: self
+            fetchDepth: 0
+
+          - script: |
+              python -m pip install pyyaml -q
+
+            displayName: "Install YAML Parser"
+
+          - task: PythonScript@0
+            displayName: "Resolve Selector and Create Manifest"
+            env:
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+            inputs:
+              scriptSource: "inline"
+              script: |
+                import os
+                import re
+                import urllib.parse
+                import urllib.request
+                import base64
+                import yaml
+                from pathlib import Path
+
+                organization_url = os.environ["SYSTEM_COLLECTIONURI"]
+                project = os.environ["SYSTEM_TEAMPROJECT"]
+                repository_id = os.environ["BUILD_REPOSITORY_ID"]
+                source_version = os.environ["BUILD_SOURCEVERSION"]
+                access_token = os.environ["SYSTEM_ACCESSTOKEN"]
+
+                print(f"Organization: {organization_url}")
+                print(f"Project: {project}")
+                print(f"Repository: {repository_id}")
+                print(f"Merge commit: {source_version}")
+
+                api_url = (
+                    f"{organization_url}{urllib.parse.quote(project)}/_apis/git/"
+                    f"repositories/{repository_id}/pullrequests"
+                    f"?searchCriteria.status=completed"
+                    f"&searchCriteria.targetRefName=refs/heads/main"
+                    f"&$top=100"
+                    f"&api-version=7.1"
+                )
+
+                token = base64.b64encode(
+                    f":{access_token}".encode()
+                ).decode()
+
+                request = urllib.request.Request(api_url)
+
+                request.add_header(
+                    "Authorization",
+                    f"Basic {token}"
+                )
+
+                request.add_header(
+                    "Content-Type",
+                    "application/json"
+                )
+
+                with urllib.request.urlopen(request) as response:
+                    data = response.read()
+
+                prs = __import__("json").loads(data)["value"]
+
+                matched_pr = None
+
+                for pr in prs:
+
+                    merge_commit = pr.get("lastMergeCommit")
+
+                    if not merge_commit:
+                        continue
+
+                    if merge_commit.get("commitId") == source_version:
+                        matched_pr = pr
+                        break
+
+                if not matched_pr:
+                    raise SystemExit(
+                        "ERROR: Could not find the completed PR "
+                        "that produced this main commit."
+                    )
+
+                title = matched_pr["title"]
+
+                print(f"Matched PR: #{matched_pr['pullRequestId']}")
+                print(f"PR title: {title}")
+
+                match = re.search(
+                    r"\s*-\s*Airflow_selector:([A-Za-z0-9_-]+)\s*$",
+                    title
+                )
+
+                if not match:
+                    raise SystemExit(
+                        "ERROR: Merged PR title does not contain a valid "
+                        "Airflow selector."
+                    )
+
+                selector = match.group(1)
+
+                print(f"Resolved selector: {selector}")
+
+                with open("selectors.yml", encoding="utf-8") as f:
+                    config = yaml.safe_load(f)
+
+                selectors = config.get("selectors", {})
+
+                if selector not in selectors:
+                    raise SystemExit(
+                        f"ERROR: Unknown Airflow selector: {selector}"
+                    )
+
+                patterns = selectors[selector]
+
+                selected_files = set()
+
+                for pattern in patterns:
+
+                    print(f"Resolving selector pattern: {pattern}")
+
+                    if "**" in pattern:
+
+                        base_path = pattern.split("**", 1)[0]
+                        base = Path(base_path)
+
+                        if not base.exists():
+                            raise SystemExit(
+                                f"ERROR: Selector base path does not exist: "
+                                f"{base_path}"
+                            )
+
+                        matches = base.rglob("*")
+
+                    else:
+
+                        matches = Path(".").glob(pattern)
+
+                    found = False
+
+                    for file in matches:
+
+                        if not file.is_file():
+                            continue
+
+                        relative = file.as_posix().lstrip("./")
+
+                        if (
+                            relative.startswith("DAGS/")
+                            or relative.startswith("plugins/")
+                        ):
+                            selected_files.add(relative)
+                            found = True
+
+                    if not found:
+                        raise SystemExit(
+                            f"ERROR: Selector path matched no deployable files: "
+                            f"{pattern}"
+                        )
+
+                if not selected_files:
+                    raise SystemExit(
+                        f"ERROR: Selector '{selector}' resolved to no files."
+                    )
+
+                manifest = (
+                    Path(os.environ["PIPELINE_WORKSPACE"])
+                    / "airflow-deployment-manifest.txt"
+                )
+
+                with manifest.open("w", encoding="utf-8") as f:
+
+                    for file in sorted(selected_files):
+                        f.write(file + "\n")
+
+                print("")
+                print("==========================================")
+                print("Airflow Deployment Manifest")
+                print("==========================================")
+
+                for file in sorted(selected_files):
+                    print(file)
+
+                print("")
+                print(f"Total files: {len(selected_files)}")
+
+          - task: PublishPipelineArtifact@1
+            displayName: "Publish Airflow Deployment Manifest"
+            inputs:
+              targetPath: "$(Pipeline.Workspace)/airflow-deployment-manifest.txt"
+              artifact: "airflow-deployment-manifest"
+
+
+# ==================================================================================================
+# 3. DEPLOY TO TEST
+# ==================================================================================================
+
+  - stage: deploy_test
+    displayName: "3. Deploy Airflow to TEST"
+
+    dependsOn: ResolveSelector
+
+    condition: and(
+      succeeded(),
+      eq(variables['Build.SourceBranch'], 'refs/heads/main')
+    )
+
+    jobs:
+
+      - deployment: DeployAirflowTest
+
+        displayName: "Deploy Selected Files to TEST"
+
+        environment: "Test - Airflow DAGS"
+
+        strategy:
+
+          runOnce:
+
+            deploy:
+
+              steps:
+
+                - checkout: self
+
+                - download: current
+                  artifact: airflow-deployment-manifest
+
+                # ----------------------------------------------------------------------------------
+                # Authenticate to GCP using Azure DevOps Workload Identity Federation
+                # ----------------------------------------------------------------------------------
+
+                - task: AzureCLI@2
+                  displayName: "Authenticate to GCP using WIF"
+
+                  inputs:
+                    azureSubscription: "google-cloud-wif"
+                    addSpnToEnvironment: true
+                    scriptType: "bash"
+                    scriptLocation: "inlineScript"
+
+                    inlineScript: |
+
+                      echo "$idToken" > "$(Pipeline.Workspace)/.workload_identity.jwt"
+
+                      cat > "$(Pipeline.Workspace)/.workload_identity.wlconfig" <<EOF
+                      {
+                        "type": "external_account",
+                        "audience": "//iam.googleapis.com/projects/776178390591/locations/global/workloadIdentityPools/azure-devops-pool/providers/azure-devops-provider",
+                        "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                        "token_url": "https://sts.googleapis.com/v1/token",
+                        "credential_source": {
+                          "file": "$(Pipeline.Workspace)/.workload_identity.jwt",
+                          "format": {
+                            "type": "text"
+                          }
+                        },
+                        "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com:generateAccessToken"
+                      }
+                      EOF
+
+                      export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                      gcloud auth login \
+                        --cred-file="$GOOGLE_APPLICATION_CREDENTIALS" \
+                        --quiet
+
+                      gcloud config set project "$(GCP_PROJECT_ID)"
+
+                      echo "GCP authentication successful."
+
+                      echo "##vso[task.setvariable variable=GOOGLE_APPLICATION_CREDENTIALS]$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                # ----------------------------------------------------------------------------------
+                # Validate TEST bucket
+                # ----------------------------------------------------------------------------------
+
+                - script: |
+
+                    export GOOGLE_APPLICATION_CREDENTIALS="$(GOOGLE_APPLICATION_CREDENTIALS)"
+
+                    echo "Validating TEST bucket..."
+
+                    gcloud storage ls \
+                      "gs://$(GCS_AIRFLOW_TEST_BUCKET)/"
+
+                  displayName: "Validate TEST Airflow Bucket"
+
+                # ----------------------------------------------------------------------------------
+                # Deploy manifest to TEST
+                # ----------------------------------------------------------------------------------
+
+                - script: |
+
+                    export GOOGLE_APPLICATION_CREDENTIALS="$(GOOGLE_APPLICATION_CREDENTIALS)"
+
+                    MANIFEST="$(Pipeline.Workspace)/airflow-deployment-manifest/airflow-deployment-manifest.txt"
+
+                    echo "Deploying selected Airflow files to TEST..."
+
+                    while IFS= read -r FILE
+                    do
+
+                      if [ -z "$FILE" ]; then
+                        continue
+                      fi
+
+                      SOURCE="$(Build.SourcesDirectory)/$FILE"
+
+                      if [[ "$FILE" == DAGS/* ]]; then
+
+                        RELATIVE="${FILE#DAGS/}"
+
+                        TARGET="gs://$(GCS_AIRFLOW_TEST_BUCKET)/dags/$RELATIVE"
+
+                      elif [[ "$FILE" == plugins/* ]]; then
+
+                        RELATIVE="${FILE#plugins/}"
+
+                        TARGET="gs://$(GCS_AIRFLOW_TEST_BUCKET)/plugins/$RELATIVE"
+
+                      else
+
+                        echo "ERROR: Unsupported deployment path: $FILE"
+                        exit 1
+
+                      fi
+
+                      echo "Deploying:"
+                      echo "  Source: $SOURCE"
+                      echo "  Target: $TARGET"
+
+                      gcloud storage cp "$SOURCE" "$TARGET"
+
+                    done < "$MANIFEST"
+
+                    echo "TEST deployment completed."
+
+                  displayName: "Deploy Selected Files to TEST"
+
+                # ----------------------------------------------------------------------------------
+                # Validate TEST deployment
+                # ----------------------------------------------------------------------------------
+
+                - script: |
+
+                    export GOOGLE_APPLICATION_CREDENTIALS="$(GOOGLE_APPLICATION_CREDENTIALS)"
+
+                    echo "TEST DAG files:"
+                    gcloud storage ls \
+                      "gs://$(GCS_AIRFLOW_TEST_BUCKET)/dags/"
+
+                    echo ""
+                    echo "TEST plugin files:"
+                    gcloud storage ls \
+                      "gs://$(GCS_AIRFLOW_TEST_BUCKET)/plugins/"
+
+                  displayName: "Validate TEST Deployment"
+
+
+# ==================================================================================================
+# 4. DEPLOY TO PROD
+# ==================================================================================================
+
+  - stage: deploy_prod
+    displayName: "4. Deploy Airflow to PROD"
+
+    dependsOn: deploy_test
+
+    condition: and(
+      succeeded(),
+      eq(variables['Build.SourceBranch'], 'refs/heads/main')
+    )
+
+    jobs:
+
+      - deployment: DeployAirflowProd
+
+        displayName: "Deploy Selected Files to PROD"
+
+        environment: "Prod - Airflow DAGS"
+
+        strategy:
+
+          runOnce:
+
+            deploy:
+
+              steps:
+
+                - checkout: self
+
+                - download: current
+                  artifact: airflow-deployment-manifest
+
+                # ----------------------------------------------------------------------------------
+                # Authenticate to GCP using WIF
+                # ----------------------------------------------------------------------------------
+
+                - task: AzureCLI@2
+                  displayName: "Authenticate to GCP using WIF"
+
+                  inputs:
+                    azureSubscription: "google-cloud-wif"
+                    addSpnToEnvironment: true
+                    scriptType: "bash"
+                    scriptLocation: "inlineScript"
+
+                    inlineScript: |
+
+                      echo "$idToken" > "$(Pipeline.Workspace)/.workload_identity.jwt"
+
+                      cat > "$(Pipeline.Workspace)/.workload_identity.wlconfig" <<EOF
+                      {
+                        "type": "external_account",
+                        "audience": "//iam.googleapis.com/projects/776178390591/locations/global/workloadIdentityPools/azure-devops-pool/providers/azure-devops-provider",
+                        "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                        "token_url": "https://sts.googleapis.com/v1/token",
+                        "credential_source": {
+                          "file": "$(Pipeline.Workspace)/.workload_identity.jwt",
+                          "format": {
+                            "type": "text"
+                          }
+                        },
+                        "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com:generateAccessToken"
+                      }
+                      EOF
+
+                      export GOOGLE_APPLICATION_CREDENTIALS="$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                      gcloud auth login \
+                        --cred-file="$GOOGLE_APPLICATION_CREDENTIALS" \
+                        --quiet
+
+                      gcloud config set project "$(GCP_PROJECT_ID)"
+
+                      echo "GCP authentication successful."
+
+                      echo "##vso[task.setvariable variable=GOOGLE_APPLICATION_CREDENTIALS]$(Pipeline.Workspace)/.workload_identity.wlconfig"
+
+                # ----------------------------------------------------------------------------------
+                # Validate PROD bucket
+                # ----------------------------------------------------------------------------------
+
+                - script: |
+
+                    export GOOGLE_APPLICATION_CREDENTIALS="$(GOOGLE_APPLICATION_CREDENTIALS)"
+
+                    echo "Validating PROD bucket..."
+
+                    gcloud storage ls \
+                      "gs://$(GCS_AIRFLOW_PROD_BUCKET)/"
+
+                  displayName: "Validate PROD Airflow Bucket"
+
+                # ----------------------------------------------------------------------------------
+                # Deploy EXACT SAME manifest used by TEST
+                # ----------------------------------------------------------------------------------
+
+                - script: |
+
+                    export GOOGLE_APPLICATION_CREDENTIALS="$(GOOGLE_APPLICATION_CREDENTIALS)"
+
+                    MANIFEST="$(Pipeline.Workspace)/airflow-deployment-manifest/airflow-deployment-manifest.txt"
+
+                    echo "Deploying selected Airflow files to PROD..."
+
+                    while IFS= read -r FILE
+                    do
+
+                      if [ -z "$FILE" ]; then
+                        continue
+                      fi
+
+                      SOURCE="$(Build.SourcesDirectory)/$FILE"
+
+                      if [[ "$FILE" == DAGS/* ]]; then
+
+                        RELATIVE="${FILE#DAGS/}"
+
+                        TARGET="gs://$(GCS_AIRFLOW_PROD_BUCKET)/dags/$RELATIVE"
+
+                      elif [[ "$FILE" == plugins/* ]]; then
+
+                        RELATIVE="${FILE#plugins/}"
+
+                        TARGET="gs://$(GCS_AIRFLOW_PROD_BUCKET)/plugins/$RELATIVE"
+
+                      else
+
+                        echo "ERROR: Unsupported deployment path: $FILE"
+                        exit 1
+
+                      fi
+
+                      echo "Deploying:"
+                      echo "  Source: $SOURCE"
+                      echo "  Target: $TARGET"
+
+                      gcloud storage cp "$SOURCE" "$TARGET"
+
+                    done < "$MANIFEST"
+
+                    echo "PROD deployment completed."
+
+                  displayName: "Deploy Selected Files to PROD"
+
+                # ----------------------------------------------------------------------------------
+                # Validate PROD deployment
+                # ----------------------------------------------------------------------------------
+
+                - script: |
+
+                    export GOOGLE_APPLICATION_CREDENTIALS="$(GOOGLE_APPLICATION_CREDENTIALS)"
+
+                    echo "PROD DAG files:"
+                    gcloud storage ls \
+                      "gs://$(GCS_AIRFLOW_PROD_BUCKET)/dags/"
+
+                    echo ""
+                    echo "PROD plugin files:"
+                    gcloud storage ls \
+                      "gs://$(GCS_AIRFLOW_PROD_BUCKET)/plugins/"
+
+                  displayName: "Validate PROD Deployment"
