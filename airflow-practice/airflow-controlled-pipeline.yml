@@ -70,7 +70,20 @@ stages:
           - script: |
               echo "Changed files:"
               git diff --name-only HEAD~1 HEAD
-            displayName: 'Detect Changed Files'
+
+              echo ""
+              echo "Changed DAGS:"
+              git diff --name-only HEAD~1 HEAD | grep '^airflow-practice/DAGS/' || true
+
+              echo ""
+              echo "Changed plugins:"
+              git diff --name-only HEAD~1 HEAD | grep '^airflow-practice/plugins/' || true
+
+              echo ""
+              echo "Other changed files:"
+              git diff --name-only HEAD~1 HEAD | grep -vE '^airflow-practice/(DAGS|plugins)/' || true
+
+            displayName: 'Detect and Classify Changed Files'
 ############################################################################################################
 
           - task: DownloadSecureFile@1
