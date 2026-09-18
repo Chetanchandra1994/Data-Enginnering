@@ -170,28 +170,57 @@ stages:
           - script: |
               echo "Processing changed plugin files..."
 
-              git diff --name-status HEAD~1 HEAD \
-                | grep '^D\|^A\|^M' \
-                | grep 'airflow-practice/plugins/' \
-                | while read -r status file
+              git diff --name-status -M HEAD~1 HEAD \
+                | while read -r status old_path new_path
               do
-                relative_path="${file#airflow-practice/plugins/}"
+                if [[ "$status" == R* ]]; then
+                  if [[ "$old_path" != airflow-practice/plugins/* ]] || [[ "$new_path" != airflow-practice/plugins/* ]]; then
+                    continue
+                  fi
 
-                echo "Status: $status"
-                echo "Plugin: $relative_path"
+                  old_relative_path="${old_path#airflow-practice/plugins/}"
+                  new_relative_path="${new_path#airflow-practice/plugins/}"
 
-                if [ "$status" = "D" ]; then
-                  echo "Deleting from GCS: $relative_path"
+                  echo "Status: $status"
+                  echo "Old Plugin: $old_relative_path"
+                  echo "New Plugin: $new_relative_path"
+
+                  echo "Deleting old plugin from GCS: $old_relative_path"
 
                   gcloud storage rm \
-                    "gs://advworks-airflow-test/plugins/$relative_path"
+                    "gs://advworks-airflow-test/plugins/$old_relative_path"
 
-                elif [ "$status" = "A" ] || [ "$status" = "M" ]; then
-                  echo "Copying to GCS: $relative_path"
+                  echo "Copying renamed plugin to GCS: $new_relative_path"
 
                   gcloud storage cp \
-                    "$(Build.SourcesDirectory)/airflow-practice/plugins/$relative_path" \
-                    "gs://advworks-airflow-test/plugins/$relative_path"
+                    "$(Build.SourcesDirectory)/airflow-practice/plugins/$new_relative_path" \
+                    "gs://advworks-airflow-test/plugins/$new_relative_path"
+
+                elif [[ "$status" == "D" || "$status" == "A" || "$status" == "M" ]]; then
+                  file="$old_path"
+
+                  if [[ "$file" != airflow-practice/plugins/* ]]; then
+                    continue
+                  fi
+
+                  relative_path="${file#airflow-practice/plugins/}"
+
+                  echo "Status: $status"
+                  echo "Plugin: $relative_path"
+
+                  if [ "$status" = "D" ]; then
+                    echo "Deleting from GCS: $relative_path"
+
+                    gcloud storage rm \
+                      "gs://advworks-airflow-test/plugins/$relative_path"
+
+                  elif [ "$status" = "A" ] || [ "$status" = "M" ]; then
+                    echo "Copying to GCS: $relative_path"
+
+                    gcloud storage cp \
+                      "$(Build.SourcesDirectory)/airflow-practice/plugins/$relative_path" \
+                      "gs://advworks-airflow-test/plugins/$relative_path"
+                  fi
                 fi
               done
             displayName: 'Deploy Changed Plugin Files to Google Cloud Storage'
