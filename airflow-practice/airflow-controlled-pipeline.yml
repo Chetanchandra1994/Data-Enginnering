@@ -69,7 +69,7 @@ stages:
 ############ 1. Detect changed files ############  for  controlled deployment   ##############################
           - script: |
               echo "Changed files:"
-              git diff --name-only HEAD~1 HEAD
+              git diff --name-status HEAD~1 HEAD
 
               echo ""
               echo "Changed DAGS:"
