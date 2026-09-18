@@ -221,9 +221,33 @@ stages:
             displayName: 'Authenticate with GCP'
 
           - script: |
-              echo "Copying files to GCS bucket..."
-              gcloud storage cp -r $(Build.SourcesDirectory)/airflow-practice/DAGS/* gs://advworks-airflow-prod/dags/
-            displayName: 'Copy DAG files to Google Cloud Storage'
+              echo "Processing changed DAG files..."
+
+              git diff --name-status HEAD~1 HEAD \
+                | grep '^D\|^A\|^M' \
+                | grep 'airflow-practice/DAGS/' \
+                | while read -r status file
+              do
+                relative_path="${file#airflow-practice/DAGS/}"
+
+                echo "Status: $status"
+                echo "DAG: $relative_path"
+
+                if [ "$status" = "D" ]; then
+                  echo "Deleting from PROD GCS: $relative_path"
+
+                  gcloud storage rm \
+                    "gs://advworks-airflow-prod/dags/$relative_path"
+
+                elif [ "$status" = "A" ] || [ "$status" = "M" ]; then
+                  echo "Copying to PROD GCS: $relative_path"
+
+                  gcloud storage cp \
+                    "$(Build.SourcesDirectory)/airflow-practice/DAGS/$relative_path" \
+                    "gs://advworks-airflow-prod/dags/$relative_path"
+                fi
+              done
+            displayName: 'Deploy Changed DAG Files to PROD Google Cloud Storage'
 
           - script: |
               echo "Copying files to GCS bucket..."
