@@ -39,3 +39,10 @@ Thumbs.db
 # Secrets and environment variables
 .env
 *.env
+# GCP service account key
+practice-gcp-service-account.json
+
+# Airflow runtime
+airflow/logs/
+airflow/airflow.db
+airflow/.airflow/

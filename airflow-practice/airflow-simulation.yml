@@ -1,0 +1,115 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - "*"
+
+variables:
+- name: python_version
+  value: '3.10'
+
+- name: REGISTRY_URL_TEST
+  value: 'northamerica-northeast1-docker.pkg.dev'
+
+- name: IMAGE_PATH_TEST
+  value: 'electric-tesla-507710-k2/airflow/custom-airflow'
+
+stages:
+
+- stage: unit_tests
+  displayName: 'PR Unit Tests'
+  jobs:
+  - job: manual_container_test
+    displayName: 'Run Tests in Docker'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+    - task: DownloadSecureFile@1
+      name: test_key
+      inputs:
+        secureFile: 'practice-gcp-service-account.json'
+    - script: |
+        cat $(test_key.secureFilePath) | docker login -u _json_key --password-stdin https://$(REGISTRY_URL_TEST)
+        docker pull $(REGISTRY_URL_TEST)/$(IMAGE_PATH_TEST):latest
+      displayName: 'Docker Login and Pull'
+    - script: |
+        docker run --rm \
+          -v $(Build.SourcesDirectory)/airflow-practice:/workspace \
+          -w /workspace \
+          -e PYTHONPATH=/workspace:/workspace/plugins \
+          -e PYTEST_ADDOPTS="-p no:cacheprovider" \
+          $(REGISTRY_URL_TEST)/$(IMAGE_PATH_TEST):latest \
+          bash -c "pip install -r requirements.txt -q && pytest Tests/ -v"
+      displayName: 'Run Pytest inside pulled image'
+
+- stage: deploy_test
+  displayName: 'Copy Airflow DAGS to Test Environment'
+  dependsOn: unit_tests
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: copy_files
+    displayName: 'Copy Files to Test Bucket'
+    environment: 'TEST - Airflow DAGS'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+            fetchDepth: 0
+          - task: DownloadSecureFile@1
+            name: google_application_credentials
+            inputs:
+              secureFile: 'practice-gcp-service-account.json'
+            displayName: 'Download GCP Json Key'
+          - script: |
+              chmod 600 $(google_application_credentials.secureFilePath)
+              echo "##vso[task.setvariable variable=GOOGLE_APPLICATION_CREDENTIALS]$(google_application_credentials.secureFilePath)"
+            displayName: 'Set Secret Variables'
+          - script: |
+              echo "Installing Google Cloud SDK..."
+              curl -sSL https://sdk.cloud.google.com | bash
+              gcloud auth activate-service-account --key-file=$(google_application_credentials.secureFilePath)
+            displayName: 'Install gcloud SDK and authenticate'
+          - script: |
+              echo "Copying files to GCS bucket..."
+              gcloud storage cp -r $(Build.SourcesDirectory)/airflow-practice/DAGS/* gs://advworks-airflow-test/dags/
+            displayName: 'Copy DAG files to Google Cloud Storage'
+          - script: |
+              echo "Copying files to GCS bucket..."
+              gcloud storage cp -r $(Build.SourcesDirectory)/airflow-practice/plugins/* gs://advworks-airflow-test/plugins/
+            displayName: 'Copy plugins files to Google Cloud Storage'
+
+- stage: deploy_prod
+  displayName: 'Copy Airflow DAGS to PROD Environment'
+  dependsOn: deploy_test
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: sync_to_prod
+    displayName: 'Full Sync to Prod'
+    environment: 'PROD - Airflow DAGS'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+          - task: DownloadSecureFile@1
+            name: google_application_credentials
+            inputs:
+              secureFile: 'practice-gcp-service-account.json'
+            displayName: 'Download GCP Json Key'
+          - script: |
+              gcloud auth activate-service-account --key-file=$(google_application_credentials.secureFilePath)
+            displayName: 'Authenticate with GCP'
+          - script: |
+              echo "Copying files to GCS bucket..."
+              gcloud storage cp -r $(Build.SourcesDirectory)/airflow-practice/DAGS/* gs://advworks-airflow-prod/dags/
+            displayName: 'Copy DAG files to Google Cloud Storage'
+          - script: |
+              echo "Copying files to GCS bucket..."
+              gcloud storage cp -r $(Build.SourcesDirectory)/airflow-practice/plugins/* gs://advworks-airflow-prod/plugins/
+            displayName: 'Copy plugins files to Google Cloud Storage'
