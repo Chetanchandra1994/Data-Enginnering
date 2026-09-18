@@ -182,6 +182,33 @@ stages:
         deploy:
           steps:
           - checkout: self
+            fetchDepth: 0
+
+############ 1. Detect changed files ############  for  controlled deployment   ##############################
+          - script: |
+              echo "Changed files:"
+              git diff --name-status HEAD~1 HEAD
+
+              echo ""
+              echo "Changed DAGS:"
+              git diff --name-only HEAD~1 HEAD | grep '^airflow-practice/DAGS/' || true
+
+              echo ""
+              echo "Changed DAG relative paths:"
+              git diff --name-only HEAD~1 HEAD \
+                | grep '^airflow-practice/DAGS/' \
+                | sed 's#^airflow-practice/DAGS/##' || true
+
+              echo ""
+              echo "Changed plugins:"
+              git diff --name-only HEAD~1 HEAD | grep '^airflow-practice/plugins/' || true
+
+              echo ""
+              echo "Other changed files:"
+              git diff --name-only HEAD~1 HEAD | grep -vE '^airflow-practice/(DAGS|plugins)/' || true
+
+            displayName: 'Detect and Classify Changed Files'
+############################################################################################################          
 
           - task: DownloadSecureFile@1
             name: google_application_credentials
