@@ -56,7 +56,7 @@ stages:
   dependsOn: unit_tests
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   jobs:
-  - deployment: copy_files
+  - deployment: sync_to_test
     displayName: 'Copy Files to Test Bucket'
     environment: 'TEST - Airflow DAGS'
     strategy:
@@ -141,7 +141,7 @@ stages:
                     echo "Old DAG is already absent from TEST: $old_relative_path"
                   fi
 
-                  echo "Copying renamed DAG to GCS: $new_relative_path"
+                  echo "Copying renamed DAG to Test GCS: $new_relative_path"
 
                   gcloud storage cp \
                     "$(Build.SourcesDirectory)/airflow-practice/DAGS/$new_relative_path" \
@@ -175,7 +175,7 @@ stages:
                     fi
 
                   elif [ "$status" = "A" ] || [ "$status" = "M" ]; then
-                    echo "Copying to GCS: $relative_path"
+                    echo "Copying to Test GCS: $relative_path"
 
                     gcloud storage cp \
                       "$(Build.SourcesDirectory)/airflow-practice/DAGS/$relative_path" \
@@ -217,7 +217,7 @@ stages:
                     echo "Old plugin is already absent from TEST: $old_relative_path"
                   fi
 
-                  echo "Copying renamed plugin to GCS: $new_relative_path"
+                  echo "Copying renamed plugin to Test GCS: $new_relative_path"
 
                   gcloud storage cp \
                     "$(Build.SourcesDirectory)/airflow-practice/plugins/$new_relative_path" \
@@ -259,7 +259,7 @@ stages:
                   fi
                 fi
               done
-            displayName: 'Deploy Changed Plugin Files to Google Cloud Storage'
+            displayName: 'Deploy Changed Plugin Files to Test Google Cloud Storage'
 
   # --- PRODUCTION STAGE ---
 - stage: deploy_prod
@@ -269,7 +269,7 @@ stages:
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   jobs:
   - deployment: sync_to_prod
-    displayName: 'Full Sync to Prod'
+    displayName: 'Deploy Changed Files to PROD'
     environment: 'PROD - Airflow DAGS'
     strategy:
       runOnce:
