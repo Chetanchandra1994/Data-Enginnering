@@ -185,10 +185,19 @@ stages:
                   echo "Old Plugin: $old_relative_path"
                   echo "New Plugin: $new_relative_path"
 
-                  echo "Deleting old plugin from GCS: $old_relative_path"
+                  echo "Checking old plugin in TEST GCS: $old_relative_path"
 
-                  gcloud storage rm \
-                    "gs://advworks-airflow-test/plugins/$old_relative_path"
+                  if gcloud storage ls \
+                    "gs://advworks-airflow-test/plugins/$old_relative_path" \
+                    >/dev/null 2>&1
+                  then
+                    echo "Old plugin exists in TEST. Deleting: $old_relative_path"
+
+                    gcloud storage rm \
+                      "gs://advworks-airflow-test/plugins/$old_relative_path"
+                  else
+                    echo "Old plugin is already absent from TEST: $old_relative_path"
+                  fi
 
                   echo "Copying renamed plugin to GCS: $new_relative_path"
 
@@ -209,10 +218,19 @@ stages:
                   echo "Plugin: $relative_path"
 
                   if [ "$status" = "D" ]; then
-                    echo "Deleting from GCS: $relative_path"
+                    echo "Checking plugin in TEST GCS: $relative_path"
 
-                    gcloud storage rm \
-                      "gs://advworks-airflow-test/plugins/$relative_path"
+                    if gcloud storage ls \
+                      "gs://advworks-airflow-test/plugins/$relative_path" \
+                      >/dev/null 2>&1
+                    then
+                      echo "Plugin exists in TEST. Deleting: $relative_path"
+
+                      gcloud storage rm \
+                        "gs://advworks-airflow-test/plugins/$relative_path"
+                    else
+                      echo "Plugin is already absent from TEST: $relative_path"
+                    fi
 
                   elif [ "$status" = "A" ] || [ "$status" = "M" ]; then
                     echo "Copying to GCS: $relative_path"
@@ -354,10 +372,19 @@ stages:
                   echo "Old Plugin: $old_relative_path"
                   echo "New Plugin: $new_relative_path"
 
-                  echo "Deleting old plugin from PROD GCS: $old_relative_path"
+                  echo "Checking old plugin in PROD GCS: $old_relative_path"
 
-                  gcloud storage rm \
-                    "gs://advworks-airflow-prod/plugins/$old_relative_path"
+                  if gcloud storage ls \
+                    "gs://advworks-airflow-prod/plugins/$old_relative_path" \
+                    >/dev/null 2>&1
+                  then
+                    echo "Old plugin exists in PROD. Deleting: $old_relative_path"
+
+                    gcloud storage rm \
+                      "gs://advworks-airflow-prod/plugins/$old_relative_path"
+                  else
+                    echo "Old plugin is already absent from PROD: $old_relative_path"
+                  fi
 
                   echo "Copying renamed plugin to PROD GCS: $new_relative_path"
 
@@ -378,10 +405,19 @@ stages:
                   echo "Plugin: $relative_path"
 
                   if [ "$status" = "D" ]; then
-                    echo "Deleting from PROD GCS: $relative_path"
+                    echo "Checking plugin in PROD GCS: $relative_path"
 
-                    gcloud storage rm \
-                      "gs://advworks-airflow-prod/plugins/$relative_path"
+                    if gcloud storage ls \
+                      "gs://advworks-airflow-prod/plugins/$relative_path" \
+                      >/dev/null 2>&1
+                    then
+                      echo "Plugin exists in PROD. Deleting: $relative_path"
+
+                      gcloud storage rm \
+                        "gs://advworks-airflow-prod/plugins/$relative_path"
+                    else
+                      echo "Plugin is already absent from PROD: $relative_path"
+                    fi
 
                   elif [ "$status" = "A" ] || [ "$status" = "M" ]; then
                     echo "Copying to PROD GCS: $relative_path"
