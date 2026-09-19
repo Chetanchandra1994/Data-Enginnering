@@ -52,12 +52,12 @@ stages:
 
   # --- TEST STAGE ---
 - stage: deploy_test
-  displayName: 'Copy Airflow DAGS to Test Environment'
+  displayName: 'Deploy Airflow Files to TEST Environment'
   dependsOn: unit_tests
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   jobs:
   - deployment: sync_to_test
-    displayName: 'Copy Files to Test Bucket'
+    displayName: 'Deploy Changed Files to TEST'
     environment: 'TEST - Airflow DAGS'
     strategy:
       runOnce:
