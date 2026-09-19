@@ -1,0 +1,2494 @@
+
+#############################################  Step 1 - Understand trigger, pr, variables, and stages ############################################# 
+
+Your pipeline starts with:
+
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - "*"
+
+variables:
+- name: python_version
+  value: '3.10'
+- name: REGISTRY_URL_TEST
+  value: 'northamerica-northeast1-docker.pkg.dev'
+- name: IMAGE_PATH_TEST
+  value: 'electric-tesla-507710-k2/airflow/custom-airflow'
+
+We'll understand each part separately.
+
+1. trigger — When should the pipeline automatically run?
+trigger:
+  branches:
+    include:
+      - main
+
+This is a CI trigger.
+
+It means:
+
+When a change is pushed to the main branch, Azure DevOps automatically starts this pipeline.
+
+For example:
+
+Developer
+   │
+   │ git push origin main
+   ▼
+Azure DevOps
+   │
+   │ trigger matches main
+   ▼
+Pipeline starts
+   │
+   ▼
+unit_tests
+   │
+   ▼
+deploy_test
+   │
+   ▼
+PROD approval
+   │
+   ▼
+deploy_prod
+What about airflow branch?
+
+If you push:
+
+airflow
+
+the trigger does not start the pipeline because only main is included.
+
+2. pr — What happens when a Pull Request is created?
+
+You have:
+
+pr:
+  branches:
+    include:
+      - "*"
+
+This means:
+
+Run the pipeline when a Pull Request targets a branch matching *.
+
+* essentially means any branch.
+
+For example:
+
+feature/new-dag
+       │
+       │ Pull Request
+       ▼
+     main
+       │
+       ▼
+Azure Pipeline
+       │
+       ▼
+unit_tests
+
+The important distinction is:
+
+Configuration	Purpose
+trigger	Push/commit-based CI
+pr	Pull Request validation
+3. Why do we have both?
+
+Because they solve different problems.
+
+Imagine:
+
+feature/new-dag
+       │
+       │ PR
+       ▼
+      main
+
+Before merging:
+
+PR
+ ↓
+unit_tests
+ ↓
+validate code
+
+After merging:
+
+main
+ ↓
+trigger
+ ↓
+unit_tests
+ ↓
+TEST
+ ↓
+PROD approval
+ ↓
+PROD
+
+So conceptually:
+
+              Pull Request
+                   │
+                   ▼
+              PR validation
+                   │
+              ┌────┴────┐
+              │         │
+            PASS       FAIL
+              │         │
+              ▼         ▼
+           Merge      Fix code
+
+
+              After merge
+                   │
+                   ▼
+              main branch
+                   │
+                   ▼
+            Full pipeline
+                   │
+          ┌────────┴────────┐
+          ▼                 ▼
+        TEST              PROD
+                         approval
+
+This is a very common CI/CD pattern.
+
+4. variables
+
+You have:
+
+variables:
+- name: python_version
+  value: '3.10'
+
+This creates an Azure Pipeline variable:
+
+python_version = 3.10
+
+You can reference it later as:
+
+$(python_version)
+
+For example:
+
+- script: |
+    echo "Python version: $(python_version)"
+
+Azure replaces:
+
+$(python_version)
+
+with:
+
+3.10
+
+before the script executes.
+
+5. REGISTRY_URL_TEST
+
+You have:
+
+- name: REGISTRY_URL_TEST
+  value: 'northamerica-northeast1-docker.pkg.dev'
+
+This is your Google Artifact Registry hostname.
+
+Later:
+
+docker login ... https://$(REGISTRY_URL_TEST)
+
+becomes effectively:
+
+docker login ... https://northamerica-northeast1-docker.pkg.dev
+
+You avoid hard-coding the value repeatedly.
+
+6. IMAGE_PATH_TEST
+
+You have:
+
+- name: IMAGE_PATH_TEST
+  value: 'electric-tesla-507710-k2/airflow/custom-airflow'
+
+Together:
+
+REGISTRY_URL_TEST
+        +
+IMAGE_PATH_TEST
+        +
+:latest
+
+produces:
+
+northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow/custom-airflow:latest
+
+That's the Docker image your pipeline pulls.
+
+So:
+
+docker pull $(REGISTRY_URL_TEST)/$(IMAGE_PATH_TEST):latest
+
+means:
+
+Pull the custom Airflow image
+from Google Artifact Registry.
+7. stages
+
+Now we reach:
+
+stages:
+
+This is where your pipeline's major phases are defined.
+
+You currently have three stages:
+
+stages:
+
+- stage: unit_tests
+
+- stage: deploy_test
+
+- stage: deploy_prod
+
+Think of a stage as a major phase of the pipeline.
+
+Your pipeline therefore looks like:
+
+┌──────────────────────┐
+│     unit_tests       │
+│                      │
+│ Docker + pytest      │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│     deploy_test      │
+│                      │
+│ Changed DAGs         │
+│ Changed plugins      │
+│       → TEST         │
+└──────────┬───────────┘
+           │
+           ▼
+     PROD approval
+           │
+           ▼
+┌──────────────────────┐
+│     deploy_prod      │
+│                      │
+│ Changed DAGs         │
+│ Changed plugins      │
+│       → PROD         │
+└──────────────────────┘
+8. stage vs job vs step
+
+This is very important for Azure Pipeline interviews.
+
+Your hierarchy is:
+
+Pipeline
+   │
+   └── Stage
+         │
+         └── Job
+               │
+               └── Step
+
+In your pipeline:
+
+stages:
+- stage: unit_tests
+
+  jobs:
+  - job: manual_container_test
+
+    steps:
+    - checkout: self
+
+    - task: DownloadSecureFile@1
+
+    - script: ...
+
+So:
+
+unit_tests                  ← Stage
+    │
+    └── manual_container_test ← Job
+            │
+            ├── checkout       ← Step
+            ├── Download...    ← Step
+            └── script         ← Step
+
+Then:
+
+deploy_test                 ← Stage
+    │
+    └── sync_to_test         ← Deployment Job
+            │
+            ├── checkout
+            ├── detect changes
+            ├── authenticate
+            ├── deploy DAGs
+            └── deploy plugins
+
+Then:
+
+deploy_prod                 ← Stage
+    │
+    └── sync_to_prod         ← Deployment Job
+            │
+            ├── checkout
+            ├── detect changes
+            ├── authenticate
+            ├── deploy DAGs
+            └── deploy plugins
+9. The key difference between job and deployment
+
+Your first stage uses:
+
+- job: manual_container_test
+
+TEST/PROD use:
+
+- deployment: sync_to_test
+
+and:
+
+- deployment: sync_to_prod
+
+A normal job is generally used to execute work.
+
+A deployment job is specifically designed for deploying to an environment.
+
+That's why you have:
+
+environment: 'TEST - Airflow DAGS'
+
+and:
+
+environment: 'PROD - Airflow DAGS'
+
+This is what allows Azure DevOps environment controls such as approvals/checks to participate in the deployment flow.
+
+That's why your PROD approval works.
+
+10. dependsOn
+
+Your TEST stage has:
+
+dependsOn: unit_tests
+
+Meaning:
+
+deploy_test depends on unit_tests.
+
+So:
+
+unit_tests
+     │
+     │ succeeded
+     ▼
+deploy_test
+
+If unit tests fail:
+
+unit_tests
+     │
+     X
+     │
+deploy_test
+
+TEST deployment doesn't proceed.
+
+Similarly:
+
+- stage: deploy_prod
+  dependsOn: deploy_test
+
+means:
+
+unit_tests
+     ↓
+deploy_test
+     ↓
+deploy_prod
+11. Your condition
+
+TEST has:
+
+condition: and(
+    succeeded(),
+    eq(variables['Build.SourceBranch'], 'refs/heads/main')
+)
+
+In your actual YAML it's written on one line.
+
+It means two things must be true:
+
+Condition 1:
+Previous stage succeeded
+
+AND
+
+Condition 2:
+Current branch = main
+
+Therefore:
+
+unit_tests PASS
+       +
+branch = main
+       │
+       ▼
+deploy_test runs
+
+But:
+
+unit_tests PASS
+       +
+branch = feature/abc
+       │
+       ▼
+deploy_test does NOT run
+12. Why is this important?
+
+Because your pipeline has two different paths.
+
+PR path
+Feature branch
+      │
+      ▼
+     PR
+      │
+      ▼
+ unit_tests
+      │
+      ▼
+validation
+
+You don't want a PR validation pipeline to automatically deploy to TEST/PROD.
+
+Main branch path
+main
+ │
+ ▼
+unit_tests
+ │
+ ▼
+deploy_test
+ │
+ ▼
+TEST approval/process
+ │
+ ▼
+deploy_prod
+ │
+ ▼
+PROD approval
+
+Your condition helps enforce that separation.
+
+The mental model to remember
+
+Don't memorize the YAML syntax yet.
+
+Remember this:
+
+TRIGGER
+   ↓
+"When should pipeline start?"
+
+PR
+   ↓
+"When should PR validation happen?"
+
+VARIABLES
+   ↓
+"What reusable values do I define?"
+
+STAGES
+   ↓
+"What major phases does my pipeline have?"
+
+JOBS
+   ↓
+"What work happens inside each stage?"
+
+STEPS
+   ↓
+"What individual commands/tasks execute?"
+
+DEPENDS ON
+   ↓
+"What must finish before this stage starts?"
+
+CONDITION
+   ↓
+"Under what conditions is this stage allowed to run?"
+
+ENVIRONMENT
+   ↓
+"What deployment environment/approval is associated with this deployment?"
+
+And your particular pipeline is:
+
+                 ┌───────────────┐
+                 │ trigger / PR  │
+                 └───────┬───────┘
+                         │
+                         ▼
+                 ┌───────────────┐
+                 │  unit_tests   │
+                 └───────┬───────┘
+                         │
+                   dependsOn
+                         │
+                         ▼
+                 ┌───────────────┐
+                 │ deploy_test   │
+                 │ TEST env      │
+                 └───────┬───────┘
+                         │
+                   dependsOn
+                         │
+                         ▼
+                 ┌───────────────┐
+                 │ deploy_prod   │
+                 │ PROD env      │
+                 │   approval    │
+                 └───────────────┘
+
+#############################################  Step 2 — Understand the unit_tests stage ############################################# 
+
+Your section is:
+
+- stage: unit_tests
+  displayName: 'PR Unit Tests'
+  jobs:
+  - job: manual_container_test
+    displayName: 'Run Tests in Docker'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+
+    - task: DownloadSecureFile@1
+      name: test_key
+      inputs:
+        secureFile: 'practice-gcp-service-account.json'
+
+    - script: |
+        cat $(test_key.secureFilePath) | docker login -u _json_key --password-stdin https://$(REGISTRY_URL_TEST)
+        docker pull $(REGISTRY_URL_TEST)/$(IMAGE_PATH_TEST):latest
+
+    - script: |
+        docker run --rm \
+          -v $(Build.SourcesDirectory)/airflow-practice:/workspace \
+          -w /workspace \
+          -e PYTHONPATH=/workspace:/workspace/plugins \
+          -e PYTEST_ADDOPTS="-p no:cacheprovider" \
+          $(REGISTRY_URL_TEST)/$(IMAGE_PATH_TEST):latest \
+          bash -c "pip install -r requirements.txt -q && pytest Tests/ -v"
+
+We'll break this into 6 concepts.
+
+1. stage
+- stage: unit_tests
+  displayName: 'PR Unit Tests'
+
+You've already seen that a stage is a major phase.
+
+Here you're saying:
+
+Stage ID:
+unit_tests
+
+Display name:
+PR Unit Tests
+
+The important distinction is:
+
+stage: unit_tests
+
+is the internal identifier.
+
+Whereas:
+
+displayName: 'PR Unit Tests'
+
+is what humans see in Azure DevOps.
+
+So you could technically have:
+
+- stage: abc123
+  displayName: 'Run Unit Tests'
+
+but that would be terrible naming practice.
+
+Use meaningful IDs.
+
+2. job
+
+Inside the stage:
+
+jobs:
+- job: manual_container_test
+
+This creates a normal Azure Pipeline job.
+
+Think:
+
+Stage
+  │
+  └── Job
+
+Your job ID is:
+
+manual_container_test
+
+and its display name is:
+
+Run Tests in Docker
+
+So Azure's execution structure is:
+
+unit_tests
+    │
+    └── manual_container_test
+3. pool
+
+Now this is important.
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+Azure DevOps needs somewhere to execute your commands.
+
+The pool tells Azure:
+
+Give this job an agent/machine on which to execute.
+
+You're requesting an Azure-hosted Linux machine:
+
+ubuntu-latest
+
+Conceptually:
+
+Azure DevOps
+     │
+     ▼
+Azure-hosted Ubuntu VM
+     │
+     ├── Git
+     ├── Docker
+     ├── Bash
+     ├── Python
+     └── other preinstalled tools
+
+Your pipeline doesn't run directly inside Azure DevOps itself.
+
+It runs on an agent.
+
+4. Why Ubuntu?
+
+Your scripts contain Bash syntax:
+
+if
+then
+fi
+
+while
+do
+done
+
+[[ ... ]]
+
+${variable#prefix}
+
+So Linux is a natural environment for them.
+
+That's why:
+
+vmImage: 'ubuntu-latest'
+
+fits your pipeline.
+
+If you instead used:
+
+vmImage: 'windows-latest'
+
+you would need to think about the shell/environment being used for your scripts.
+
+For your current pipeline, Ubuntu + Bash is the straightforward combination.
+
+5. checkout: self
+
+Your first step:
+
+steps:
+- checkout: self
+
+means:
+
+Checkout the repository containing this pipeline.
+
+This is how your Azure agent gets your project files.
+
+Conceptually:
+
+Git repository
+      │
+      │ checkout
+      ▼
+Azure build agent
+      │
+      ▼
+$(Build.SourcesDirectory)
+
+Your repository then exists somewhere similar to:
+
+/home/vsts/work/1/s/
+
+Azure exposes that location through:
+
+$(Build.SourcesDirectory)
+
+You should not hard-code the /home/vsts/work/... path.
+
+Instead use:
+
+$(Build.SourcesDirectory)
+6. Why your Docker command uses this
+
+You have:
+
+-v $(Build.SourcesDirectory)/airflow-practice:/workspace
+
+This is one of the most important Docker concepts in your pipeline.
+
+You're saying:
+
+Take the airflow-practice directory from the Azure agent and mount it inside the Docker container as /workspace.
+
+Before Docker:
+
+Azure Agent
+
+$(Build.SourcesDirectory)
+│
+└── airflow-practice
+    ├── DAGS
+    ├── plugins
+    ├── Tests
+    ├── requirements.txt
+    └── ...
+
+Inside Docker:
+
+Container
+
+/workspace
+├── DAGS
+├── plugins
+├── Tests
+├── requirements.txt
+└── ...
+
+So the container gets access to the current repository code.
+
+7. Why is this important?
+
+Look at this:
+
+docker pull .../custom-airflow:latest
+
+The Docker image contains your Airflow runtime/dependencies.
+
+But you don't want to test whatever source code happened to be baked into that image.
+
+You want to test the code from the current Git commit/PR.
+
+That's why you mount:
+
+-v $(Build.SourcesDirectory)/airflow-practice:/workspace
+
+So:
+
+Docker image
+     │
+     │ provides
+     ▼
+Python + Airflow + orjson + pytest + dependencies
+
+Git checkout
+     │
+     │ provides
+     ▼
+Your current source code
+
+Together:
+
+             Docker image
+                 │
+       Runtime + dependencies
+                 │
+                 ▼
+           ┌────────────┐
+           │ Container  │
+           │            │
+Git code → │ /workspace │
+           └─────┬──────┘
+                 │
+                 ▼
+              pytest
+
+This is a very useful pattern to understand for Data Engineering CI/CD.
+
+8. DownloadSecureFile
+
+Now:
+
+- task: DownloadSecureFile@1
+  name: test_key
+  inputs:
+    secureFile: 'practice-gcp-service-account.json'
+
+This is an Azure DevOps task.
+
+You're telling Azure:
+
+Download the secure file named practice-gcp-service-account.json onto this build agent.
+
+The important word is secure.
+
+You don't keep this inside Git:
+
+❌ practice-gcp-service-account.json
+
+because that would expose your GCP credentials.
+
+Instead:
+
+Azure DevOps Secure Files
+          │
+          ▼
+DownloadSecureFile
+          │
+          ▼
+Temporary build-agent location
+9. name: test_key
+
+This:
+
+name: test_key
+
+is important because it gives the task a reference name.
+
+Later you use:
+
+$(test_key.secureFilePath)
+
+So:
+
+test_key
+   │
+   └── secureFilePath
+          │
+          ▼
+/path/to/temporary/practice-gcp-service-account.json
+
+Azure provides that path dynamically.
+
+You don't need to know the actual physical path.
+
+10. Docker authentication
+
+Now:
+
+cat $(test_key.secureFilePath) \
+| docker login \
+    -u _json_key \
+    --password-stdin \
+    https://$(REGISTRY_URL_TEST)
+
+This looks complicated, but conceptually it's simple.
+
+You have:
+
+GCP service-account JSON
+          │
+          ▼
+      cat file
+          │
+          ▼
+       password
+          │
+          ▼
+     docker login
+          │
+          ▼
+Google Artifact Registry
+
+--password-stdin means:
+
+Read the credential from standard input instead of putting the password directly in the command arguments.
+
+That's preferable to:
+
+docker login -p SOME_SECRET
+
+because command-line secrets can be exposed more easily.
+
+11. Then docker pull
+
+You have:
+
+docker pull $(REGISTRY_URL_TEST)/$(IMAGE_PATH_TEST):latest
+
+Azure expands:
+
+$(REGISTRY_URL_TEST)
+
+to:
+
+northamerica-northeast1-docker.pkg.dev
+
+and:
+
+$(IMAGE_PATH_TEST)
+
+to:
+
+electric-tesla-507710-k2/airflow/custom-airflow
+
+So the resulting image is:
+
+northamerica-northeast1-docker.pkg.dev/
+electric-tesla-507710-k2/
+airflow/
+custom-airflow:latest
+
+That image is pulled onto the Azure agent.
+
+12. Now the important docker run
+
+Your command begins:
+
+docker run --rm \
+
+docker run means:
+
+Create and start a container from an image.
+
+The image is at the end:
+
+$(REGISTRY_URL_TEST)/$(IMAGE_PATH_TEST):latest
+--rm
+docker run --rm
+
+means:
+
+Automatically remove the container when it finishes.
+
+Without it:
+
+Container 1
+Container 2
+Container 3
+Container 4
+...
+
+could accumulate on the agent.
+
+With --rm:
+
+run
+ ↓
+test
+ ↓
+container exits
+ ↓
+container removed
+
+Good for CI.
+
+13. -v
+-v $(Build.SourcesDirectory)/airflow-practice:/workspace
+
+We've already seen this.
+
+It's a volume mount.
+
+Host:
+
+Azure agent
+
+Path:
+
+$(Build.SourcesDirectory)/airflow-practice
+
+Container:
+
+/workspace
+
+So:
+
+HOST                              CONTAINER
+
+airflow-practice  ─────────────→  /workspace
+14. -w
+
+You have:
+
+-w /workspace
+
+This means:
+
+Set the container's working directory to /workspace.
+
+Without it, Docker might start somewhere else.
+
+With:
+
+-w /workspace
+
+when this runs:
+
+pytest Tests/ -v
+
+it effectively looks for:
+
+/workspace/Tests/
+
+which is your mounted:
+
+airflow-practice/Tests/
+15. PYTHONPATH
+
+You have:
+
+-e PYTHONPATH=/workspace:/workspace/plugins
+
+-e means:
+
+Set an environment variable inside the container.
+
+So you're creating:
+
+PYTHONPATH=/workspace:/workspace/plugins
+
+This tells Python where to search for modules.
+
+You have:
+
+/workspace
+
+and:
+
+/workspace/plugins
+
+in Python's module search path.
+
+This is useful because your tests/plugins may import code from those locations.
+
+16. PYTEST_ADDOPTS
+
+You have:
+
+-e PYTEST_ADDOPTS="-p no:cacheprovider"
+
+This creates another environment variable.
+
+It tells pytest:
+
+-p no:cacheprovider
+
+which disables pytest's cache plugin.
+
+The practical result is that CI doesn't need to maintain .pytest_cache.
+
+This fits your .gitignore:
+
+.pytest_cache
+
+and keeps the CI test environment cleaner.
+
+17. The final command
+
+At the end:
+
+bash -c "pip install -r requirements.txt -q && pytest Tests/ -v"
+
+This is actually two commands connected by:
+
+&&
+
+Meaning:
+
+Execute the second command only if the first succeeds.
+
+So:
+
+pip install
+     │
+     │ success?
+     ├── NO ──→ stop/fail
+     │
+     ▼
+pytest
+     │
+     ▼
+tests
+18. pip install
+pip install -r requirements.txt -q
+
+reads:
+
+/workspace/requirements.txt
+
+because your working directory is:
+
+/workspace
+
+Then installs:
+
+apache-airflow==2.11.0
+pytest
+pytest-mock
+orjson
+
+The -q means quiet, reducing installation output.
+
+19. pytest Tests/ -v
+
+Finally:
+
+pytest Tests/ -v
+
+means:
+
+pytest
+  │
+  ├── Tests/
+  │
+  └── -v = verbose output
+
+So your five tests execute inside the Docker container.
+
+The complete execution is:
+
+Azure Ubuntu Agent
+        │
+        ▼
+checkout repository
+        │
+        ▼
+download GCP credential
+        │
+        ▼
+docker login
+        │
+        ▼
+docker pull custom-airflow
+        │
+        ▼
+docker run
+        │
+        ├── mount airflow-practice
+        │
+        ├── /workspace
+        │
+        ├── set PYTHONPATH
+        │
+        └── set pytest options
+                │
+                ▼
+        pip install requirements
+                │
+                ▼
+             pytest
+                │
+          ┌─────┴─────┐
+          ▼           ▼
+        PASS         FAIL
+          │           │
+          ▼           ▼
+   next stage       pipeline
+                     stops
+What you should be able to explain in an interview
+
+If someone asks:
+
+"How does your Azure pipeline execute unit tests?"
+
+A strong answer from your project would be:
+
+"The pipeline runs the tests on an Azure-hosted Ubuntu agent. It checks out the repository, authenticates to Google Artifact Registry using an Azure Secure File containing the GCP service-account key, pulls our custom Airflow Docker image, and mounts the current repository's airflow-practice directory into the container. The container uses the image for the runtime and dependencies while testing the current Git code. We set the working directory and Python path, install the requirements, and execute pytest. The container is removed automatically after execution."
+
+That's much more valuable than simply memorizing the YAML.
+
+The key architecture you should remember
+              AZURE DEVOPS
+                   │
+                   ▼
+           Ubuntu Build Agent
+                   │
+          ┌────────┴────────┐
+          │                 │
+     Git repository     Docker image
+     current code       runtime/tools
+          │                 │
+          └────────┬────────┘
+                   ▼
+              Container
+                   │
+                   ▼
+                pytest
+                   │
+             PASS / FAIL
+
+#############################################  Step 2.1 "PyTest" Python Testing Framework -  ############################################# 
+
+What exactly is pytest?
+
+pytest is a Python testing framework.
+
+Think of it as a test runner:
+
+Your Python code
+      │
+      ▼
+Your test cases
+      │
+      ▼
+    pytest
+      │
+      ├── discovers tests
+      ├── executes tests
+      ├── evaluates assertions
+      └── reports PASS / FAIL
+
+Pytest does not inherently know:
+
+"This Airflow operator should return X."
+
+You write that expectation yourself.
+
+For example:
+
+def test_addition():
+    result = 2 + 3
+
+    assert result == 5
+
+Pytest runs it.
+
+Because:
+
+result = 5
+expected = 5
+
+the assertion:
+
+assert result == 5
+
+is true.
+
+Therefore:
+
+PASSED
+
+If the code were:
+
+result = 2 + 4
+
+assert result == 5
+
+then:
+
+6 == 5
+
+is false.
+
+Therefore:
+
+FAILED
+
+That's the fundamental mechanism.
+
+So what is your pipeline actually testing?
+
+Your Azure command is:
+
+pytest Tests/ -v
+
+The important part is:
+
+Tests/
+
+Pytest recursively looks inside that directory for test files.
+
+Your project has:
+
+airflow-practice/
+│
+├── Tests/
+│   └── operators/
+│       └── test_extraction.py
+│
+├── plugins/
+│
+├── DAGS/
+│
+└── ...
+
+So pytest discovers:
+
+Tests/operators/test_extraction.py
+
+and executes the test functions/classes inside it.
+
+Your current suite contains 5 tests around the extraction operator.
+
+What does a test actually look like?
+
+The basic pattern is:
+
+def test_something():
+    # Arrange
+    ...
+
+    # Act
+    ...
+
+    # Assert
+    assert ...
+
+This is an extremely important Data Engineering/testing concept.
+
+1. Arrange
+
+Prepare the situation.
+
+For example:
+
+operator = ExtractionOperator(...)
+2. Act
+
+Run the functionality:
+
+result = operator.some_method(...)
+3. Assert
+
+Check whether the result is what you expect:
+
+assert result == expected
+
+So:
+
+Arrange
+   ↓
+Act
+   ↓
+Assert
+   ↓
+PASS / FAIL
+How does pytest determine PASS or FAIL?
+
+The key word is:
+
+assert
+
+For example:
+
+assert result == expected
+
+Python evaluates:
+
+result == expected
+
+If it is:
+
+True
+
+the test passes.
+
+If it is:
+
+False
+
+Python raises an AssertionError.
+
+Pytest catches that and reports:
+
+FAILED
+There are many types of checks
+
+For example:
+
+Equality
+assert actual == expected
+Not equal
+assert actual != expected
+True/False
+assert result is True
+None
+assert result is not None
+Contains
+assert "CustomerKey" in result
+Length
+assert len(records) == 1000
+Exception
+
+You can test that invalid input correctly raises an exception:
+
+with pytest.raises(ValueError):
+    function_with_invalid_input()
+
+So a test isn't necessarily checking one particular type of value.
+
+It can check whatever behavior you explicitly define.
+
+In your Airflow project
+
+Your tests are particularly useful because you're not simply testing a generic Python function.
+
+You're working with:
+
+Airflow
+   │
+   ├── DAGs
+   ├── Operators
+   ├── Hooks
+   ├── Connectors
+   └── Triggers
+
+Your current tests focus on the ExtractionOperator.
+
+The idea is essentially:
+
+ExtractionOperator
+       │
+       ▼
+Does it behave as expected?
+       │
+       ├── YES → PASS
+       │
+       └── NO  → FAIL
+
+For example, depending on the specific test, you might verify things such as:
+
+Operator can be created
+        ↓
+Expected parameters are accepted
+        ↓
+Expected method is called
+        ↓
+Expected result is produced
+        ↓
+Expected error is raised for invalid behavior
+
+The actual criteria come from the assertions in test_extraction.py.
+
+Very important: pytest isn't testing your entire pipeline
+
+This is probably the biggest thing to understand.
+
+When Azure runs:
+
+pytest Tests/ -v
+
+it is NOT doing this:
+
+SQL Server
+   ↓
+Python
+   ↓
+Airflow
+   ↓
+GCS
+   ↓
+Pub/Sub
+   ↓
+Snowflake
+
+It is not running your complete data pipeline.
+
+Your current unit-test stage is testing specific pieces of Python/Airflow code.
+
+So:
+
+                    Your complete pipeline
+
+SQL Server → Airflow → GCS → Pub/Sub → Snowflake
+                 ↑
+                 │
+        pytest does NOT currently
+        run this whole flow
+
+Instead:
+
+                  pytest
+                    │
+                    ▼
+          Tests specific code
+                    │
+                    ▼
+             ExtractionOperator
+
+That's why it's called:
+
+Unit Testing
+
+A unit means a relatively small, isolated piece of software.
+
+For example:
+
+ExtractionOperator
+
+rather than:
+
+Entire production pipeline
+Why are we running pytest inside Docker?
+
+This is another important distinction.
+
+Your Azure pipeline pulls:
+
+custom-airflow:latest
+
+The image provides your test environment:
+
+Docker image
+│
+├── Python
+├── Airflow 2.11
+├── pytest
+├── pytest-mock
+├── orjson
+└── other dependencies
+
+Then your repository is mounted:
+
+airflow-practice
+      ↓
+/workspace
+
+Then:
+
+pip install -r requirements.txt
+
+and:
+
+pytest Tests/ -v
+
+So the architecture is:
+
+Azure Agent
+     │
+     ▼
+Docker container
+     │
+     ├── Airflow environment
+     ├── Python environment
+     ├── pytest
+     │
+     └── your current Git code
+              │
+              ▼
+          Test cases
+              │
+              ▼
+           assertions
+              │
+        ┌─────┴─────┐
+        ▼           ▼
+      PASS         FAIL
+What causes Azure to stop?
+
+This is the connection to your CI/CD pipeline.
+
+Suppose you have:
+
+def test_something():
+    result = calculate()
+    assert result == 10
+
+If:
+
+result = 10
+
+then:
+
+pytest
+  ↓
+PASS
+  ↓
+exit code 0
+  ↓
+Azure script succeeds
+  ↓
+unit_tests = SUCCESS
+
+But if:
+
+result = 9
+
+then:
+
+assert 9 == 10
+       ↓
+AssertionError
+       ↓
+pytest FAILED
+       ↓
+non-zero exit code
+       ↓
+Azure script FAILED
+       ↓
+unit_tests FAILED
+
+And because your TEST stage has:
+
+dependsOn: unit_tests
+
+the deployment doesn't proceed normally.
+
+So your pipeline effectively has:
+
+                    pytest
+                      │
+             ┌────────┴────────┐
+             │                 │
+           PASS              FAIL
+             │                 │
+             ▼                 ▼
+       unit_tests OK       unit_tests FAIL
+             │                 │
+             ▼                 X
+        deploy_test
+
+That's the actual connection between pytest and your CI/CD deployment protection.
+
+One more important distinction
+
+There are several levels of testing you will eventually encounter in your Data Engineering project:
+
+1. Unit Test
+      ↓
+Test one small piece of code
+
+2. Integration Test
+      ↓
+Test interaction between components
+
+3. Data Quality Test
+      ↓
+Test the actual data
+
+4. End-to-End Test
+      ↓
+Test the complete pipeline
+
+For example:
+
+Unit test
+ExtractionOperator
+      ↓
+Does its logic work?
+Integration test
+Airflow → GCS
+      ↓
+Can these components communicate correctly?
+Data quality test
+Snowflake table
+      ↓
+CustomerKey NOT NULL?
+Email valid?
+Duplicate keys?
+End-to-end test
+SQL Server
+    ↓
+Airflow
+    ↓
+GCS
+    ↓
+Pub/Sub
+    ↓
+Snowpipe
+    ↓
+Snowflake
+
+That final one tests the whole data path.
+
+So remember this simple definition
+
+Pytest is a Python testing framework that discovers and executes test cases. The test cases contain assertions that define what behavior is expected. If the assertions succeed, pytest reports PASS; if an assertion fails or an unexpected error occurs, pytest reports FAIL and returns a failure exit code.
+
+And in your current Azure pipeline, pytest is currently being used for unit testing the Airflow/Python code, specifically your existing extraction tests—not for validating the entire SQL Server → GCS → Snowflake pipeline.
+
+The next thing we should do before moving on is actually open your Tests/operators/test_extraction.py and go through the 5 tests one by one, so you can see exactly what each test checks, what the expected value is, and what would make each one fail.
+
+airflow-practice\Tests\operators\test_extraction.py:
+
+import pytest
+from unittest.mock import MagicMock
+from plugins.operators.extraction import ExtractionOperator
+
+class TestExtractionOperatorPrefix:
+    
+    @pytest.fixture
+    def operator(self):
+        """Fixture to initialize the operator with mocked connectors."""
+        mock_source = MagicMock()
+        mock_targets = [MagicMock(),MagicMock()]
+        return ExtractionOperator(
+            task_id='test_task',
+            source=mock_source,
+            targets=mock_targets
+        )
+
+    def test_prefix_returns_stream_if_xcom_exists(self, operator):
+        # 1. Setup: Source has a key, and XCom returns a value
+        operator.source.xcom_key = 'last_record_ts'
+        operator.source.file_prefix = None
+        ti = MagicMock()
+        ti.xcom_pull.return_value = '2026-05-14 10:00:00'
+
+        # 2. Act
+        determined = operator._determine_prefix(ti)
+        for t in operator.targets:
+            t.file_prefix = determined
+
+        # 3. Assert
+        for t in operator.targets:
+            assert t.file_prefix == 'stream'
+        ti.xcom_pull.assert_called_with(key='last_record_ts', include_prior_dates=True)
+
+    def test_prefix_returns_fullload_on_first_run(self, operator):
+        # 1. Setup: Source has a key, but XCom is empty (first run)
+        operator.source.xcom_key = 'last_record_ts'
+        operator.source.file_prefix = None
+        ti = MagicMock()
+        ti.xcom_pull.return_value = None
+
+        # 2. Act
+        determined = operator._determine_prefix(ti)
+        for t in operator.targets:
+            t.file_prefix = determined
+
+        # 3. Assert
+        for t in operator.targets:
+            assert t.file_prefix == 'fullload'
+        ti.xcom_pull.assert_called_with(key='last_record_ts', include_prior_dates=True)
+
+    def test_prefix_uses_source_override(self, operator):
+        # 1. Setup: No XCom key, but source connector has a hardcoded prefix
+        operator.source.xcom_key = None
+        operator.source.file_prefix = 'stream'
+        for t in operator.targets:
+            t.file_prefix = None
+        ti = MagicMock()
+
+        # 2. Act
+        determined = operator._determine_prefix(ti)
+        for t in operator.targets:
+            t.file_prefix = determined
+
+        # 3. Assert
+        for t in operator.targets:
+            assert t.file_prefix == 'stream'
+        ti.xcom_pull.assert_not_called()
+    
+    def test_target_connector_cannot_override_prefix_on_initial_run(self, operator):
+        # 1. Setup: Target has an initial "wrong" prefix
+        operator.source.xcom_key = None
+        operator.source.file_prefix = None
+        for t in operator.targets:
+            t.file_prefix = 'initial_value'
+        ti = MagicMock()
+
+        # 2. Act
+        determined = operator._determine_prefix(ti)
+        for t in operator.targets:
+            t.file_prefix = determined
+
+        # 3. Assert
+        for t in operator.targets:
+            assert t.file_prefix == 'fullload'
+        ti.xcom_pull.assert_not_called()
+
+    def test_target_connector_cannot_override_prefix_on_stream(self, operator):
+        # 1. Setup: Target has an initial "wrong" prefix
+        operator.source.xcom_key = 'last_record_ts'
+        operator.source.file_prefix = None
+        for t in operator.targets:
+            t.file_prefix = 'initial_value'
+        ti = MagicMock()
+        ti.xcom_pull.return_value = '2026-05-14 10:00:00'
+
+        # 2. Act
+        determined = operator._determine_prefix(ti)
+        for t in operator.targets:
+            t.file_prefix = determined
+
+        # 3. Assert
+        for t in operator.targets:
+            assert t.file_prefix == 'stream'
+        ti.xcom_pull.assert_called_with(key='last_record_ts', include_prior_dates=True)
+
+Now that you’ve provided the actual test_extraction.py, we can see exactly what pytest is checking.
+
+The important point is: pytest itself is not deciding what “correct” means. Your five test functions define the expected behavior of ExtractionOperator._determine_prefix().
+
+Step 1 — What is this test file testing?
+
+The file tests one specific piece of your Airflow code:
+
+operator._determine_prefix(ti)
+
+Its purpose appears to be determining whether the extraction should use:
+
+fullload
+
+or
+
+stream
+
+as the target file prefix.
+
+So the business logic being tested is essentially:
+
+Does this extraction have a previous checkpoint/XCom?
+        |
+        +-- YES → stream
+        |
+        +-- NO → fullload
+
+Unless source.file_prefix explicitly overrides it
+        |
+        +-- source.file_prefix = stream → stream
+
+The tests also check that target connectors cannot override the prefix chosen by the source/ExtractionOperator logic.
+
+Step 2 — First understand the test structure
+
+Every test follows this pattern:
+
+SETUP → ACT → ASSERT
+
+For example:
+
+# Setup
+operator.source.xcom_key = 'last_record_ts'
+
+# Act
+determined = operator._determine_prefix(ti)
+
+# Assert
+assert determined == 'stream'
+
+Meaning:
+
+Setup
+
+Create a particular situation.
+
+Act
+
+Run the code being tested.
+
+Assert
+
+Check whether the result is what we expect.
+
+That assert is what ultimately determines PASS or FAIL.
+
+Step 3 — What does the fixture do?
+
+At the beginning:
+
+@pytest.fixture
+def operator(self):
+    mock_source = MagicMock()
+    mock_targets = [MagicMock(), MagicMock()]
+    return ExtractionOperator(
+        task_id='test_task',
+        source=mock_source,
+        targets=mock_targets
+    )
+
+This is a pytest fixture.
+
+Whenever a test contains:
+
+def test_something(self, operator):
+
+pytest automatically executes the operator fixture first and gives the test this object.
+
+So instead of repeating:
+
+mock_source = MagicMock()
+mock_targets = [...]
+operator = ExtractionOperator(...)
+
+in all five tests, you define it once.
+
+The fixture creates:
+ExtractionOperator
+        |
+        +-- source = MagicMock()
+        |
+        +-- targets
+              |
+              +-- MagicMock()
+              +-- MagicMock()
+
+So these tests are not connecting to SQL Server, Oracle, GCS, Snowflake, etc.
+
+They are testing the Python logic in isolation.
+
+Step 4 — What is MagicMock()?
+
+This is important.
+
+Normally your operator might have a real source connector:
+
+SQL Server connector
+Oracle connector
+Progress connector
+
+But testing against a real database would make this a much heavier test.
+
+Instead:
+
+mock_source = MagicMock()
+
+creates a fake object.
+
+You can tell the fake object:
+
+mock_source.xcom_key = 'last_record_ts'
+
+or:
+
+mock_source.file_prefix = 'stream'
+
+without needing a real connector.
+
+Similarly:
+
+ti = MagicMock()
+
+creates a fake Airflow Task Instance.
+
+Then you can control what happens when the operator calls:
+
+ti.xcom_pull(...)
+
+For example:
+
+ti.xcom_pull.return_value = '2026-05-14 10:00:00'
+
+means:
+
+Whenever the code calls ti.xcom_pull(), pretend that Airflow returned this timestamp.
+
+Now the five actual tests
+Step 5 — Test #1: Existing XCom → stream
+
+Your test:
+
+def test_prefix_returns_stream_if_xcom_exists(self, operator):
+
+The setup says:
+
+operator.source.xcom_key = 'last_record_ts'
+operator.source.file_prefix = None
+
+So:
+
+source.xcom_key
+        ↓
+last_record_ts
+
+And:
+
+ti.xcom_pull.return_value = '2026-05-14 10:00:00'
+
+means:
+
+XCom exists
+
+The test then runs:
+
+determined = operator._determine_prefix(ti)
+
+Then:
+
+for t in operator.targets:
+    t.file_prefix = determined
+
+Finally:
+
+assert t.file_prefix == 'stream'
+What is being checked?
+
+The expected business rule is:
+
+XCom checkpoint exists
+        ↓
+This is not the first extraction
+        ↓
+Use incremental/stream extraction
+        ↓
+prefix = stream
+
+So pytest expects:
+
+Expected: stream
+Actual:   whatever _determine_prefix() returned
+
+If actual is:
+
+'stream'
+
+→ PASS.
+
+If actual is:
+
+'fullload'
+
+→ FAIL.
+
+If actual is:
+
+None
+
+→ FAIL.
+
+If the method throws an unexpected exception → FAIL.
+
+It also checks the XCom call itself
+
+This line is another assertion:
+
+ti.xcom_pull.assert_called_with(
+    key='last_record_ts',
+    include_prior_dates=True
+)
+
+This checks not just what result came back, but how your code asked Airflow for it.
+
+Expected call:
+
+ti.xcom_pull(
+    key='last_record_ts',
+    include_prior_dates=True
+)
+
+If your production code instead did:
+
+ti.xcom_pull(key='wrong_key')
+
+the test would fail.
+
+So this test has two checks:
+
+CHECK 1
+Result must be "stream"
+
+CHECK 2
+XCom must be requested using:
+key='last_record_ts'
+include_prior_dates=True
+Step 6 — Test #2: No XCom → fullload
+
+This one is:
+
+def test_prefix_returns_fullload_on_first_run(self, operator):
+
+Setup:
+
+operator.source.xcom_key = 'last_record_ts'
+operator.source.file_prefix = None
+
+But:
+
+ti.xcom_pull.return_value = None
+
+This simulates:
+
+There is an XCom key configured
+BUT
+there is no previous XCom value
+
+That's effectively treated as:
+
+First run
+
+The expected result:
+
+assert t.file_prefix == 'fullload'
+
+So:
+
+No previous checkpoint
+        ↓
+First extraction
+        ↓
+Full load
+        ↓
+fullload
+
+Again it checks the XCom call:
+
+ti.xcom_pull.assert_called_with(
+    key='last_record_ts',
+    include_prior_dates=True
+)
+Therefore Test #2 verifies:
+Condition	Expected
+xcom_key exists	Yes
+XCom value	None
+Expected prefix	fullload
+XCom call	Correct key + include_prior_dates=True
+Step 7 — Test #3: Source explicitly says stream
+
+This is slightly different.
+
+Setup:
+
+operator.source.xcom_key = None
+operator.source.file_prefix = 'stream'
+
+Notice:
+
+xcom_key = None
+
+Therefore there is no reason to query XCom.
+
+The test explicitly checks that:
+
+ti.xcom_pull.assert_not_called()
+
+So the expected behavior is:
+
+Source says:
+file_prefix = stream
+
+        ↓
+
+Use stream
+
+        ↓
+
+Do NOT query XCom
+
+The assertion:
+
+assert t.file_prefix == 'stream'
+
+checks the result.
+
+And:
+
+ti.xcom_pull.assert_not_called()
+
+checks that XCom was not touched.
+
+This is important.
+
+The test isn't merely asking:
+
+"Did I get stream?"
+
+It is also asking:
+
+"Did I get stream through the expected path?"
+
+That is a deeper unit-test check.
+
+Step 8 — Test #4: Target cannot override initial fullload
+
+This test is particularly relevant to your architecture.
+
+Setup:
+
+operator.source.xcom_key = None
+operator.source.file_prefix = None
+
+So source has no explicit prefix and no XCom checkpoint.
+
+But then the targets are deliberately given:
+
+t.file_prefix = 'initial_value'
+
+So imagine:
+
+Source
+  |
+  +-- no xcom_key
+  +-- no file_prefix
+
+Target 1
+  +-- file_prefix = initial_value
+
+Target 2
+  +-- file_prefix = initial_value
+
+The test then calls:
+
+determined = operator._determine_prefix(ti)
+
+and overwrites the target values:
+
+t.file_prefix = determined
+
+The expected result is:
+
+assert t.file_prefix == 'fullload'
+
+So this test is verifying:
+
+Target initially says:
+"initial_value"
+
+        ↓
+
+ExtractionOperator determines:
+"fullload"
+
+        ↓
+
+Target gets:
+"fullload"
+
+In other words, the target's existing value should not control the final prefix.
+
+And because:
+
+operator.source.xcom_key = None
+
+the test also expects:
+
+ti.xcom_pull.assert_not_called()
+Step 9 — Test #5: Target cannot override stream
+
+This is the same concept as Test #4, but for the streaming case.
+
+Setup:
+
+operator.source.xcom_key = 'last_record_ts'
+operator.source.file_prefix = None
+
+XCom returns:
+
+'2026-05-14 10:00:00'
+
+So the operator should determine:
+
+stream
+
+But the target initially says:
+
+t.file_prefix = 'initial_value'
+
+The test verifies that the final target prefix becomes:
+
+'stream'
+
+rather than:
+
+'initial_value'
+
+And again it checks that the XCom call was made correctly.
+
+Step 10 — Put all five tests together
+
+Your current test suite is essentially checking this decision table:
+
+Test	Source xcom_key	Source file_prefix	XCom result	Initial target prefix	Expected final prefix	XCom called?
+1	last_record_ts	None	timestamp	default	stream	Yes
+2	last_record_ts	None	None	default	fullload	Yes
+3	None	stream	—	default	stream	No
+4	None	None	—	initial_value	fullload	No
+5	last_record_ts	None	timestamp	initial_value	stream	Yes
+
+This is the heart of your pytest suite.
+
+Step 11 — What exactly makes Azure say PASS?
+
+This is the complete chain:
+
+Azure Pipeline
+      |
+      v
+Docker container
+      |
+      v
+pytest Tests/ -v
+      |
+      v
+pytest discovers 5 test functions
+      |
+      +---- Test 1 → PASS/FAIL
+      |
+      +---- Test 2 → PASS/FAIL
+      |
+      +---- Test 3 → PASS/FAIL
+      |
+      +---- Test 4 → PASS/FAIL
+      |
+      +---- Test 5 → PASS/FAIL
+      |
+      v
+pytest exit code
+
+If all five succeed:
+
+5 passed
+exit code = 0
+
+Azure sees:
+
+Command completed successfully
+
+Therefore:
+
+unit_tests
+    ↓
+SUCCESS
+    ↓
+deploy_test allowed
+
+If even one assertion fails:
+
+4 passed, 1 failed
+
+pytest returns a non-zero exit code.
+
+Then:
+
+unit_tests
+    ↓
+FAILED
+    ↓
+deploy_test blocked
+    ↓
+deploy_prod blocked
+
+That's why pytest is actually important to your deployment pipeline.
+
+Step 12 — But notice what these tests DON'T test
+
+This is equally important for your interview understanding.
+
+Your current five tests do not prove that the complete pipeline works.
+
+They don't test:
+
+SQL Server
+   ↓
+Python extraction
+   ↓
+Airflow scheduler
+   ↓
+GCS
+   ↓
+Pub/Sub
+   ↓
+Snowpipe
+   ↓
+Snowflake
+   ↓
+dbt
+   ↓
+Tableau
+
+They test only a small unit of Python behavior:
+
+ExtractionOperator
+        ↓
+_determine_prefix()
+        ↓
+stream / fullload decision
+
+So we can classify your current tests as unit tests.
+
+Step 13 — Why this is called a "unit" test
+
+Think of your entire pipeline as a car:
+
+                  FULL PIPELINE
+                       🚗
+                       |
+       +---------------+---------------+
+       |               |               |
+    Engine          Brakes          Steering
+       |               |               |
+   Extraction       Testing          Routing
+       |
+   _determine_prefix()
+
+A unit test doesn't drive the entire car.
+
+It tests one component in isolation.
+
+Your current test is effectively:
+
+"Does this particular component correctly decide
+whether the extraction is fullload or stream?"
+
+That's why we use:
+
+MagicMock()
+
+instead of real SQL Server/Airflow/GCS.
+
+The most important takeaway
+
+Your current pytest setup is checking five expected behaviors of ExtractionOperator._determine_prefix():
+
+1. XCom exists
+       → stream
+
+2. XCom doesn't exist
+       → fullload
+
+3. Source explicitly says stream
+       → stream
+       → don't call XCom
+
+4. Target tries to specify its own prefix
+       → source/operator decision wins
+       → fullload
+
+5. Target tries to specify its own prefix
+       → source/operator decision wins
+       → stream
+
+And each test can pass or fail based on assertions and mock-call verification.
+
+So when Azure runs:
+
+pytest Tests/ -v
+
+it is not asking pytest to decide whether your Airflow pipeline is good.
+
+It is asking pytest:
+
+"Run the test cases that our developers wrote, and tell us whether the actual code behaves according to those predefined expectations."
+
+That distinction is very important for your Data Engineering interview understanding.
