@@ -1,0 +1,15 @@
+
+
+models:
+  - name: mkt_dataproduct_item
+    columns:
+      - name: ITEM_CODE
+        description: "The code of the item"
+      - name: ITEM_NAME_FR
+        description: "The official product name in French"
+      - name: ITEM_NAME_EN
+        description: "The official product name in English"
+      - name: ITEM_SALES_GROUP_CODE
+        description: "Code representing the item's primary sales or reporting category"
+      - name: ACTIVE_STATUS_CODE
+        description: "Indicates if the item is currently active for sale or use"

@@ -1,0 +1,67 @@
+{{
+  config(
+    materialized = "view",
+    alias = "cm50_ap_invoice_payments",
+    schema='EBS'
+  )
+}}
+
+select  
+ DATA:APP_ACCOUNTING_DATE           as APP_ACCOUNTING_DATE
+,DATA:APP_ACCOUNTING_EVENT_ID       as APP_ACCOUNTING_EVENT_ID
+,DATA:APP_ACCRUAL_POSTED_FLAG       as APP_ACCRUAL_POSTED_FLAG
+,DATA:APP_ACCTS_PAY_CC_ID           as APP_ACCTS_PAY_CC_ID
+,DATA:APP_AMOUNT                    as APP_AMOUNT
+,DATA:APP_ASSETS_ADDITION_FLAG      as APP_ASSETS_ADDITION_FLAG
+,DATA:APP_ASSET_CODE_COMBINATION_ID as APP_ASSET_CODE_COMBINATION_ID
+,DATA:APP_CASH_POSTED_FLAG          as APP_CASH_POSTED_FLAG
+,DATA:APP_CHECK_ID                  as APP_CHECK_ID
+,DATA:APP_CREATED_BY                as APP_CREATED_BY
+,DATA:APP_CREATION_DATE             as APP_CREATION_DATE
+,DATA:APP_DISCOUNT_LOST             as APP_DISCOUNT_LOST
+,DATA:APP_DISCOUNT_TAKEN            as APP_DISCOUNT_TAKEN
+,DATA:APP_EXCHANGE_DATE             as APP_EXCHANGE_DATE
+,DATA:APP_EXCHANGE_RATE             as APP_EXCHANGE_RATE
+,DATA:APP_EXCHANGE_RATE_TYPE        as APP_EXCHANGE_RATE_TYPE
+,DATA:APP_FUTURE_PAY_POSTED_FLAG    as APP_FUTURE_PAY_POSTED_FLAG
+,DATA:APP_GAIN_CODE_COMBINATION_ID  as APP_GAIN_CODE_COMBINATION_ID
+,DATA:APP_INVOICE_BASE_AMOUNT       as APP_INVOICE_BASE_AMOUNT
+,DATA:APP_INVOICE_ID                as APP_INVOICE_ID
+,DATA:APP_INVOICE_PAYMENT_ID        as APP_INVOICE_PAYMENT_ID
+,DATA:APP_INVOICE_PAYMENT_TYPE      as APP_INVOICE_PAYMENT_TYPE
+,DATA:APP_LAST_UPDATED_BY           as APP_LAST_UPDATED_BY
+,DATA:APP_LAST_UPDATE_DATE          as APP_LAST_UPDATE_DATE
+,DATA:APP_LAST_UPDATE_LOGIN         as APP_LAST_UPDATE_LOGIN
+,DATA:APP_LOSS_CODE_COMBINATION_ID  as APP_LOSS_CODE_COMBINATION_ID
+,DATA:APP_ORG_ID                    as APP_ORG_ID
+,DATA:APP_OTHER_INVOICE_ID          as APP_OTHER_INVOICE_ID
+,DATA:APP_PAYMENT_BASE_AMOUNT       as APP_PAYMENT_BASE_AMOUNT
+,DATA:APP_PAYMENT_NUM               as APP_PAYMENT_NUM
+,DATA:APP_PERIOD_NAME               as APP_PERIOD_NAME
+,DATA:APP_POSTED_FLAG               as APP_POSTED_FLAG
+,DATA:APP_REVERSAL_FLAG             as APP_REVERSAL_FLAG
+,DATA:APP_REVERSAL_INV_PMT_ID       as APP_REVERSAL_INV_PMT_ID
+,DATA:APP_SET_OF_BOOKS_ID           as APP_SET_OF_BOOKS_ID
+,FILENAME                           AS METADATA_FILENAME 
+,FILE_ROW_NUMBER                    AS METADATA_FILE_ROW_NUMBER
+,FILE_LAST_MODIFIED                 AS METADATA_FILE_LAST_MODIFIED
+,START_SCAN_TIME                    AS METADATA_START_SCAN_TIME
+from {{ source("landing_ebs", "CM50_AP_INVOICE_PAYMENTS") }}
+WHERE
+    split(FILENAME, '_') [array_size(split(FILENAME, '_')) - 2] >= (
+        SELECT
+            min_timestamp
+        FROM
+            (
+                SELECT
+                    split(FILENAME, '_') [array_size(split(FILENAME, '_')) - 2] AS min_timestamp,
+                    split(FILENAME, '/') [3] AS type_file
+                FROM
+                    {{ source("landing_ebs", "CM50_AP_INVOICE_PAYMENTS") }}
+                WHERE
+                    type_file LIKE 'fullload%' QUALIFY ROW_NUMBER() OVER (
+                        ORDER BY
+                            min_timestamp DESC
+                    ) = 1
+            )
+         )

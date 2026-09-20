@@ -1,0 +1,88 @@
+{{
+  config(
+    materialized = "view",
+    alias = "project_event",
+    schema='spm_ca',
+    meta = {
+        'table_key': 'PROJECT_EVENT_UUID',
+        'tests': {
+            'null_values':{
+                'columns':[
+                    'TRANSACTION_TRANSFER_STATUS_CODE',
+                    'PROVISION_TRANSFER_STATUS_CODE'
+                ]
+            }
+        }
+    }
+  )
+}}
+
+SELECT 
+P.PROJECT_EVENT_UUID::string AS PROJECT_EVENT_UUID
+,UPPER(P.NO_PROJET::string) AS NO_PROJET
+,P.SEQUENCE::integer AS SEQUENCE
+,UPPER(NULLIF(TRIM(P.VENDOR_CODE::string), '')) AS VENDOR_CODE
+,NULLIF(TRIM(P.DESCRIPTION::string), '') AS DESCRIPTION
+,P.TOTAL_COST::double AS TOTAL_COST
+,P.PROVISION_TOTAL_AMOUNT::double AS PROVISION_TOTAL_AMOUNT
+,TO_TIMESTAMP_NTZ(P.PROVISION_TRANSFER_DATETIME::string) AS PROVISION_TRANSFER_DATETIME
+,UPPER(NULLIF(TRIM(P.PROVISION_STATUS::string), '')) AS PROVISION_STATUS
+,P.CREDIT_PAYMENT_TOTAL_AMOUNT::double AS CREDIT_PAYMENT_TOTAL_AMOUNT
+,TO_TIMESTAMP_NTZ(P.CREDIT_PAYMENT_TRANSFER_DATETIME::string) AS CREDIT_PAYMENT_TRANSFER_DATETIME
+,UPPER(NULLIF(TRIM(P.CREDIT_PAYMENT_STATUS::string), '')) AS CREDIT_PAYMENT_STATUS
+--RDM TRANSACTIONTRANSFERTSTATUS CODE
+,R1.Standard_Application_Value AS TRANSACTION_TRANSFER_STATUS_CODE
+--RDM PROVISIONTRANSFERTSTATUS CODE
+,R2.Standard_Application_Value AS PROVISION_TRANSFER_STATUS_CODE
+,P.AMOUNT_TO_RELEASE::string AS AMOUNT_TO_RELEASE
+,TO_TIMESTAMP_NTZ(P.CREATION_DATETIME::string) AS CREATION_DATETIME
+,UPPER(P.CREDIT_PAYMENT_INCLUDES_TAXES::string) AS CREDIT_PAYMENT_INCLUDES_TAXES
+,P.SEQ_NO::integer AS SEQ_NO
+,UPPER(NULLIF(TRIM(P.ENTITY_CODE::string), '')) AS ENTITY_CODE
+,P.NO_POIDS::integer AS NO_POIDS
+,P.NO_MEMO::integer AS NO_MEMO
+,TO_BOOLEAN(P.MATERIAL_MISSING::string) AS MATERIAL_MISSING
+,TO_BOOLEAN(P.NOT_PRODUCED_CORRECTLY::string) AS NOT_PRODUCED_CORRECTLY
+,NULLIF(P.SUBMITTED_BY_PEOPLE_ID::integer, 0) AS SUBMITTED_BY_PEOPLE_ID
+,NULLIF(TRIM(P.COMPLAINT_BY_CUSTOMER_TYPE_UUID::string), '') AS COMPLAINT_BY_CUSTOMER_TYPE_UUID
+,P.PROJCT_EVENT_ENTRY_BY_PEOPLE_ID::integer AS PROJCT_EVENT_ENTRY_BY_PEOPLE_ID
+,NULLIF(TRIM(P.PAYMENT_TO_VENDOR_CODE::string), '') AS PAYMENT_TO_VENDOR_CODE
+,P.PROJECT_EVENT_TRANS_TYPE_UUID::string AS PROJECT_EVENT_TRANS_TYPE_UUID
+,NULLIF(TRIM(P.PAYMENT_TO_CUSTOMER_UUID::string), '') AS PAYMENT_TO_CUSTOMER_UUID
+,NULLIF(TRIM(P.MODIFIED_BY::string), '') AS MODIFIED_BY
+,TO_TIMESTAMP_NTZ(P.MODIFIED_DATE::string) AS MODIFIED_DATE
+,NULLIF(TRIM(P.CREATED_BY::string), '') AS CREATED_BY
+FROM {{ref('prep_project_event')}} P
+
+LEFT JOIN 
+(
+SELECT
+  Business_Application_Value as Business_Application_Value,
+  Business_Application_Domain_Code as Business_Application_Domain_Code,
+  Standard_Application_Value as Standard_Application_Value
+FROM
+{{ref('gov_referencedata_rdm')}}
+WHERE
+UPPER(Business_Application_Domain_Code) = 'TRANSACTIONTRANSFERTSTATUS' AND
+UPPER(Business_Application_Code) = 'SPM'
+) R1
+ON UPPER(P.CREDIT_PAYMENT_STATUS) = UPPER(R1.Business_Application_Value) 
+OR UPPER(NULLIF(TRIM(P.CREDIT_PAYMENT_STATUS::string), '')) IS NULL 
+AND R1.Business_Application_Value = '' -- Empty cells in the RDM Sheets are blank strings in the RDM table
+
+LEFT JOIN
+(SELECT
+Business_Application_Value as Business_Application_Value,
+Business_Application_Domain_Code as Business_Application_Domain_Code,
+Standard_Application_Value as Standard_Application_Value
+FROM
+{{ref('gov_referencedata_rdm')}}
+WHERE
+UPPER(Business_Application_Domain_Code) = 'PROVISIONTRANSFERTSTATUS' AND
+UPPER(Business_Application_Code) = 'SPM'
+) R2
+ON UPPER(P.PROVISION_STATUS) = UPPER(R2.Business_Application_Value) 
+OR UPPER(NULLIF(TRIM(P.PROVISION_STATUS::string), '')) IS NULL 
+AND R2.Business_Application_Value = '' -- Empty cells in the RDM Sheets are blank strings in the RDM table
+
+QUALIFY ROW_NUMBER() OVER (PARTITION BY TABLE_SK ORDER BY QUALIFY_TIMESTAMP DESC) = 1 AND UPPER(TRIM(SRC_SYSTEM_OPERATION::STRING)) <> 'DELETE'

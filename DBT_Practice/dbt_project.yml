@@ -1,0 +1,273 @@
+# Name your project! Project names should contain only lowercase characters
+# and underscores. A good package name should reflect your organization's
+# name or the intended use of these models
+name: 'dbt_enterprise_project'
+version: '1.0.0'
+config-version: 2
+
+# Define variables here
+vars:
+  env_name: 'test'
+  task_warehouse: "{{ target.warehouse }}"
+  alert_email_address: "{{ env_var('ALERT_EMAIL', 'eisappts@canamgroupinc.com') if target.name == 'local' else 'eisappts@canamgroupinc.com' }}"
+
+# This setting configures which "profile" dbt uses for this project.
+profile: 'dbt-enterprise-project'
+
+# These configurations specify where dbt should look for different types of files.
+# The `source-paths` config, for example, states that models in this project can be
+# found in the "models/" directory. You probably won't need to change these!
+model-paths: ["models"]
+analysis-paths: ["analysis"]
+test-paths: ["tests"]
+seed-paths: ["data","profiling"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"  # directory which will store compiled SQL files
+clean-targets:         # directories to be removed by `dbt clean`
+  - "target"
+  - "dbt_modules"
+
+
+# Configuring models
+# Full documentation: https://docs.getdbt.com/docs/configuring-models
+models:
+
+  dbt_enterprise_project: 
+    prepare:
+      enterprise:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_ENTERPRISE_PREPARE
+          {% elif target.name == 'test' %}
+            TEST_ENTERPRISE_PREPARE
+          {% elif target.name == 'preprod' %}
+            PREPROD_ENTERPRISE_PREPARE
+          {% elif target.name == 'prod' %}
+            PROD_ENTERPRISE_PREPARE
+          {% endif %}
+
+      corporate:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_ENTERPRISE_PREPARE
+          {% elif target.name == 'test' %}
+            TEST_CORPORATE_PREPARE
+          {% elif target.name == 'preprod' %}
+            PREPROD_CORPORATE_PREPARE
+          {% elif target.name == 'prod' %}
+            PROD_CORPORATE_PREPARE
+          {% endif %}
+
+      manufacturing:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_ENTERPRISE_PREPARE
+          {% elif target.name == 'test' %}
+            TEST_MANUFACTURING_PREPARE
+          {% elif target.name == 'preprod' %}
+            PREPROD_MANUFACTURING_PREPARE
+          {% elif target.name == 'prod' %}
+            PROD_MANUFACTURING_PREPARE
+          {% endif %}
+
+    normalize:
+      enterprise:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_ENTERPRISE_NORMALIZE
+          {% elif target.name == 'test' %}
+            TEST_ENTERPRISE_NORMALIZE
+          {% elif target.name == 'preprod' %}
+            PREPROD_ENTERPRISE_NORMALIZE
+          {% elif target.name == 'prod' %}
+            PROD_ENTERPRISE_NORMALIZE
+          {% endif %}
+
+      corporate:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_ENTERPRISE_NORMALIZE
+          {% elif target.name == 'test' %}
+            TEST_CORPORATE_NORMALIZE
+          {% elif target.name == 'preprod' %}
+            PREPROD_CORPORATE_NORMALIZE
+          {% elif target.name == 'prod' %}
+            PROD_CORPORATE_NORMALIZE
+          {% endif %}
+
+      manufacturing:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_ENTERPRISE_NORMALIZE
+          {% elif target.name == 'test' %}
+            TEST_MANUFACTURING_NORMALIZE
+          {% elif target.name == 'preprod' %}
+            PREPROD_MANUFACTURING_NORMALIZE
+          {% elif target.name == 'prod' %}
+            PROD_MANUFACTURING_NORMALIZE
+          {% endif %}
+
+    schematize:
+      enterprise:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_ENTERPRISE_SCHEMATIZE
+          {% elif target.name == 'test' %}
+            TEST_ENTERPRISE_SCHEMATIZE
+          {% elif target.name == 'preprod' %}
+            PREPROD_ENTERPRISE_SCHEMATIZE
+          {% elif target.name == 'prod' %}
+            PROD_ENTERPRISE_SCHEMATIZE
+          {% endif %}
+
+      corporate:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_ENTERPRISE_SCHEMATIZE
+          {% elif target.name == 'test' %}
+            TEST_CORPORATE_SCHEMATIZE
+          {% elif target.name == 'preprod' %}
+            PREPROD_CORPORATE_SCHEMATIZE
+          {% elif target.name == 'prod' %}
+            PROD_CORPORATE_SCHEMATIZE
+          {% endif %}
+
+      manufacturing:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_ENTERPRISE_SCHEMATIZE
+          {% elif target.name == 'test' %}
+            TEST_MANUFACTURING_SCHEMATIZE
+          {% elif target.name == 'preprod' %}
+            PREPROD_MANUFACTURING_SCHEMATIZE
+          {% elif target.name == 'prod' %}
+            PROD_MANUFACTURING_SCHEMATIZE
+          {% endif %}
+          
+    marketplace:
+      enterprise:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_ENTERPRISE_MARKETPLACE
+          {% elif target.name == 'test' %}
+            TEST_ENTERPRISE_MARKETPLACE
+          {% elif target.name == 'preprod' %}
+            PREPROD_ENTERPRISE_MARKETPLACE
+          {% elif target.name == 'prod' %}
+            PROD_ENTERPRISE_MARKETPLACE
+          {% endif %}
+
+      procurement_logistics:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_ENTERPRISE_MARKETPLACE
+          {% elif target.name == 'test' %}
+            TEST_PROCUREMENT_LOGISTICS_MARKETPLACE
+          {% elif target.name == 'preprod' %}
+            PREPROD_PROCUREMENT_LOGISTICS_MARKETPLACE
+          {% elif target.name == 'prod' %}
+            PROD_PROCUREMENT_LOGISTICS_MARKETPLACE
+          {% endif %}
+
+      project_management:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_ENTERPRISE_MARKETPLACE
+          {% elif target.name == 'test' %}
+            TEST_PROJECT_MANAGEMENT_MARKETPLACE
+          {% elif target.name == 'preprod' %}
+            PREPROD_PROJECT_MANAGEMENT_MARKETPLACE
+          {% elif target.name == 'prod' %}
+            PROD_PROJECT_MANAGEMENT_MARKETPLACE
+          {% endif %}
+
+      product_management:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_PRODUCT_MANAGEMENT_MARKETPLACE
+          {% elif target.name == 'test' %}
+            TEST_PRODUCT_MANAGEMENT_MARKETPLACE
+          {% elif target.name == 'preprod' %}
+            PREPROD_PRODUCT_MANAGEMENT_MARKETPLACE
+          {% elif target.name == 'prod' %}
+            PROD_PRODUCT_MANAGEMENT_MARKETPLACE
+          {% endif %}
+
+      production_quality:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_ENTERPRISE_MARKETPLACE
+          {% elif target.name == 'test' %}
+            TEST_PRODUCTION_QUALITY_MARKETPLACE
+          {% elif target.name == 'preprod' %}
+            PREPROD_PRODUCTION_QUALITY_MARKETPLACE
+          {% elif target.name == 'prod' %}
+            PROD_PRODUCTION_QUALITY_MARKETPLACE
+          {% endif %}
+
+      human_capital:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_ENTERPRISE_MARKETPLACE
+          {% elif target.name == 'test' %}
+            TEST_HUMAN_CAPITAL_MARKETPLACE
+          {% elif target.name == 'preprod' %}
+            PREPROD_HUMAN_CAPITAL_MARKETPLACE
+          {% elif target.name == 'prod' %}
+            PROD_HUMAN_CAPITAL_MARKETPLACE
+          {% endif %}
+
+      marketing_sale:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_MARKETING_SALE_MARKETPLACE
+          {% elif target.name == 'test' %}
+            TEST_MARKETING_SALE_MARKETPLACE
+          {% elif target.name == 'preprod' %}
+            PREPROD_MARKETING_SALE_MARKETPLACE
+          {% elif target.name == 'prod' %}
+            PROD_MARKETING_SALE_MARKETPLACE
+          {% endif %}
+
+      accounting_finance:
+        +database: |
+          {% if target.name == 'local' %}
+            SANDBOX_ACCOUNTING_FINANCE_MARKETPLACE
+          {% elif target.name == 'test' %}
+            TEST_ACCOUNTING_FINANCE_MARKETPLACE
+          {% elif target.name == 'preprod' %}
+            PREPROD_ACCOUNTING_FINANCE_MARKETPLACE
+          {% elif target.name == 'prod' %}
+            PROD_ACCOUNTING_FINANCE_MARKETPLACE
+          {% endif %}
+    
+    governance:
+      +database: |
+        {% if target.name == 'local' %}
+          SANDBOX_GOVERNANCE
+        {% elif target.name == 'test' %}
+         TEST_GOVERNANCE
+        {% elif target.name == 'preprod' %}
+         PREPROD_GOVERNANCE
+        {% elif target.name == 'prod' %}
+         PROD_GOVERNANCE
+        {% endif %}
+
+
+  # Add "description" from schema.yml as COMMENT to table and columns in Snowflake
+  #  CAUTION: having `columns: true` seems to break the deployment for columns that need to be quoted e.g. "F+F Core SKU"
+  #  MUST turn off column comments (columns: false) if you have columns that need quotes on any models.
+  #  BEST PARCTICE: avoid, if possible, using column names that need quotes e.g. "F+F Core SKU" >> ff_core_sku
+  +persist_docs:
+    relation: true # enables snowflake COMMENT on TABLES and VIEWS
+    columns: true  # enables snowflake COMMENT on COLUMNS for TABLES only! Doesn't work for snowflake VIEWS!
+
+  # Create SPs to allow deletion of files from the raw table
+on-run-end: 
+  - '{{ create_alert_schema()}}'
+  - '{{ create_alert(alert1_pipe_load_fail__condition, alert1_pipe_load_fail__action, ''alert1_pipe_load_fail'')}}'
+  - '{{ create_alert(alert2_pipe_inactive__condition, alert2_pipe_inactive__action, ''alert2_pipe_inactive'')}}'
+  - '{{ create_alert(alert3_dynamic_tables_failed_refresh__condition, alert3_dynamic_tables_failed_refresh__action, ''alert3_dynamic_tables_failed_refresh'')}}'
+  

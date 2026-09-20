@@ -1,0 +1,2839 @@
+version: 2
+
+models:
+  - name: prep_marques
+    config:
+      schema: SPM_CA
+    columns:
+      - name: M_TMPS_IND_1
+        description: "Tmps std ind. 1-Qualite, 2-Manutention, 3-Superv, 4-Cour, 5-Entrepot"
+      - name: M_TMPS_IND_2
+        description: "Tmps std ind. 1-Qualite, 2-Manutention, 3-Superv, 4-Cour, 5-Entrepot"
+      - name: M_TMPS_IND_3
+        description: "Tmps std ind. 1-Qualite, 2-Manutention, 3-Superv, 4-Cour, 5-Entrepot"
+      - name: M_TMPS_IND_4
+        description: "Tmps std ind. 1-Qualite, 2-Manutention, 3-Superv, 4-Cour, 5-Entrepot"
+      - name: M_TMPS_IND_5
+        description: "Tmps std ind. 1-Qualite, 2-Manutention, 3-Superv, 4-Cour, 5-Entrepot"
+      - name: NUMERO_IDENT
+        description: "Numero d'identification"
+      - name: M_QTES_1
+        description: "Qtes 1>Requis 2> Prep. 3> Prod. 4> Livrees 5> Trav. 6> Tags 7> Finit."
+      - name: M_QTES_2
+        description: "Qtes 1>Requis 2> Prep. 3> Prod. 4> Livrees 5> Trav. 6> Tags 7> Finit."
+      - name: M_QTES_3
+        description: "Qtes 1>Requis 2> Prep. 3> Prod. 4> Livrees 5> Trav. 6> Tags 7> Finit."
+      - name: M_QTES_4
+        description: "Qtes 1>Requis 2> Prep. 3> Prod. 4> Livrees 5> Trav. 6> Tags 7> Finit."
+      - name: M_QTES_5
+        description: "Qtes 1>Requis 2> Prep. 3> Prod. 4> Livrees 5> Trav. 6> Tags 7> Finit."
+      - name: M_QTES_6
+        description: "Qtes 1>Requis 2> Prep. 3> Prod. 4> Livrees 5> Trav. 6> Tags 7> Finit."
+      - name: M_QTES_7
+        description: "Qtes 1>Requis 2> Prep. 3> Prod. 4> Livrees 5> Trav. 6> Tags 7> Finit."
+      - name: MLI
+        description: "Describes whether an Item is * -> imported or  not imported."
+      - name: FURN_COST
+        description: "Furniture Cost included in marques.m-cout-mat."
+      - name: M_TMPS_STD_1
+        description: "Temps std 1- Prep. 2- Ass. 3-Soud. 4-Peint. 5-Oss. 6-Fin. (Min)"
+      - name: M_TMPS_STD_2
+        description: "Temps std 1- Prep. 2- Ass. 3-Soud. 4-Peint. 5-Oss. 6-Fin. (Min)"
+      - name: M_TMPS_STD_3
+        description: "Temps std 1- Prep. 2- Ass. 3-Soud. 4-Peint. 5-Oss. 6-Fin. (Min)"
+      - name: M_TMPS_STD_4
+        description: "Temps std 1- Prep. 2- Ass. 3-Soud. 4-Peint. 5-Oss. 6-Fin. (Min)"
+      - name: M_TMPS_STD_5
+        description: "Temps std 1- Prep. 2- Ass. 3-Soud. 4-Peint. 5-Oss. 6-Fin. (Min)"
+      - name: M_TMPS_STD_6
+        description: "Temps std 1- Prep. 2- Ass. 3-Soud. 4-Peint. 5-Oss. 6-Fin. (Min)"
+      - name: US_TMPS_STD_1
+        description: "Std Times 1- Prep 2- Ass. 3- Weld. 4- Paint. 5- Mold. 6- Fin.(in min.)"
+      - name: US_TMPS_STD_2
+        description: "Std Times 1- Prep 2- Ass. 3- Weld. 4- Paint. 5- Mold. 6- Fin.(in min.)"
+      - name: US_TMPS_STD_3
+        description: "Std Times 1- Prep 2- Ass. 3- Weld. 4- Paint. 5- Mold. 6- Fin.(in min.)"
+      - name: US_TMPS_STD_4
+        description: "Std Times 1- Prep 2- Ass. 3- Weld. 4- Paint. 5- Mold. 6- Fin.(in min.)"
+      - name: US_TMPS_STD_5
+        description: "Std Times 1- Prep 2- Ass. 3- Weld. 4- Paint. 5- Mold. 6- Fin.(in min.)"
+      - name: US_TMPS_STD_6
+        description: "Std Times 1- Prep 2- Ass. 3- Weld. 4- Paint. 5- Mold. 6- Fin.(in min.)"
+      - name: M_LONG_METR
+        description: "Longueur en Metrique (mm)"
+      - name: PROD_STARTUP_EST_TIME2
+        description: "Production Start-Up Estimated Time"
+      - name: PROD_STARTUP_EST_TIME3
+        description: "Production Start-Up Estimated Time"
+      - name: PROD_STARTUP_EST_TIME4
+        description: "Production Start-Up Estimated Time"
+      - name: PROD_STARTUP_EST_TIME5
+        description: "Production Start-Up Estimated Time"
+      - name: PROD_STARTUP_EST_TIME6
+        description: "Production Start-Up Estimated Time"
+      - name: PROD_STARTUP_EST_TIME1
+        description: "Production Start-Up Estimated Time"
+      - name: DECK_ACCESSORY_DIMENSION_B
+        description: "Dimension B (second dimension) for the accessory in mm"
+      - name: DECK_ACCESSORY_DIMENSION_C
+        description: "Dimension C (third dimension) for the accessory in mm"
+      - name: DECK_ACCESSORY_ANGLE
+        description: "Angle Value for the accessory in degree"
+      - name: DECK_ACCESSORY_GAGE
+        description: "Gage Value for the accessory in mm"
+      - name: DECK_ACCESSORY_DIMENSION_A
+        description: "Dimension A (first dimension) for the accessory in mm"
+      - name: COLD_FORMED_MARK_UUID
+        description: "Cold formed mark UUID"
+      - name: FINISHED_QUANTITY_TRANSFERRED
+        description: "Finished quantity transferred to financial application"
+      - name: DETAIL_REPORT_MODIFIED
+        description: "Describes whether the detail report has been modified manually (Desgo provide the information)"
+      - name: PROD_STARTUP_EST_TIME5_INITIAL
+        description: "Production estimated time including efficiency from estimation software"
+      - name: PROD_STARTUP_EST_TIME6_INITIAL
+        description: "Production estimated time including efficiency from estimation software"
+      - name: PROD_STARTUP_EST_TIME1_INITIAL
+        description: "Production estimated time including efficiency from estimation software"
+      - name: PROD_STARTUP_EST_TIME2_INITIAL
+        description: "Production estimated time including efficiency from estimation software"
+      - name: PROD_STARTUP_EST_TIME3_INITIAL
+        description: "Production estimated time including efficiency from estimation software"
+      - name: PROD_STARTUP_EST_TIME4_INITIAL
+        description: "Production estimated time including efficiency from estimation software"
+      - name: BRIDGE_ACCESSORY_MARK_UUID
+        description: "Bridge accessory mark UUID linked to acctg.bridge_accessory_mark"
+      - name: PRE_ASSEMBLED_WITH
+        description: "For unequal 'X' bolted bridging pre-assembled only. Indicates with which X bridging mark the crrent mark is pre-assembled."
+      - name: MARQUES_UUID
+        description: "UUID assigned with GUID"
+      - name: BOTTOMCHORDSHAPETYPE
+        description: "Shape type of the bottom chord. Linked with table description."
+      - name: TOPCHORDSHAPETYPE
+        description: "Shape type of the mark top chord.  Linked with table description."
+      - name: CUTLEG
+        description: "Number of cut to be done on chord"
+      - name: HASMEMBERREINFORCEMENT
+        description: "Determine if the mark as member reinforcement component"
+      - name: HASTCX
+        description: "Determine if the mark as TCX component"
+      - name: CUTLEGLENGTH
+        description: "Length of cut to be done on chord for the XBridging."
+      - name: QUANTITYSHOETAGPRINTED
+        description: "Indicate how many shoe tags were printed."
+      - name: CREATEDDATE
+        description: "Datetime when the record was created"
+      - name: CREATEDBY
+        description: "User who initiated the creation of the record"
+      - name: MODIFIEDDATE
+        description: "Datetime when the record was updated"
+      - name: MODIFIEDBY
+        description: "The last user who modified the record"
+      - name: SJASTATUS
+        description: "SJA Status 0-in progress, 1-error,2-valid"
+      - name: SJAESTIMATEDTIME
+        description: "SJA Estimated Time."
+      - name: SJAESTIMATEDTIMEINITIAL
+        description: "SJA Estimated Time initial."
+      - name: PROD_STARTUP_EST_TIME2_OLD
+        description: "Old Production Start-Up Estimated Time"
+      - name: PROD_STARTUP_EST_TIME2_INIT_OLD
+        description: "Old Production Start-Up Estimated Time"
+  - name: prep_cmg_sales_group
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: SALES_GROUP_CODE
+        description: "Sales Group Code imported from Oracle."
+      - name: DESCRIPTION_ID
+        description: "Id used to linked with table data_name for the sale group description."
+      - name: UOM_CODE
+        description: "Group default unit of measure."
+      - name: PERFORMANCE_IND_CALCULATION
+        description: "Yes: the performance indicator has to be calculated for the products associated to the sales group."
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: CMG_SALES_GROUP_UUID
+        description: "Unique UUID"
+  - name: prep_ess_line
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: ENTITY_CODE
+        description: "Code for the accounting entity affected by transactions."
+      - name: GL_DEPENSE
+        description: "Compte de depense a imputer a la facturation"
+      - name: DESC_LINE_1
+        description: "1: French Description  2: English Description"
+      - name: DESC_LINE_2
+        description: "1: French Description  2: English Description"
+      - name: TASK_NUMBER
+        description: "Oracle Task number."
+      - name: POUNDS_INPUT
+        description: "Allow input for pounds."
+      - name: AREA_INPUT
+        description: "Allow area input. (Deck...)"
+      - name: IS_ACTIVE
+        description: "Status of this type of transaction."
+      - name: DW_TASK
+        description: "DataWarehouse task number."
+      - name: EXTERNAL
+        description: "External Product/Service"
+      - name: ERECTOR_PRIVILEGE
+        description: "Erector privilege transaction (BuildMaster)"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: ESS_LINE_UUID
+        description: "Unique UUID"
+  - name: prep_ess_trans
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: ENTITY_CODE
+        description: "Code for the accounting entity affected by transactions."
+      - name: TRANS_CODE
+        description: "0 : Projet, 1 : Facturation, 2 : Payable"
+      - name: REFERENCE
+        description: "Numero de la facture cf ou cc."
+      - name: TRANS_DATE
+        description: "Date the transaction occurred."
+      - name: TRANS_AMT
+        description: "Montant affecte par la transaction"
+      - name: REF_CODE
+        description: "CC = Gl  Code  and  CF trans-code = 2 -> payable-reg.seq-no"
+      - name: PRD
+        description: "Accounting (fiscal) period affected by the transaction."
+      - name: YR
+        description: "Accounting (fiscal) year affected by the transaction."
+      - name: STATUS_LINE
+        description: "Statut de la transaction NT = Non Transfere au GL"
+      - name: CALCLT_MODE
+        description: "Mode de calcul A=Automatique M=Manuel"
+      - name: VENDOR_CODE
+        description: "Code for the Vendor."
+      - name: PO_NO
+        description: "Number of the Purchase Order."
+      - name: WEIGHT
+        description: "Weight of job cost product."
+      - name: AREA
+        description: "Area of Job cost product."
+      - name: VENDOR_ID
+        description: "Vendor Id"
+      - name: VENDOR_NAME
+        description: "Vendor Name"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: ESS_TRANS_UUID
+        description: "Unique UUID"
+  - name: prep_ess_tranx
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: ENTITY_CODE
+        description: "Code for the accounting entity affected by transactions."
+      - name: PRD
+        description: "Accounting (fiscal) period affected by the transaction."
+      - name: TRANS_DATE
+        description: "Date the transaction occurred."
+      - name: YR
+        description: "Accounting (fiscal) year affected by the transaction."
+      - name: WEIGHT
+        description: "Weight of job cost product."
+      - name: AREA
+        description: "Area of Job cost product."
+      - name: VENDOR_ID
+        description: "Vendor Id"
+      - name: VENDOR_NAME
+        description: "Vendor Name"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: ESS_TRANX_UUID
+        description: "Unique UUID"
+  - name: prep_in_control
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: IN_ENTITY
+        description: "I/M control entity (company/division) affected by transactions."
+      - name: IN_YR
+        description: "Accounting year for the I/M control entity."
+      - name: IN_PRD
+        description: "Accounting period for the I/M control entity."
+      - name: NUMBER_PRD
+        description: "Number of periods in the fiscal year (12 or 13)."
+      - name: WHS_CODE
+        description: "Code for the Warehouse used in shipping and/or receiving."
+      - name: UOM_CODE
+        description: "Code for the Item's unit of measure."
+      - name: COST_METHOD
+        description: "Most-used method for costing stock items."
+      - name: BREAK_CODE
+        description: "Default code for the price-break."
+      - name: PROD_GROUP
+        description: "Code that defines a Product Group for the Item."
+      - name: PR_GP_LENGTH
+        description: "Default number of Item-no characters = Pricing Group."
+      - name: ENTITY_INV
+        description: "Entity affected by perpetual inventory transactions."
+      - name: ENTITY_WIP
+        description: "Entity affected by work-in-process transactions."
+      - name: MLI
+        description: "Describes whether an Item is manufactured/local/imported."
+      - name: ALLOW_BO
+        description: "Describes whether or not back-orders are allowed."
+      - name: MISC_CODE
+        description: "User-defined code for sorting Items."
+      - name: GL_PHYSICAL
+        description: "GL-code for Inventory Variance due to a physical count."
+      - name: VIEW_LOGIN
+        description: "Describes whether or not the Log On screen displays prior to functions."
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: IN_CONTROL_UUID
+        description: "Unique UUID"
+  - name: prep_item_whs
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: IN_ENTITY
+        description: "I/M control entity (company/division) affected by transactions."
+      - name: ITEM_NO
+        description: "Number of the Item."
+      - name: WHS_CODE
+        description: "Code for the Warehouse used in shipping and/or receiving."
+      - name: BIN_LOCATION
+        description: "Place where an item is located in a warehouse."
+      - name: ENTITY_INV
+        description: "Entity affected by perpetual inventory transactions."
+      - name: ENTITY_WIP
+        description: "Entity affected by work-in-process transactions."
+      - name: LEAD_TIME
+        description: "An estimate of the time taken to receive goods from the Vendor."
+      - name: REORDER_LEV
+        description: "Fixed minimum quantity below which a P.O. is issued."
+      - name: ECON_ORD_QTY
+        description: "Economical/standard quantity of an item to be ordered."
+      - name: PRD_OF_STOCK
+        description: "Number of periods an Item is to be kept in stock."
+      - name: PRD_RESEARCH
+        description: "Number of periods considered:  Item's average sales/usage."
+      - name: REORDER_PCT
+        description: "Percentage of the computed minimum reorder level."
+      - name: ALLOW_BO
+        description: "Describes whether or not back-orders are allowed."
+      - name: MISC_CODE
+        description: "User-defined code for sorting Items."
+      - name: PRI_REV_DATE
+        description: "Date of the last modification made to the Item price."
+      - name: PRICE_1
+        description: "Price of an Item."
+      - name: PRICE_2
+        description: "Price of an Item."
+      - name: PRICE_3
+        description: "Price of an Item."
+      - name: PRICE_4
+        description: "Price of an Item."
+      - name: PRICE_5
+        description: "Price of an Item."
+      - name: PRICE_6
+        description: "Price of an Item."
+      - name: PRICE_7
+        description: "Price of an Item."
+      - name: PRICE_8
+        description: "Price of an Item."
+      - name: PRICE_9
+        description: "Price of an Item."
+      - name: PRICE_10
+        description: "Price of an Item."
+      - name: DOLLAR_PCT_1
+        description: "Describes whether a price is a percentage or a dollar amount."
+      - name: DOLLAR_PCT_2
+        description: "Describes whether a price is a percentage or a dollar amount."
+      - name: DOLLAR_PCT_3
+        description: "Describes whether a price is a percentage or a dollar amount."
+      - name: DOLLAR_PCT_4
+        description: "Describes whether a price is a percentage or a dollar amount."
+      - name: DOLLAR_PCT_5
+        description: "Describes whether a price is a percentage or a dollar amount."
+      - name: DOLLAR_PCT_6
+        description: "Describes whether a price is a percentage or a dollar amount."
+      - name: DOLLAR_PCT_7
+        description: "Describes whether a price is a percentage or a dollar amount."
+      - name: DOLLAR_PCT_8
+        description: "Describes whether a price is a percentage or a dollar amount."
+      - name: DOLLAR_PCT_9
+        description: "Describes whether a price is a percentage or a dollar amount."
+      - name: DOLLAR_PCT_10
+        description: "Describes whether a price is a percentage or a dollar amount."
+      - name: PROD_GROUP
+        description: "Groupe de produits pour l'article"
+      - name: LAST_VENDOR
+        description: "Dernier fournisseur duquel l'article a ete achete"
+      - name: HIST_TRANS
+        description: "Indique si on doit conserver l'historique des trans. d'inv."
+      - name: ORDER_LEVEL
+        description: "Order level"
+      - name: PRODUCTION_COST
+        description: "Cost for the transformation of the raw materials into a rollbar."
+      - name: ACTIVE
+        description: "Describes whether or not this record is active."
+      - name: DEACTIVATION_DATETIME
+        description: "DeactivationDateTime"
+      - name: DEACTIVATION_BY
+        description: "Deactivation done by (user code)"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+  - name: prep_produit_s
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: TAXABLE_1
+        description: "1- Fed Reg 2- Fed Erige 3- Prov Reg 4- Prov Erige"
+      - name: TAXABLE_2
+        description: "1- Fed Reg 2- Fed Erige 3- Prov Reg 4- Prov Erige"
+      - name: TAXABLE_3
+        description: "1- Fed Reg 2- Fed Erige 3- Prov Reg 4- Prov Erige"
+      - name: TAXABLE_4
+        description: "1- Fed Reg 2- Fed Erige 3- Prov Reg 4- Prov Erige"
+      - name: LARGEUR
+        description: "Largeur par feuille de pontage"
+      - name: FURN_COST
+        description: "Furniture Cost for Fabrication"
+      - name: ROYAUTE
+        description: "Indicator that tells if this product must pay royalty"
+      - name: MAJ_RES_INV
+        description: "Update inventory reservation (yes/no)."
+      - name: EXT_FAB
+        description: "Identify if the Product is one of the External Fabrication Product."
+      - name: RAW_MATERIAL
+        description: "Raw Material (reprocessed material)"
+      - name: ID_FACTOR_1
+        description: "1-Qualite 2-Manutention 3-Supervision 4-Cour 5-Entrepot"
+      - name: ID_FACTOR_2
+        description: "1-Qualite 2-Manutention 3-Supervision 4-Cour 5-Entrepot"
+      - name: ID_FACTOR_3
+        description: "1-Qualite 2-Manutention 3-Supervision 4-Cour 5-Entrepot"
+      - name: ID_FACTOR_4
+        description: "1-Qualite 2-Manutention 3-Supervision 4-Cour 5-Entrepot"
+      - name: ID_FACTOR_5
+        description: "1-Qualite 2-Manutention 3-Supervision 4-Cour 5-Entrepot"
+      - name: COUT_FABR_1
+        description: "Fabrication Cost [1] MOD  [2] MOI  [3] Overhead"
+      - name: COUT_FABR_2
+        description: "Fabrication Cost [1] MOD  [2] MOI  [3] Overhead"
+      - name: COUT_FABR_3
+        description: "Fabrication Cost [1] MOD  [2] MOI  [3] Overhead"
+      - name: BOLT_PRODUCT
+        description: "If Yes, this product is a bolt product."
+      - name: STANDARD_PRODUCT
+        description: "Product Standard or Not Standard"
+      - name: DECK_LOGOS
+        description: "Code for deck logo(s) to be printed on stickers."
+      - name: VALID_ITEM_NO
+        description: "Valid item no for deck recipe"
+      - name: MAX_BUNDL_PIECES
+        description: "Maximum number of deck pieces"
+      - name: BUNDL_PIECES_TOLERANCE
+        description: "Acceptable difference of deck pieces"
+      - name: IS_ACTIVE
+        description: "Yes: The product is active"
+      - name: DECK_COOLANT_CODE
+        description: "Deck Coolant Code (0=None 1=Continuous 2=Pulsed -> value linked to gdm.description)"
+      - name: DECK_EDGE_DETECTOR_MAX
+        description: "Deck Edge Detector Maximum Value (for male edge of deck sheets, in mm)"
+      - name: DECK_EDGE_DETECTOR_HIGH
+        description: "Deck Edge Detector High Value (for male edge of deck sheets, in mm)"
+      - name: DECK_EDGE_DETECTOR_IDEAL
+        description: "Deck Edge Detector Ideal Value (for male edge of deck sheets, in mm)"
+      - name: DECK_EDGE_DETECTOR_LOW
+        description: "Deck Edge Detector Low Value (for male edge of deck sheets, in mm)"
+      - name: DECK_EDGE_DETECTOR_MIN
+        description: "Deck Edge Detector Minimum Value (for male edge of deck sheets, in mm)"
+      - name: WIDTH_TOLERANCE
+        description: "Width Tolerance (+ or - the value, apply on produit-s.largeur, contains millimeters (in decimal). Update and display inches in US and Canada database."
+      - name: STICKER_COLOR_NO
+        description: "Sticker color no, refer to description"
+      - name: DECK_VENTED
+        description: "The deck is Vented or not"
+      - name: DECK_HANGER_TAB
+        description: "The deck is Hanger Tab or not"
+      - name: DECK_REGULAR
+        description: "The deck is Regular or not"
+      - name: DECK_ACOUSTIC
+        description: "The deck is Acoustic or not"
+      - name: DECK_FULL_ACOUSTIC
+        description: "The deck is Full Acoustic or not"
+      - name: DECK_DEPTH
+        description: "The depth of the product in mm"
+      - name: DECK_ACCESSORY
+        description: "The product is an accessory or not"
+      - name: DECK_EMBOSSING
+        description: "The deck is High Bound or not"
+      - name: DECK_TYPE_CODE
+        description: "Deck type code"
+      - name: CODE_FIN_C
+        description: "Accounting finishing code"
+      - name: PAINT_COLOR
+        description: "Paint color"
+      - name: TYPE_REQ
+        description: "Requisition type."
+      - name: MARK_PREFIX
+        description: "Prefix to use when assigning the code of the mark"
+      - name: CAT_STRUCT
+        description: "Category of the mark"
+      - name: NO_PEINTURE
+        description: "Paint number."
+      - name: CODE_FIN_T
+        description: "Technical finishing code"
+      - name: DECK_ESTIMATION_CATEGORY
+        description: "Deck estimation category, linked to gdm.description table  (used to group together products in Deck costs option)"
+      - name: ADDITIONAL_PLANNING_DELAY
+        description: "Delay to calculate the additional planning date (in days) ex: delivery date - additional_planning_date_delay = req-prod.additional_planning_date for fabricated girts & Z products"
+      - name: MAXIMUM_MARKS_NUMBER
+        description: "Maximum marks number by requisition"
+      - name: MAXIMUM_MARKS_QTY
+        description: "Maximum marks required qty by requisition"
+      - name: AUTOMATIC_SEQUENCING
+        description: "Sequencing on division is done automatically while creating the marks list."
+      - name: INVOICING_AMT_CALCULATION
+        description: "When yes, Manufacturing application generates the invoicing amount. Update mark weight, sale amount and description at bill of lading creation."
+      - name: SOLD_DETAIL_TOLERANCE_AMOUNT
+        description: "For products where invoicing amount is generated by manufacturing application: define the tolerated difference between sold and detailed amount ($)(no conversion needed, follows the currency of project). Value ? means no validation required."
+      - name: SOLD_DETAIL_TOLERANCE_WEIGHT_PCT
+        description: "For products where invoicing amount is generated by manufacturing application: define the tolerated difference percentage between sold and detailed weight (%). Value ? means no validation required."
+      - name: SOLD_DETAIL_TOLERANCE_UNIT
+        description: "For products where invoicing amount is generated by manufacturing application: define the tolerated difference between sold and detailed units (unit). Value ? means no validation required."
+      - name: UOM_BUDGET_ENTRY_TYPE
+        description: "Determines the uom budget entry type (projet-l.stats-poids[7]). Linked to gdm.description. Possible values: blank (no uom budget entry allowed), length and surface."
+      - name: SOLD_DETAIL_TOLERANCE_UOM
+        description: "For products where invoicing amount is generated by manufacturing application: define the tolerated difference between sold and detailed uom (length or surface following  produit-s.uom_budget_entry_type). Value ? means no validation required."
+      - name: TRANSFER_INVOICING_AMT
+        description: "When yes, Manufacturing application generates the invoicing amount and transfers this information to financial appl. when confirming the bill of lading. The invoicing amount comes from manufacturing system. When no, the invoicing amount is not transferred to financial appl."
+      - name: HOURLY_PRODUCTION
+        description: "Hourly line production for this product (saved in minutes).  It will be used for the estimated time calculation."
+      - name: CAPACITY_UOM_CODE
+        description: "UOM code used for the product capacity"
+      - name: PREPARATION_PLANNING
+        description: "Yes = Preparation planning module is used for this product"
+      - name: REVENUE_QUANTITY_TYPE_UUID
+        description: "Revenue quantity type UUID.  Linked to gdm.revenue_quantity_type table."
+      - name: ERECTOR_PRIVILEGE
+        description: "Erector privilege product"
+      - name: ERECTOR_PRIV_WEB_APP_INCLUDED
+        description: "Display this product information (pieces and length) on the the web application"
+      - name: ERECTOR_PRIV_WEB_APP_MARK_WEIGHT
+        description: "Display mark unit weight on the the web application"
+      - name: ERECTOR_PRIV_WEB_APP_WEIGHT_PCT
+        description: "Percentage to add to the weight before displaying it on the web application"
+      - name: ERECTOR_PRIV_SALE_PRODUCT
+        description: "The current product is linked to this erector privilege sale product (value will be a product identified as erector_privilege = yes)"
+      - name: MARK_PIECE_DETAIL_ALLOWED
+        description: "Indicates if the pieces detail for the marks in the requisition entry when associated to this product."
+      - name: TRANSFER_WASTE_COST
+        description: "When yes, transfers waste cost to financial appl. When no, the cost is not transferred to financial appl."
+      - name: DISPLAY_MARK_DETAIL_IN_ERECTOR_WEB_APP ##DISPLAYMARKDETAILINERECTORWEBAPP
+        description: "Display mark detail level on the web/iPhone application."
+      - name: TRANSFER_RECIPE_WEIGHT_ONLY ##TRANSFERRECIPEWEIGHTONLY
+        description: "YES: Transfer only the recipe weight to financial application\nNO: Transfer the mark weight to financial application"
+      - name: BUNDLE_ALLOWED ##BUNDLEALLOWED
+        description: "YES: Requisition of product may be bundled\nNO: Requisition of product may not be bundled"
+      - name: BUNDLING_MODULE ##BUNDLINGMODULE
+        description: "Module which is in charge of the bundling creation management.\nLinked to enum/ProductBundlingModule.cls class..."
+      - name: PARTIAL_PRODUCTION_ALLOWED ##PARTIALPRODUCTIONALLOWED
+        description: "YES: Requisition may be partially produced\nNO: User will have to produced all the marks at one time"
+      - name: PARTIAL_BUNDLE_DELIVERY_ALLOWED ##PARTIALBUNDLEDELIVERYALLOWED
+        description: "YES: A bundle may be partially assigned to a BOL\nNO: User will have to assign the complete bundle on the BOL"
+      - name: PREPARATION_WORKFLOW_ENABLED
+        description: "Product available for the preparation module"
+      - name: PREPARATION_FINISHING ##PREPARATIONFINISHING
+        description: "Yes = the components need finishing in the preparation process"
+      - name: SOLD_SCHEDULED_TOLERANCE_WEIGHT ##SOLDSCHEDULEDTOLERANCEWEIGHT
+        description: "Tolerance in percentage between the sold weight and the scheduled weight"
+      - name: SOLDS_CHEDULED_TOLERANCE_QTY ##SOLDSCHEDULEDTOLERANCEQTY
+        description: "Tolerance in percentage between the sold quantity and the scheduled quantity"
+      - name: SOLD_SCHEDULED_TOLERANCE_TIME ##SOLDSCHEDULEDTOLERANCETIME
+        description: "Tolerance in percentage between the sold quantity and the scheduled quantity"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+  - name: prep_proj_seq_lp
+    config:
+      schema: SPM_CA
+    columns:
+      - name: WEIGHT_1
+        description: "1: Quoted  2: Produced  3: Shipped"
+      - name: WEIGHT_2
+        description: "1: Quoted  2: Produced  3: Shipped"
+      - name: WEIGHT_3
+        description: "1: Quoted  2: Produced  3: Shipped"
+      - name: TMPS_1
+        description: "1: Quoted  2: Produced"
+      - name: TMPS_2
+        description: "1: Quoted  2: Produced"
+      - name: PCES_1
+        description: "1: Quoted  2: Produced  3: Shipped"
+      - name: PCES_2
+        description: "1: Quoted  2: Produced  3: Shipped"
+      - name: PCES_3
+        description: "1: Quoted  2: Produced  3: Shipped"
+      - name: REQUISITIONS_RECEIVED_DATE
+        description: "Date when all the req. for teh division/entity have been received."
+      - name: PRODUCED_AMOUNT
+        description: "Sale amount of produced marks linked to the product in this division (following currency of project)"
+      - name: SHIPPED_AMOUNT
+        description: "Sale amount of shipped marks linked to the product in this division (following currency of project)"
+      - name: ESTIMATED_AMOUNT
+        description: "Sale amount of marks linked to the product in this division (following currency of project)"
+      - name: PRODUCED_UOM
+        description: "Uom of produced marks linked to the product in this division (length or surface following produit-s.uom_budget_entry_type)"
+      - name: SHIPPED_UOM
+        description: "Uom of shipped marks linked to the product in this division (length or surface following produit-s.uom_budget_entry_type)"
+      - name: ESTIMATED_UOM
+        description: "Uom of marks linked to the product in this division (length or surface following produit-s.uom_budget_entry_type)"
+      - name: PRINT_INFORMATION_ON_ITEM
+        description: "? = Unconfirmed by the userNo = Do not print information on that productYes = Print information on that product "
+      - name: ESTIMATED_PLANT_FABRICATION_TIME
+        description: "Estimated plant total fabrication time for this product in this division, excluding subcontracting (in minutes)"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: PROJ_SEQ_LP_UUID
+        description: "Unique UUID"
+  - name: prep_proj_seq
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: ENG_DATES_1
+        description: "1- Seq. Ing. Approuve 2- Ingenierie completee"
+      - name: ENG_DATES_2
+        description: "1- Seq. Ing. Approuve 2- Ingenierie completee"
+      - name: ENG_APP_INIT_1
+        description: "1- Dessinateur 2- Ingenieur 3- Detailleur 4- Verificateur"
+      - name: ENG_APP_INIT_2
+        description: "1- Dessinateur 2- Ingenieur 3- Detailleur 4- Verificateur"
+      - name: ENG_APP_INIT_3
+        description: "1- Dessinateur 2- Ingenieur 3- Detailleur 4- Verificateur"
+      - name: ENG_APP_INIT_4
+        description: "1- Dessinateur 2- Ingenieur 3- Detailleur 4- Verificateur"
+      - name: INDC_RESERV
+        description: "Indicatif de reservation"
+      - name: STRUCT_PLANT
+        description: "Plant(s) where the structural steel products are fabricated."
+      - name: DRWG_OFFICE_CODE
+        description: "Drawing Office Code associated to Division."
+      - name: DRW_DATES_1
+        description: "1-Received 2-Due Out 3-Sent Out 4-Due Back 5-Client 6-File&Field"
+      - name: DRW_DATES_2
+        description: "1-Received 2-Due Out 3-Sent Out 4-Due Back 5-Client 6-File&Field"
+      - name: DRW_DATES_3
+        description: "1-Received 2-Due Out 3-Sent Out 4-Due Back 5-Client 6-File&Field"
+      - name: DRW_DATES_4
+        description: "1-Received 2-Due Out 3-Sent Out 4-Due Back 5-Client 6-File&Field"
+      - name: DRW_DATES_5
+        description: "1-Received 2-Due Out 3-Sent Out 4-Due Back 5-Client 6-File&Field"
+      - name: DRW_DATES_6
+        description: "1-Received 2-Due Out 3-Sent Out 4-Due Back 5-Client 6-File&Field"
+      - name: DRW_DATES_7
+        description: "1-Received 2-Due Out 3-Sent Out 4-Due Back 5-Client 6-File&Field"
+      - name: CHECKING_OFFICE_CODE
+        description: "Checking office code."
+      - name: RFI_INITIALS
+        description: "Initials of the user who made a RFI."
+      - name: RFI_START_DATE
+        description: "Date when the RFI was sent."
+      - name: RFI_END_DATE
+        description: "Date when the answer for the RFI was received."
+      - name: LAYOUT_INITIALS
+        description: "Initials of the user responsible of the layout."
+      - name: LAYOUT_START_DATE
+        description: "Date when the layout has started."
+      - name: LAYOUT_END_DATE
+        description: "Date when the layout has been completed."
+      - name: LAYOUT_CHECKER_INITIALS
+        description: "Initials of the user in charge of the layout checking."
+      - name: LAYOUT_CHECKER_START_DATE
+        description: "Date when the layout checking has started."
+      - name: LAYOUT_CHECKER_END_DATE
+        description: "Date when the layout checking was completed."
+      - name: COMPLEXITY_CODE
+        description: "Division's complexity code (1-High, 2-Standard, 3-Easy)."
+      - name: COMPLEXITY_COMMENTS
+        description: "Division's complexity comments (ex: lots of angles, complex joist,etc)"
+      - name: DRWG_RCVD_DROPDEAD_DATE
+        description: "Latest date when the drawings have to be received."
+      - name: DRWG_APPR_DROPDEAD_DATE
+        description: "Latest date when the drawings approval has to be received."
+      - name: RELEASE_ENG_DROPDEAD_DATE
+        description: "Lates date when the drawings have to be release to engineering."
+      - name: REQ_COMPL_DROPDEAD_DATE
+        description: "Latest date when the requisitions have to be completed."
+      - name: FABR_COMPL_DROPDEAD_DATE
+        description: "Latest date when the fabrication has to be completed."
+      - name: DELI_APPROVED_BY_PROJ_COORD
+        description: "Delivery approved by the project coordinator"
+      - name: DELI_APPROVED_BY_DELI_COORD
+        description: "Delivery approved by the delivery coordinator"
+      - name: DELI_APPROVED_DATE_PROJ_COORD
+        description: "Delivery approbation date"
+      - name: DELI_APPROVED_DATE_DELI_COORD
+        description: "Delivery approbation date"
+      - name: DELI_APPROVED_TIME_PROJ_COORD
+        description: "Delivery approbation time(project coordinator)"
+      - name: DELI_APPROVED_TIME_DELI_COORD
+        description: "Delivery approved time(delivery coordinator)"
+      - name: EXPEDITION_COMMENTS
+        description: "Division's Expedition Comments"
+      - name: INITIAL_CONTRACT
+        description: "Indicates if the division was part of the initial contract"
+      - name: DRAFTING_ADVANCEMENT
+        description: "Drafting advancement in percentage"
+      - name: DRWG_SENTOUT_DROPDEAD_DATE
+        description: "Latest date when the drawings has to be sent for approval."
+      - name: DIVISION_COMMENTS
+        description: "Division comments"
+      - name: ENGINEERING_COMMENTS
+        description: "Engineering comments"
+      - name: STRUCTURAL_COMMENTS
+        description: "Structural comments"
+      - name: FABRICATION_START_DATE
+        description: "Date when the fabrication of the division should start"
+      - name: TIE_JOIST_OUT_TARGET
+        description: "Target date for the end of the tie-joists layout (sent to the customer)"
+      - name: TIE_JOIST_OUT
+        description: "Actual date of the end of tie-joists layout (sent to the customer)"
+      - name: LAYOUT_APPROVAL_TARGET
+        description: "Target date for the layout approval (internal approval)"
+      - name: LAYOUT_APPROVAL_RECEIVED
+        description: "Actual date of the layout approval (documents received for the internal approval)"
+      - name: LAYOUT_BACK_FOR_CHECK_TARGET
+        description: "Target date for the return of the layout (from the customer) for final check"
+      - name: RFI_END_TARGET
+        description: "Target date for end of the RFI"
+      - name: ENGINEERING_TARGET
+        description: "Target date for the end of engineering"
+      - name: PURCHASE_END
+        description: "Purchase end date (purchase done specifically for the project/ division)"
+      - name: MATERIAL_RECEIVED
+        description: "Material received date (material received specifically for the project/ division)"
+      - name: RECENT_DELIVERY
+        description: "Recent delivery on the division (most recent confirmed BOL or manually updated when BOL not implemented)"
+      - name: COMPLETE_DELIVERY
+        description: "Complete delivery (shipped qties = requested qties, manually updated when BOL not implemented)"
+      - name: DRWG_RECEIVED_DRAFT_OFFICE_DATE
+        description: "The date when the drafting office received the drawings (excluding project coordination and engineering)"
+      - name: DRWG_APPROVED_DRAFT_OFFICE_DATE
+        description: "The date when the drafting office approved the drawings (after client's approval)"
+      - name: ERECTOR_PRIVILEGE_INCLUDED
+        description: "Erector privilege will be applied on this division"
+      - name: MARKING_COLOR_UUID
+        description: "Color used to identify the division (loading and erection purposes). Linked to marking_color master file."
+      - name: FAST_TRACK
+        description: "Fast track process division or not"
+      - name: QUALITY_VERIFICATION_ENGINEER
+        description: "Quality Verification Engineer (QVE): means that no client approval is required on drawings before fabrication"
+      - name: DRAWING_APPROVAL_REVISION_CODE
+        description: "Drawing approval revision code"
+      - name: FILE_AND_FIELD_REVISION_CODE
+        description: "File and field revision code (revision number sent to client.. may be different from drawing_approval_revision_code)"
+      - name: DRAWING_APPROVAL_TYPE_UUID
+        description: "Drawing approval type uuid (refers to table gdm.drawing_approval_type)"
+      - name: BINDER_RECEIVED_DATE
+        description: "Binder received in engineering department date (Goodco Z-Tech)"
+      - name: ENGINEERING_VERIFICATION_DATE
+        description: "Engineering  verification date (Goodco Z-Tech) (eng. dept. verifies drawings). On screen will react as a logical flag."
+      - name: ERECTION_PLANS_RESPONSIBLE
+        description: "Code representing who is responsible of the erection plans (detailer, detailer checker, other).  This field will be used to determine who will receive the alert when erection plans are not ready on time for a division."
+      - name: ERECTION_PLANS_RESP_PEOPLE_ID
+        description: "Link with table people.  This field contain a value only when erection_plans_responsible = other"
+      - name: SPECIALATTENTIONUUID #SPECIAL_ATTENTION_UUID
+        description: "UUID linked to the table gdm.SpecialAttention"
+      - name: STAMPINGDONESETBY #STAMPING_DONE_SET_BY
+        description: "User code of the user who sets the drawings of the division as stamped (people.code)."
+      - name: READYTOSTAMPDATETIME #READY_TO_STAMP_DATETIME
+        description: "Date and time when the drawings of the division were ready to be stamped by the engineer"
+      - name: READYTOSTAMPSETBY #READY_TO_STAMP_SET_BY
+        description: "User code of the person who set the drawings of the division as ready to be stamped (people.code)."
+      - name: STAMPINGDONEDATETIME #STAMPING_DONE_DATETIME
+        description: "Date and time when the drawings of the division were set as stamped."
+      - name: DRAWINGESTIMATEDWEEKSDELAY #DRAWING_ESTIMATED_WEEKS_DELAY
+        description: "Drawing estimated delay in weeks (from Goodco Z-Tech quotation Excel file). The value is entered in weeks."
+      - name: APPROVALESTIMATEDWEEKSDELAY #APPROVAL_ESTIMATED_WEEKS_DELAY
+        description: "Drawing approval estimated delay in weeks (from Goodco Z-Tech quotation Excel file). The value is entered in weeks."
+      - name: FABRICATIONESTIMATEDWEEKSDELAY #FABRICATION_ESTIMATED_WEEKS_DELAY
+        description: "Fabrication estimated delay in weeks (from Goodco Z-Tech quotation Excel file). The value is entered in weeks."
+      - name: FABRICATIONMANUALDELAY #FABRICATION_MANUAL_DELAY
+        description: "Delay added manually to fbrication date (nbr of days)"
+      - name: QVIEMAILALERTSENTDATETIME #QVI_EMAIL_ALERT_SENT_DATETIME
+        description: "Date and time when the QVI alert was sent to the users to advise them of complete delivery of the division"
+      - name: RFI2ENDTARGET #RFI2_END_TARGET
+        description: "Target date for end of the RFI"
+      - name: RFI2INITIALS #RFI2_INI_TIALS
+        description: "Initials of the user who made a RFI."
+      - name: RFI2STARTDATE #RFI2_START_DATE
+        description: "Date when the RFI was sent."
+      - name: RFI2ENDDATE #RFI2_END_DATE
+        description: "Date when the answer for the RFI was received."
+      - name: KICKOFFCOMPLETEDATE #KICK_OFF_COMPLETE_DATE
+        description: "Kick Off Complete"
+      - name: ABM
+        description: "(Advance Bill of Materiel) Preliminary steel buying"
+      - name: WALLPANELSMATERIALS #WALL_PANELS_MATERIALS
+        description: "Wall Panels Materials buying"
+      - name: FABRICATIONTARGET_1 #FABRICATION_TARGET_1
+        description: "Put fabrication drawings into production target date"
+      - name: FABRICATIONTARGET_2 #FABRICATION_TARGET_2
+        description: "Put fabrication drawings into production actual date"
+      - name: ERECTIONPLANTARGET #ERECTION_PLAN_TARGET
+        description: "Target date for erection plans issuance"
+      - name: CLASHDETECTIONTARGET #CLASH_DETECTION_TARGET
+        description: "3D model validation target date"
+      - name: CLASHDETECTIONEND #CLASH_DETECTION_END
+        description: "3D model validation end date"
+      - name: COPYCTMTASKSFROM #COPY_CTM_TASKS_FROM
+        description: "CTM tasks will be copied from division on when imported in CTM"
+      - name: COPYCTMADVANCEMENT #COPY_CTM_ADVANCEMENT
+        description: "CTM task advancement will be copied from (CopyCTMTasksFrom) when imported in CTM"
+      - name: MAXIMUMPURCHASESTARTDATE #MAXIMUM_PURCHASE_START_DATE
+        description: "Maximum purchase start date, used by Goodco projects"
+      - name: CREATEDDATE #CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIEDDATE #MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATEDBY #CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIEDBY #MODIFIED_BY
+        description: "Name of the person who last modified the record"
+  - name: prep_projet_e
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: D_PLANS
+        description: "Date de reception des plans finaux"
+      - name: CSQE_BB
+        description: "Amout of Cantilever Square Ends or Bottom Bearing Joist"
+      - name: PRODUCTION_DOC_ARCHIVED
+        description: "Yes: The production documents have been archived in Domino Doc."
+      - name: PRODUCTION_DOC_ARCHIVED_BY
+        description: "Name of the user who archived the production documents in Domino Doc."
+      - name: PRODUCTION_DOC_ARCHIVED_DATE
+        description: "Date when the production documents were archived in Domino Doc."
+      - name: CREATEDDATE
+        description: "Date of creation of the record"
+      - name: MODIFIEDDATE
+        description: "Date of the last modification of the record"
+      - name: CREATEDBY
+        description: "Name of the person who created the record"
+      - name: MODIFIEDBY
+        description: "Name of the person who last modified the record"
+      - name: PROJET_E_UUID
+        description: "Unique UUID"
+  - name: prep_projet_g
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: SEQ_FACTURE
+        description: "Numero de sequence chronologique de facturation"
+      - name: WASTE_STR_1
+        description: "(1) = Waste Gen.       (2) = Waste Used"
+      - name: WASTE_STR_2
+        description: "(1) = Waste Gen.       (2) = Waste Used"
+      - name: TERM_CODE
+        description: "Code for the payment terms."
+      - name: AREA_TO
+        description: "OOONN OOO = longitude (Ouest) NN = latitude (Nord) princ. ville region"
+      - name: NB_SHIP_1
+        description: "1: Estimated  2: Real"
+      - name: NB_SHIP_2
+        description: "1: Estimated  2: Real"
+      - name: TRANS_MARK
+        description: "Indique si le tranfert des marques ESF est complete."
+      - name: SITE_PHONE
+        description: "Telephone Number"
+      - name: SITE_FAX
+        description: "Fax Number"
+      - name: BOLT_INCLUDED
+        description: "Indicate if the bolts are included in the contract or not."
+      - name: JOIST_PLANT
+        description: "Plant(s) where the joists are fabricated."
+      - name: SEQUNC_DATES_1
+        description: "1. Shipping, 2. Fabrication 3. Engineering Release"
+      - name: SEQUNC_DATES_2
+        description: "1. Shipping, 2. Fabrication 3. Engineering Release"
+      - name: SEQUNC_DATES_3
+        description: "1. Shipping, 2. Fabrication 3. Engineering Release"
+      - name: SEQUNC_WEEKS_1
+        description: "1. Shipping, 2. Fabrication, 3. Engineering Release"
+      - name: SEQUNC_WEEKS_2
+        description: "1. Shipping, 2. Fabrication, 3. Engineering Release"
+      - name: SEQUNC_WEEKS_3
+        description: "1. Shipping, 2. Fabrication, 3. Engineering Release"
+      - name: CMG_CHECK_AMT
+        description: "Amount of the check to collect for appr. no 4 and 5."
+      - name: EXCHGN_RATE
+        description: "Exchange Rate -> from USD to CAD."
+      - name: INVOICE_PRINT_STYLE
+        description: "Oracle Invoice Amount Print Style."
+      - name: SALES_STAT
+        description: "Flag that indicate if project is included in Sales Statistics (DW)"
+      - name: QUOTTN_ACCESS
+        description: "Indicates wether the quotations will be transfer from QC or DESGO"
+      - name: MLI
+        description: "Describes whether an Item is manufactured/local/imported."
+      - name: IS_ABM_PAGE_LINE
+        description: "Follow-up by page/line or drawing identifier for the project."
+      - name: ABM_FOLLOW_UP
+        description: "ABM follow-up required for the project."
+      - name: DRWG_OFFICE_CODE
+        description: "Default drawing office code for a project"
+      - name: BUYER_CODE
+        description: "Default buyer code for a project"
+      - name: KRONOS_TRF_DATE
+        description: "Date and time the record was transfer to Kronos"
+      - name: WASTE_COST_1
+        description: "1: Cost of  waste gen.   2: Cost of waste used"
+      - name: WASTE_COST_2
+        description: "1: Cost of  waste gen.   2: Cost of waste used"
+      - name: OFFICE_CODE
+        description: "Sales Office"
+      - name: MAX_DECK_BUNDL_WEIGHT
+        description: "Maximum weight of a deck bundle"
+      - name: MAX_DECK_BUNDL_PIECES
+        description: "Maximum number of deck pieces"
+      - name: DECK_BUNDL_PIECES_TOLERANCE
+        description: "Acceptable difference of deck pieces"
+      - name: BUDGET_VALID_DATE
+        description: "Date de validation du budget. (Info transferee a Oracle)"
+      - name: CHIEFS_ENGINEER
+        description: "Chief(s) engineer for the project."
+      - name: CHIEFS_DETAILER
+        description: "Chief(s) detailer for the project."
+      - name: SHIPPING_COORDINATORS
+        description: "Shipping coordinator(s) for the project."
+      - name: GDM_PROJECT_ID
+        description: "GDM project id linking the the field project.project_id in GDM"
+      - name: QUOTATION_SENT_DATE
+        description: "Date on which the quotation was sent to the customer"
+      - name: PRICE_EXPIRATION_DATE
+        description: "Quotation Price Expiration Date"
+      - name: NO_SPLICE_TOP_BOT
+        description: "Indicate if the project allows splice on top & bot (from Desgo)"
+      - name: DRAWING_DUE_IN
+        description: "Drawing Due In (from QC)"
+      - name: SPECIAL_ELEMENTS
+        description: "Yes: There are special elements on the project."
+      - name: SPECIAL_ELEMENTS_COMMENTS
+        description: "Special elements comments such as special product,spec.,sales strategy"
+      - name: PRIORITY_CODE
+        description: "Project's priority code (ex: 1-High, 2-Normal, 3-Low)."
+      - name: ROLLBAR_EXPECTED_BACK_DATE
+        description: "Scheduled return date"
+      - name: ROLLBAR_ACTUAL_BACK_DATE
+        description: "Actual Return Date"
+      - name: IS_LAYOUT_JOB
+        description: "Yes: Is a layout job"
+      - name: ROLLBAR_FOLLOW_UP_DATE
+        description: "Estimated date when the rollbars will be picked up on the site"
+      - name: CONTACT_EMAIL
+        description: "Customer contact's email address."
+      - name: LIST_ON_HAMBRO_SCHEDULE
+        description: "Does this project have to be list on Hambro schedule ?"
+      - name: SET_OFF_INFORMATION
+        description: "Indicate if the customer has signed the quotation or the customer PO ."
+      - name: CMG_INVOICE_STYLE
+        description: "Printing style of Oracle invoice."
+      - name: PO_NO_TRANS_ORACLE
+        description: "Transfert extras to Oracle (yes/no)"
+      - name: WEIGHT_INCREASE_COMMENT
+        description: "Comment used to justify an eventual discrepancy between the weight estimated versus the one produced. This comment is imported from QC and can be updated in SPM."
+      - name: LAYOUT_PROCESS_CODE
+        description: "Method used to process the layout for the project.  Linked to the gdm.description table."
+      - name: SHIPPING_COMMENTS
+        description: "Comments regarding the directions to take for the shipping."
+      - name: ROLLBAR_COMMENT
+        description: "Comment for rollbar return."
+      - name: ESTIMATION_INCLUDE_DESIGN
+        description: "Indicates if the contract will go from the estimation to the engineering using the estimation design. Imported from QC."
+      - name: LEED_CERTIFIED
+        description: "Indicates that the job is certified LEED (Leadership in Energy and Environmental Design). Imported from QC."
+      - name: DSMS_TRANSFER
+        description: "Determines if the project will be automatically created in DSMS "
+      - name: DESIGN_COMPLETED_DATE
+        description: "Date when the design was completed and the information was imported from the design application to SPM"
+      - name: FINANCIAL_COMMENTS
+        description: "Financial comments"
+      - name: PROJECT_STATUS_CODE
+        description: "Project status.  Link to gdm.description. 0: Inactive, 1: Active, 2: On hold, 3: Cancelled."
+      - name: PROJECT_STATUS_COMMENT
+        description: "Comment related to the project status. Mandatory when the project_status_code is 2 or 3."
+      - name: PROJECT_STATUS_UPDATED_BY
+        description: "User who updated the project status."
+      - name: PROJECT_STATUS_UPDATED_DATETIME
+        description: "Date when the project status was updated."
+      - name: BUSINESS_UNIT_ID
+        description: "Linked to table gdm.business_unit"
+      - name: PREPARATION_FOLLOW_UP
+        description: "Yes = Preparation advancement follow-up is used for this project"
+      - name: PREP_FOLLOW_UP_MARKS_FILTER
+        description: "Filter applied on project's marks in Advancement Follow-up"
+      - name: TAXATION_ADDRESS
+        description: "Indicates the address that will be used in the financial system to calculate the taxes.\n\tShipping: Shipping address,\n\tCustomer: Customer address"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: PROJET_G_UUID
+        description: "Unique UUID"
+  - name: prep_projet_l
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: STATS_TMPS_E_1
+        description: "Temps estime (min) 1-Global 2-Prep 3-Ass 4-soud 5-Peint 6-Oss 7-Fin"
+      - name: STATS_TMPS_E_2
+        description: "Temps estime (min) 1-Global 2-Prep 3-Ass 4-soud 5-Peint 6-Oss 7-Fin"
+      - name: STATS_TMPS_E_3
+        description: "Temps estime (min) 1-Global 2-Prep 3-Ass 4-soud 5-Peint 6-Oss 7-Fin"
+      - name: STATS_TMPS_E_4
+        description: "Temps estime (min) 1-Global 2-Prep 3-Ass 4-soud 5-Peint 6-Oss 7-Fin"
+      - name: STATS_TMPS_E_5
+        description: "Temps estime (min) 1-Global 2-Prep 3-Ass 4-soud 5-Peint 6-Oss 7-Fin"
+      - name: STATS_TMPS_E_6
+        description: "Temps estime (min) 1-Global 2-Prep 3-Ass 4-soud 5-Peint 6-Oss 7-Fin"
+      - name: STATS_TMPS_E_7
+        description: "Temps estime (min) 1-Global 2-Prep 3-Ass 4-soud 5-Peint 6-Oss 7-Fin"
+      - name: STATS_TMPS_IS_1
+        description: "Tmps std ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: STATS_TMPS_IS_2
+        description: "Tmps std ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: STATS_TMPS_IS_3
+        description: "Tmps std ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: STATS_TMPS_IS_4
+        description: "Tmps std ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: STATS_TMPS_IS_5
+        description: "Tmps std ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: STATS_TMPS_IS_6
+        description: "Tmps std ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: STATS_TMPS_IR_1
+        description: "Tmps reel ind 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: STATS_TMPS_IR_2
+        description: "Tmps reel ind 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: STATS_TMPS_IR_3
+        description: "Tmps reel ind 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: STATS_TMPS_IR_4
+        description: "Tmps reel ind 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: STATS_TMPS_IR_5
+        description: "Tmps reel ind 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: STATS_TMPS_IR_6
+        description: "Tmps reel ind 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: DESSIN_DEB
+        description: "Date d'entree a la salle a dessin ( design et detail )"
+      - name: STATS_UNITES_1
+        description: "1- Budgetees 2- Detaillees 3- Produites 4- Livrees 5- Facturees"
+      - name: STATS_UNITES_2
+        description: "1- Budgetees 2- Detaillees 3- Produites 4- Livrees 5- Facturees"
+      - name: STATS_UNITES_3
+        description: "1- Budgetees 2- Detaillees 3- Produites 4- Livrees 5- Facturees"
+      - name: STATS_UNITES_4
+        description: "1- Budgetees 2- Detaillees 3- Produites 4- Livrees 5- Facturees"
+      - name: STATS_UNITES_5
+        description: "1- Budgetees 2- Detaillees 3- Produites 4- Livrees 5- Facturees"
+      - name: STATS_POIDS_1
+        description: "1- Budget 2- Detail 3- Prod 4-Livr 5- Fact 6- Est. 7- Aire 8-"
+      - name: STATS_POIDS_2
+        description: "1- Budget 2- Detail 3- Prod 4-Livr 5- Fact 6- Est. 7- Aire 8-"
+      - name: STATS_POIDS_3
+        description: "1- Budget 2- Detail 3- Prod 4-Livr 5- Fact 6- Est. 7- Aire 8-"
+      - name: STATS_POIDS_4
+        description: "1- Budget 2- Detail 3- Prod 4-Livr 5- Fact 6- Est. 7- Aire 8-"
+      - name: STATS_POIDS_5
+        description: "1- Budget 2- Detail 3- Prod 4-Livr 5- Fact 6- Est. 7- Aire 8-"
+      - name: STATS_POIDS_6
+        description: "1- Budget 2- Detail 3- Prod 4-Livr 5- Fact 6- Est. 7- Aire 8-"
+      - name: STATS_POIDS_7
+        description: "1- Budget 2- Detail 3- Prod 4-Livr 5- Fact 6- Est. 7- Aire 8-"
+      - name: STATS_POIDS_8
+        description: "1- Budget 2- Detail 3- Prod 4-Livr 5- Fact 6- Est. 7- Aire 8-"
+      - name: STATS_TMPS_EI_1
+        description: "Tmps est ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: STATS_TMPS_EI_2
+        description: "Tmps est ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: STATS_TMPS_EI_3
+        description: "Tmps est ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: STATS_TMPS_EI_4
+        description: "Tmps est ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: STATS_TMPS_EI_5
+        description: "Tmps est ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: STATS_TMPS_EI_6
+        description: "Tmps est ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: STATS_ANNUEL_1
+        description: "[1] -> Poids Facture A-a-d  [2] -> Montants Factures A-a-d"
+      - name: STATS_ANNUEL_2
+        description: "[1] -> Poids Facture A-a-d  [2] -> Montants Factures A-a-d"
+      - name: STATS_ANNUEL_3
+        description: "[1] -> Poids Facture A-a-d  [2] -> Montants Factures A-a-d"
+      - name: STATS_ANNUEL_4
+        description: "[1] -> Poids Facture A-a-d  [2] -> Montants Factures A-a-d"
+      - name: STATS_TMPS_S_1
+        description: "Temps std (min) 1-Global 2-Prep 3-Ass 4-Soud 5-Peint 6-Oss 7-Fin."
+      - name: STATS_TMPS_S_2
+        description: "Temps std (min) 1-Global 2-Prep 3-Ass 4-Soud 5-Peint 6-Oss 7-Fin."
+      - name: STATS_TMPS_S_3
+        description: "Temps std (min) 1-Global 2-Prep 3-Ass 4-Soud 5-Peint 6-Oss 7-Fin."
+      - name: STATS_TMPS_S_4
+        description: "Temps std (min) 1-Global 2-Prep 3-Ass 4-Soud 5-Peint 6-Oss 7-Fin."
+      - name: STATS_TMPS_S_5
+        description: "Temps std (min) 1-Global 2-Prep 3-Ass 4-Soud 5-Peint 6-Oss 7-Fin."
+      - name: STATS_TMPS_S_6
+        description: "Temps std (min) 1-Global 2-Prep 3-Ass 4-Soud 5-Peint 6-Oss 7-Fin."
+      - name: STATS_TMPS_S_7
+        description: "Temps std (min) 1-Global 2-Prep 3-Ass 4-Soud 5-Peint 6-Oss 7-Fin."
+      - name: STATS_TMPS_R_1
+        description: "Stats Temps Reels 1-Global 2-Prep. 3-Ass. 4-Soud 5-Peint 6-Oss 7-Fin"
+      - name: STATS_TMPS_R_2
+        description: "Stats Temps Reels 1-Global 2-Prep. 3-Ass. 4-Soud 5-Peint 6-Oss 7-Fin"
+      - name: STATS_TMPS_R_3
+        description: "Stats Temps Reels 1-Global 2-Prep. 3-Ass. 4-Soud 5-Peint 6-Oss 7-Fin"
+      - name: STATS_TMPS_R_4
+        description: "Stats Temps Reels 1-Global 2-Prep. 3-Ass. 4-Soud 5-Peint 6-Oss 7-Fin"
+      - name: STATS_TMPS_R_5
+        description: "Stats Temps Reels 1-Global 2-Prep. 3-Ass. 4-Soud 5-Peint 6-Oss 7-Fin"
+      - name: STATS_TMPS_R_6
+        description: "Stats Temps Reels 1-Global 2-Prep. 3-Ass. 4-Soud 5-Peint 6-Oss 7-Fin"
+      - name: STATS_TMPS_R_7
+        description: "Stats Temps Reels 1-Global 2-Prep. 3-Ass. 4-Soud 5-Peint 6-Oss 7-Fin"
+      - name: DSG_COST_1
+        description: "1. Material, 2. Fabrication"
+      - name: DSG_COST_2
+        description: "1. Material, 2. Fabrication"
+      - name: DSG_COST_3
+        description: "1. Material, 2. Fabrication"
+      - name: DSG_COST_4
+        description: "1. Material, 2. Fabrication"
+      - name: DSG_COST_5
+        description: "1. Material, 2. Fabrication"
+      - name: DSG_COST_6
+        description: "1. Material, 2. Fabrication"
+      - name: STATS_COST_1
+        description: "1- Material Cost  2- fabr. Cost (Direct) 3-Fabr. Cost (Indirect)"
+      - name: STATS_COST_2
+        description: "1- Material Cost  2- fabr. Cost (Direct) 3-Fabr. Cost (Indirect)"
+      - name: STATS_COST_3
+        description: "1- Material Cost  2- fabr. Cost (Direct) 3-Fabr. Cost (Indirect)"
+      - name: CMG_END_DETAIL
+        description: "End Detail Date (for Cansis transfer)."
+      - name: SCORE_HRS_TON
+        description: "Hours by Ton (SCORE)."
+      - name: VENDOR_ID
+        description: "Vendor Id"
+      - name: VENDOR_NAME
+        description: "Vendor Name"
+      - name: REVENUE_QUANTITY_TYPE_UUID
+        description: "Revenue quantity type UUID.  Linked to gdm.revenue_quantity_type table."
+      - name: ERECTOR_PRIV_SHIPPED_UOM_TRANSF
+        description: "Shipped uom transferred to the Financial application for erector privilege products"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: PROJET_L_UUID
+        description: "Unique UUID"
+  - name: prep_projetx_g
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: GENERATION
+        description: "generation = yes quand le transfert au projet gen. a ete effectue."
+      - name: GENERE
+        description: "Genere = yes quand l'usager demande la generation de l'extra-credit."
+      - name: PROJ_TRANSF
+        description: "Contains the transfer date and the transfer time"
+      - name: SOLD_DATE
+        description: "Sold date for the extra credit, use to split in time the sales amount"
+      - name: REVISION_TYPE
+        description: "Budget's revision type"
+      - name: APPROVED_BY
+        description: "User id who approved the budget's revision"
+      - name: APPROVED_DATE
+        description: "Date of approval of the budget's revision"
+      - name: APPROVED_TIME
+        description: "Time of approval of the budget's revision"
+      - name: APPROVAL_STATUS
+        description: "Approval Status of the budget's revision"
+      - name: GDM_EXTRA_CODE
+        description: "Extra code imported from PMS"
+      - name: PRICE_EXPIRATION_DATE
+        description: "Quotation Price Expiration Date"
+      - name: QUOTATION_SENT_DATE
+        description: "Date on which the quotation was sent to the customer"
+      - name: ERECTOR_PRIVILEGE_PARENT_PROJ_ID
+        description: "Parent project id (link to the master project for Turbo Package project sales)"
+      - name: FINANCIAL_COMMENTS
+        description: "Financial comments"
+      - name: OFFICIAL_BUDGET
+        description: "yes: Official budget,\nno: Budget pending"
+      - name: ESTIMATED_LAST_SHIPPING_DATE
+        description: "Estimated last shipping date"
+      - name: CMIC_POTENTIAL_CHANGE_ITEM_NUMBER ##CMICPOTENTIALCHANGEITEMNUMBER
+        description: "CMiC potential change item number.  Used to link SPM extra-credit with CMiC"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: PROJETX_G_UUID
+        description: "Unique UUID"
+  - name: prep_projetx_l
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: QTE_BUDGETE
+        description: "Quantite estimee pour le budget de fabrication."
+      - name: QTE_ESTIME
+        description: "Qte estimee pour le client (contrat)."
+      - name: TMPS_STD_EI_1
+        description: "Tmps est ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: TMPS_STD_EI_2
+        description: "Tmps est ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: TMPS_STD_EI_3
+        description: "Tmps est ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: TMPS_STD_EI_4
+        description: "Tmps est ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: TMPS_STD_EI_5
+        description: "Tmps est ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: TMPS_STD_EI_6
+        description: "Tmps est ind. 1-Global, 2-Qualite, 3-Manu., 4-Superv,5-Cour,6-Entrepot"
+      - name: TMPS_STD_E_1
+        description: "Temps Std Est 1-Total 2-Prep 3-Ass 4-Sound 5-Peint 6-Oss. 7-Fin."
+      - name: TMPS_STD_E_2
+        description: "Temps Std Est 1-Total 2-Prep 3-Ass 4-Sound 5-Peint 6-Oss. 7-Fin."
+      - name: TMPS_STD_E_3
+        description: "Temps Std Est 1-Total 2-Prep 3-Ass 4-Sound 5-Peint 6-Oss. 7-Fin."
+      - name: TMPS_STD_E_4
+        description: "Temps Std Est 1-Total 2-Prep 3-Ass 4-Sound 5-Peint 6-Oss. 7-Fin."
+      - name: TMPS_STD_E_5
+        description: "Temps Std Est 1-Total 2-Prep 3-Ass 4-Sound 5-Peint 6-Oss. 7-Fin."
+      - name: TMPS_STD_E_6
+        description: "Temps Std Est 1-Total 2-Prep 3-Ass 4-Sound 5-Peint 6-Oss. 7-Fin."
+      - name: TMPS_STD_E_7
+        description: "Temps Std Est 1-Total 2-Prep 3-Ass 4-Sound 5-Peint 6-Oss. 7-Fin."
+      - name: DSG_COST_1
+        description: "1. Material, 2. Fabrication"
+      - name: DSG_COST_2
+        description: "1. Material, 2. Fabrication"
+      - name: DSG_COST_3
+        description: "1. Material, 2. Fabrication"
+      - name: DSG_COST_4
+        description: "1. Material, 2. Fabrication"
+      - name: DSG_COST_5
+        description: "1. Material, 2. Fabrication"
+      - name: DSG_COST_6
+        description: "1. Material, 2. Fabrication"
+      - name: NBR_ESCORT
+        description: "Number of escort (for freight product)."
+      - name: COST
+        description: "Cost of the revision / product / entity for the product switching"
+      - name: VENDOR_ID
+        description: "Vendor Id"
+      - name: VENDOR_NAME
+        description: "Vendor Name"
+      - name: REVENUE_QUANTITY_TYPE_UUID
+        description: "Revenue quantity type UUID.  Linked to gdm.revenue_quantity_type table."
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: PROJETX_L_UUID
+        description: "Unique UUID"
+  - name: prep_qc_competitor
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: ACTIVE
+        description: "is the competitor active ?"
+      - name: CONTCT
+        description: "Contact"
+      - name: OFFICE_ST
+        description: "Province/State"
+      - name: PREFIX
+        description: "Prefix for the competitor name"
+      - name: WEB_ADDRSS
+        description: "Web Site Address"
+      - name: SHOP_LIKE_OFFICE
+        description: "Indicates if the shop address is the same as the office address"
+      - name: SHOP_ST
+        description: "Province/State"
+      - name: SHOP_ZIP_CODE
+        description: "Postal/Zip code"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+  - name: prep_qc_people
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: DSG_ENTITY_CODE
+        description: "DSG Entity for synchronisation with dsg_people of DSG"
+      - name: INIT_CODE
+        description: "User initiales(have to be unique)"
+      - name: USER_CODE
+        description: "User code(gen.user_code)"
+      - name: SPM_SALESM_CODE
+        description: "Salesman code(for salesman users)"
+      - name: ACTIVE
+        description: "Is the people active ?"
+      - name: PROSPECTOR
+        description: "Indicates if this people is a prospector for lead jobs."
+      - name: OFFICE_CODE
+        description: "Office code of the salesman. Optional. Refers to DESGO office code."
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+  - name: prep_qc_quotation_customer
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: OFFICE_CODE
+        description: "Sales office"
+      - name: SELECT_DATE
+        description: "Customer selection date"
+      - name: LAST_UPDATE_DATE
+        description: "Last Follow-Up Date"
+      - name: FOLLOW_UP
+        description: "Yes: The follow-up is active for the customer of the quotation"
+      - name: CUSTOMER_UUID
+        description: "Customer uuid linked to gdm.customer"
+      - name: ERECTOR_PRIVILEGE_PROPOSED_DATE
+        description: "Erector privilege product was proposed to this customer (bidder) on this date"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: QC_QUOTATION_CUSTOMER_UUID
+        description: "Unique UUID"
+  - name: prep_qc_quotation_product
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: OFFICE_CODE
+        description: "Sales office"
+      - name: JOB_NO
+        description: "DSG quotation number"
+      - name: PRODCT_NO
+        description: "DSG product number"
+      - name: ACC_NO
+        description: "DSG accessory"
+      - name: FAB_SET_H_1
+        description: "1- Fabrication Hours, 2- Setup Hours"
+      - name: FAB_SET_H_2
+        description: "1- Fabrication Hours, 2- Setup Hours"
+      - name: GROUP_NO
+        description: "Product Group No (Link with table cmg_sales_group)"
+      - name: MARK_QTY
+        description: "Number of mark by product"
+      - name: QTY_1
+        description: "1- Joist, 2- Tie-joist"
+      - name: QTY_2
+        description: "1- Joist, 2- Tie-joist"
+      - name: SURFACE
+        description: "Surface area(ex.: pi2) For painting"
+      - name: SPM_DATE
+        description: "Date product was transfered to SPM"
+      - name: SPM_ENTITY_CODE
+        description: "SPM Entity code for corresponding SPM product"
+      - name: SPM_PRODCT_NO
+        description: "Corresponding SPM product number"
+      - name: APPLY_MARK_UP
+        description: "Can apply Mark Up?"
+      - name: SEQ_NO
+        description: "Sequence in which records have been created for office/job"
+      - name: MARKUP_WEIGHT_PCT #MARKUP_WEIGHT_PERCENT
+        description: "Weight Factor"
+      - name: MARKUP_WEIGHT
+        description: "Weight Adjust"
+      - name: MARKUP_PRICE_PCT #MARKUP_PRICE_PERCENT
+        description: "Price Factor"
+      - name: MARKUP_PRICE_DOLLAR
+        description: "Price Adjust"
+      - name: GROUP_RPT_MODEL
+        description: "Report Model"
+      - name: FREIGHT
+        description: "Indicates if the accessorie is a freight type"
+      - name: DECK
+        description: "Is The Accessorie's Deck ?"
+      - name: DSG_COST_1
+        description: "1. Material, 2. Fabrication"
+      - name: DSG_COST_2
+        description: "1. Material, 2. Fabrication"
+      - name: DSG_COST_3
+        description: "1. Material, 2. Fabrication"
+      - name: DSG_COST_4
+        description: "1. Material, 2. Fabrication"
+      - name: DSG_COST_5
+        description: "1. Material, 2. Fabrication"
+      - name: DSG_COST_6
+        description: "1. Material, 2. Fabrication"
+      - name: SORT_NAME
+        description: "Short name used for alpha searching, etc."
+      - name: MEASURE_QTY
+        description: "Qty of M or M2 or UN or KG ..."
+      - name: ITEM_NO
+        description: "IN Item Number"
+      - name: UOM_CODE
+        description: "Unit of Measure"
+      - name: NAME_1
+        description: "DSG Product Name"
+      - name: NAME_2
+        description: "DSG Product Name"
+      - name: NAME_3
+        description: "DSG Product Name"
+      - name: NAME_4
+        description: "DSG Product Name"
+      - name: ESTIMT_MODUL
+        description: "1-DSG, 2-Cold Formed Quotation Modul"
+      - name: STD
+        description: "Product STD or NOT"
+      - name: BREAK_AMT
+        description: "0=NOT a BREAK Amount, 1=BREAK Amount, 2=Opening Fee"
+      - name: LINKED_SEQ_NO
+        description: "To link a product with another"
+      - name: UNIT_QTY_1
+        description: "Acc. Unit Qty"
+      - name: UNIT_QTY_2
+        description: "Acc. Unit Qty"
+      - name: CURRENCY_COD #CURRENCY_CODE ?
+        description: "Currency"
+      - name: CONSTR_LOAD
+        description: "Construction Load"
+      - name: LINE_NO
+        description: "Job cost line number imported from the estimation."
+      - name: QC_QUOT_PRODUCT_HIERARCHY_UUID ##QCQUOTPRODUCTHIERARCHYUUID
+        description: "Hierarchy display. UUID linked to product"
+      - name: NUMBER_OF_ESCORTS ##NUMBEROFESCORTS
+        description: "Number of escorts.  Assigned when qc_quotation.freight = YES."
+      - name: DELIVERY_COUNTRY_TAXES_AMOUNT ##DELIVERYCOUNTRYTAXESAMOUNT
+        description: "Taxes amount calculated for the product in the delivery country currency."
+      - name: PRODUCTION_COUNTRY_TAXES_AMOUNT ##PRODUCTIONCOUNTRYTAXESAMOUNT
+        description: "Taxes amount calculated for the product in the production country currency."
+      - name: ADJUSTMENT_GROSS_MARGIN ##ADJUSTMENTGROSSMARGIN
+        description: "Gross margin after adjustment. Imported from the estimation module 4."
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: IMPORTED_FROM_LINKED_ESTIM_MODULE ##IMPORTEDFROMLINKEDESTIMMODULE
+        description: "Indicates if the product has been imported from the linked estimation module (field qc_quotation_product.estimt_modul).  When 'NO' it has been copied in the quotation calendar option. When copied, it is not possible to import the products in the project."
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+  - name: prep_qc_quotation
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: OFFICE_CODE
+        description: "Sales office"
+      - name: JOB_NO
+        description: "DESGO quotation number"
+      - name: MASTER_JOB_NO
+        description: "Master quotation number"
+      - name: STATUS1
+        description: "First status"
+      - name: STATUS2
+        description: "Second status"
+      - name: NO_PROJET
+        description: "SPM project number(Contract)"
+      - name: PROJ_NAME
+        description: "Quotation name"
+      - name: ACTIVE
+        description: "Active quotation"
+      - name: CENTURY
+        description: "To sort by year"
+      - name: PROPST_NO
+        description: "Alternate Number(Proposition)"
+      - name: DESIGN_CODE
+        description: "Design transmission code"
+      - name: INSCRP_DATE
+        description: "Quotation creation date"
+      - name: RECALL_DATE
+        description: "Customer recall date about current quotation"
+      - name: BID_DATE
+        description: "Limit date when I have to give the quotation to the customer"
+      - name: SALESM_INIT_CODE
+        description: "Salesman Initials"
+      - name: ESTIMT_INIT_CODE
+        description: "Estimator initiales"
+      - name: PRICE
+        description: "Quotation price"
+      - name: PROJCT_STEP
+        description: "Project stage"
+      - name: NB_ALT
+        description: "Alternative qty in the current quotation"
+      - name: STATUS_CONTRC
+        description: "Contract Status (Official/Unofficial)"
+      - name: GC_CLOSE_DATE
+        description: "General contractor closing date"
+      - name: GENERAL_NOTE
+        description: "General note"
+      - name: SPM_ENTITY_CODE
+        description: "SPM Entity code for Contract"
+      - name: SPM_DATE
+        description: "Date quotation was transfered to SPM"
+      - name: LONGEST
+        description: "Length of the ongest joist (in feet)"
+      - name: CONTRC_COMPT_NO
+        description: "Number of winning competitor"
+      - name: CONTRC_DATE
+        description: "Sold Date : When the project is created in SPM"
+      - name: NOM_CONTACT
+        description: "Customer contact name"
+      - name: D_LIVRAISON
+        description: "Officiel shiping date"
+      - name: D_ESTIME
+        description: "Estimation calculation date"
+      - name: NO_CONTRAT_V
+        description: "Sales contract number"
+      - name: NO_BON_ACHAT
+        description: "Purchase Order number"
+      - name: USER_CODE
+        description: "User code(gen.user_code)"
+      - name: DSG_ENTITY_CODE
+        description: "DSG Entity for synchronisation with dsg_people of DSG"
+      - name: MARKUP_WEIGHT_PERCENT
+        description: "Weight Factor"
+      - name: MARKUP_WEIGHT
+        description: "Weight Adjust"
+      - name: MARKUP_PRICE_PERCENT
+        description: "Price Factor"
+      - name: MARKUP_PRICE_DOLLAR
+        description: "Price Adjust"
+      - name: MARKUP_PRICE
+        description: "Markup Price"
+      - name: MARKUP_OPENING_FEE
+        description: "Apply Opening Fee"
+      - name: MARKUP_ROUNDING
+        description: "Rounding"
+      - name: DESIGN_DATE
+        description: "Date selected with the design description"
+      - name: DESIGN_DESC
+        description: "Description for the design.  Will appear on the final price report"
+      - name: ADDEND
+        description: "Is there Addendums to include in the final price report"
+      - name: ADDEND_DATE
+        description: "Date associated with the addendums description"
+      - name: ADDEND_DESC
+        description: "Description for the addendums. Will appear on the final price report"
+      - name: SPECFC
+        description: "Is there any specifications to include in the final price report"
+      - name: SPECFC_DATE
+        description: "Date associated with the specification description"
+      - name: SPECFC_DESC
+        description: "Description for the specification. Will appear on the final price repo"
+      - name: INPUT_BY_INIT_CODE
+        description: "The one who enter the data into DSG. Could not be the Estimator."
+      - name: DECK
+        description: "Is there Deck into the quotation ?"
+      - name: INPUT_BY_NAME
+        description: "DSG Input By Name"
+      - name: ST
+        description: "Province/State"
+      - name: APPLY_FEE
+        description: "Apply Opening Fee on prices"
+      - name: PUBLIC
+        description: "IS the quotation Public or Private"
+      - name: OPENING_FEE
+        description: "Current opening fee"
+      - name: CLASS_CATEG
+        description: "Building Class Category"
+      - name: CLASS_CODE
+        description: "Building Class Code"
+      - name: FOLLOW_UP
+        description: "Will you follow-up on the quotation ?"
+      - name: LAST_UPDATE_DATE
+        description: "Last Follow-Up Date"
+      - name: HOT
+        description: "If Yes, will appear on the hot list"
+      - name: LOST_DATE
+        description: "Date when the quotation's status was set to QL"
+      - name: MARK_QTY
+        description: "Number of different mark"
+      - name: STANDING_ID
+        description: "ID to link with table qc_standing"
+      - name: LAST_UPDATE_DATETIME #LAST_UPDATE_TIME
+        description: "Nbre de sec(en utilisant last_update_date) depuis la derniere modif"
+      - name: CONTRC_COMPT_OFFICE_CODE
+        description: "Sales Office of the competitor who got the job"
+      - name: ROUND_TO_FACTOR
+        description: "Round to factor"
+      - name: CURRENCY_COD #CURRENCY_CODE ?
+        description: "Delivery Currency Code"
+      - name: TRANSFER_DATE
+        description: "Date updated when th product transfer is done from SDG or CFCQ"
+      - name: DRAWING_DUE_IN
+        description: "Drawing Due In"
+      - name: SPECIAL_ELEMENTS_NOTE
+        description: "Special Elements Note"
+      - name: PROJ_COORD
+        description: "Project Coordinator"
+      - name: EXCHGN_RATE
+        description: "Quotation exchange rate (comes from Desgo)"
+      - name: DRAWING_DUE_BACK
+        description: "Drawing due back date"
+      - name: APPROVAL_TYPE
+        description: "Related to table description field_name approval_type"
+      - name: DRAWING_DUE_OUT
+        description: "Drawing due out date"
+      - name: WEIGHT_INCREASE_COMMENT
+        description: "Comment used to justify an eventual discrepancy between the weight estimated versus the one produced. This comment is updated in QC and will be transferred to SPM at the project creation."
+      - name: LOST_STATUS_COMMENT
+        description: "Comments explaining why the quotation is lost."
+      - name: LAST_LOADED_ESTIMATION_FILE_NAME ##LASTLOADEDESTIMATIONFILENAME
+        description: "Name of the last estimation file loaded for the current qc_quotation."
+      - name: LAST_LOADED_ESTIMATION_FILE_DATETIME ##LASTLOADEDESTIMATIONFILEDATETIME
+        description: "Datetime when the last estimation file was loaded for the current qc_quotation."
+      - name: CONTRC_BUYER_CONTACT_UUID
+        description: "UUID linked to gdm.qc_customer_contact"
+      - name: CONTRC_PROJ_MANAGER_CONTACT_UUID
+        description: "UUID linked to gdm.qc_customer_contact"
+      - name: VES_ENTRY_COMPLETED_USER_CODE
+        description: "User who has confirmed that the entry of the value engineering solutions is completed"
+      - name: ESTIMATION_INCLUDE_DESIGN
+        description: "Indicates if the contract will go from the estimation to the engineering using the estimation design."
+      - name: LEAD
+        description: "Indicates that the job is a lead but not a quotation yet.  When YES most of the validations will not be applied, no budget is required, etc."
+      - name: LEAD_PROSPECTOR_INIT_CODE
+        description: "Initials code of the prospector who has reported the lead on this job."
+      - name: LEED_CERTIFIED
+        description: "Indicates that the job is certified LEED (Leadership in Energy and Environmental Design)."
+      - name: EXTRA_CREDIT ##EXTRACREDIT
+        description: "Indicates if the quotation is an extra-credit."
+      - name: SIGNATORY_APPROVAL_STATUS ##SIGNATORYAPPROVALSTATUS
+        description: "Signatory approval status "
+      - name: SIGNATORY_APPROVED_AMOUNT ##SIGNATORYAPPROVEDAMOUNT
+        description: "Amount approved by the signatory"
+      - name: BID_CUSTOMER_UUID
+        description: "Customer uuid linked to gdm.customer"
+      - name: CONTRACT_CUSTOMER_UUID
+        description: "Customer uuid linked to gdm.customer"
+      - name: SHOW_ADDRESSES_ON_FPS
+        description: "Indicates if the addresses line of the quotation have to be displayed on the FPS.  At the creation of the quotation, will be assigned to acctg.qc_office.show_addresses_on_fps."
+      - name: QUOTATION_UUID
+        description: "UUID assigned with GUID"
+      - name: DECK_CALC_SOFT
+        description: "Calculating software for Deck products -> 1: Desgo, 3:SMS"
+      - name: DOMESTIC_STEEL_ONLY
+        description: "Yes: The origin country of the steel must be the same as the shipping country."
+      - name: MILL_TEST_REQUIRED
+        description: "Yes: Mill tests required."
+      - name: LAST_LOADED_ESTIMATION_FILE_LOAD_BY ##LASTLOADEDESTIMATIONFILELOADBY
+        description: "Code of the last user who has loaded the last estimation file for the current qc_quotation."
+      - name: PROJECT_TYPE ##PROJECTTYPE
+        description: "Indicates if the job is regular or erected."
+      - name: QUOTATION_TYPE_UUID ##QUOTATIONTYPEUUID
+        description: "UUID used to identiy the quotation type. Link with table QuotationType."
+      - name: LAST_LOADED_ESTIMATION_BUDGET_FORMAT ##LASTLOADEDESTIMATIONBUDGETFORMAT
+        description: "Indicates if the last loaded estimation was a budget format(rough estimation), meaning that no estimation can be entered for the quotation and it cannot become contract or project.  If not budget, the estimation is detailed."
+      - name: DRAFTING_CONTRACT ##DRAFTINGCONTRACT
+        description: "Indicates if the quotation is a drafting contract."
+      - name: QUOTATION_MAIN_PRODUCT ##QUOTATIONMAINPRODUCT
+        description: "Main product on the quotation. Imported from the estimaiton module 4 (Murox estimation) but can be updated manually. Link with table gdm.description."
+      - name: QUOTATION_SENT_DATE ##QUOTATIONSENTDATE
+        description: "Date assigned by the application when the quotation status has been changed from a step lower than Quotation Sent (projct_step < 12) to Quotation Sent (projct_step = 12) or can be updated manually."
+      - name: ERECTOR_PRIVILEGE_INCLUDED
+        description: "Yes: Erector privilege will be applied on this quotation"
+      - name: DELIVERY_OFFICE_CODE ##DELIVERYOFFICECODE
+        description: "Office code of project delivery."
+      - name: DELIVERY_BRANCH_OFFICE_CODE ##DELIVERYBRANCHOFFICECODE
+        description: "Branch office code of project delivery."
+      - name: ESTIMATION_TARGET_DATETIME ##ESTIMATIONTARGETDATETIME
+        description: "Estimation target date and time used to determine the moment on which the estimation should be completed"
+      - name: IS_NATIONAL_ACCOUNT ##ISNATIONALACCOUNT
+        description: "Determine if the quotation is of type NationalAccount."
+      - name: OPPORTUNITY_RATING ##OPPORTUNITYRATING
+        description: "Represents the opportunity value of the quotation (1 to 9). Higher is better."
+      - name: OPPORTUNITY_STATUS ##OPPORTUNITYSTATUS
+        description: "Opportunity Status"
+      - name: OPPORTUNITY_STAGE ##OPPORTUNITYSTAGE
+        description: "Stage of Opportunity"
+      - name: COMPLX_CODE
+        description: "Complexity  1-Simple 5-Complex"
+      - name: LOST_PRICE_DELTA ##LOSTPRICEDELTA
+        description: "The amount of money by which the opporunity was lost to competitor"
+      - name: CONFIDENCE_RATING ##CONFIDENCERATING
+        description: "Confidence rating  10%-Low 90%-High"
+      - name: LOST_TO_COMPT_NO ##LOSTTOCOMPTNO
+        description: "The competitor number the quotation was lost to. See table qc_competitor"
+      - name: OPPORTUNITY_DELIEVERY_DATE_SPAN ##OPPORTUNITYDELIEVERYDATESPAN
+        description: "Span of weeks for planned delivery (see description table)"
+      - name: OPPORTUNITY_DELIEVERY_DATE_SPAN_MIN ##OPPORTUNITYDELIEVERYDATESPANMIN
+        description: "Lower bound of estimated delivery date"
+      - name: OPPORTUNITY_DELIEVERY_DATE_SPAN_MAX ##OPPORTUNITYDELIEVERYDATESPANMAX
+        description: "Upper bound of estimated delivery date"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+  - name: prep_project_event
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: PROJECT_EVENT_UUID
+        description: 'UUID assigned with: GUID.'
+      - name: NO_PROJET
+        description: 'Project number. Link with table acctg.projet-g.'
+      - name: SEQUENCE
+        description: 'Project event sequence number (creation sequence).'
+      - name: VENDOR_CODE
+        description: 'Code of the vendor who caused the backcharge.  Link with table vendor.'
+      - name: DESCRIPTION
+        description: 'Explanation for the project event.'
+      - name: TOTAL_COST
+        description: 'Total cost of the events for the current project (total of acctg.project_event_detail.cost for the events implying a cost only ). (Functionnal currency)'
+      - name: PROVISION_TOTAL_AMOUNT
+        description: 'Total provision amount of the events for the current project (total of acctg.project_event_detail.provision_amount for the backcharge events only).  (Project currency)'
+      - name: PROVISION_TRANSFER_DATETIME
+        description: 'Date and time when the provision was sent to the financial application.'
+      - name: PROVISION_STATUS
+        description: 'Status of the provision.  Link with table gdm.description.'
+      - name: CREDIT_PAYMENT_TOTAL_AMOUNT
+        description: 'Total credit note or payment amount for the events of the current project (total of acctg.project_event_detail.credit_payment_amount. (Project currency)'
+      - name: CREDIT_PAYMENT_TRANSFER_DATETIME
+        description: 'Date and time when the credit note or payment was sent for approval.'
+      - name: CREDIT_PAYMENT_STATUS
+        description: 'Status of the credit note or payment.  Link with table gdm.description.'
+      - name: AMOUNT_TO_RELEASE
+        description: 'Amount of the provision to release (sent to the financial application).'
+      - name: CREATION_DATETIME
+        description: 'Date and time when the project event was created (used for the project event follow-up).'
+      - name: CREDIT_PAYMENT_INCLUDES_TAXES
+        description: 'Used to specify if the credit note or payment amount includes the taxes or not.  Link with table gdm.description.'
+      - name: SEQ_NO
+        description: 'Division sequence number related to the project event (when applicable)'
+      - name: ENTITY_CODE
+        description: 'Entity code linked to the project event.  Assigned only when a requisition or a BOL number is entered.'
+      - name: NO_POIDS
+        description: 'Requisition number linked to the project event (when applicable). '
+      - name: NO_MEMO
+        description: 'Bill of lading number linked to the project event (when applicable).'
+      - name: MATERIAL_MISSING
+        description: 'Indicates if the project event is the result of a complaint about  material missing'
+      - name: NOT_PRODUCED_CORRECTLY
+        description: 'Indicates if the project event is the result of a complaint about material not produced correctly'
+      - name: SUBMITTED_BY_PEOPLE_ID
+        description: 'Name of the person who has submitted the project event to the project coordinator.  Linked to table people.'
+      - name: COMPLAINT_BY_CUSTOMER_TYPE_UUID
+        description: 'UUID identifying who made the complaint.  Linked with table customer_type.'
+      - name: PROJCT_EVENT_ENTRY_BY_PEOPLE_ID
+        description: 'People Id corresponding to the people who entered the project event in OM and which will be the sender of the emails for approval request and the ones sent to the financial department. Link with table people.'
+      - name: PAYMENT_TO_VENDOR_CODE
+        description: 'Code of the vendor to whom a payment has to be sent.  When not blank the project event is a payment type.'
+      - name: PROJECT_EVENT_TRANS_TYPE_UUID
+        description: 'UUID used to define the project event type (credit note, payment or N/A). Link with table project_event_trans_type.'
+      - name: PAYMENT_TO_CUSTOMER_UUID
+        description: 'UUID used to link the project event to a customer to whom a payment has to be sent (when different from the project customer).  When not blank the project event is a payment type.'
+      - name: MODIFIED_BY
+        description: 'Name of the person who last modified the record'
+      - name: MODIFIED_DATE
+        description: 'Date of the last modification of the record'
+      - name: CREATED_BY
+        description: 'Name of the person who created the record'
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+  - name: prep_project_event_sales_group
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: PROJECT_EVENT_SALES_GROUP_UUID
+        description: "UUID assigned with: GUID."
+      - name: PROJECT_EVENT_UUID
+        description: "Used to link the project event sales group with table acctg.project_event."
+      - name: SALES_GROUP_CODE
+        description: "Used to link the project event with table acctg.cmg_sales_group."
+      - name: BACKCHARGE_PERCENTAGE
+        description: "Percentage of the backcharge related to the sales group."
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+  - name: prep_project_event_detail
+    config: 
+      schema: SPM_CA
+    columns:
+      - name: PROJECT_EVENT_DETAIL_UUID
+        description: "UUID assigned with: GUID."
+      - name: PROJECT_EVENT_UUID
+        description: "Used to link the project event detail with table acctg.project_event."
+      - name: EVENT_UUID
+        description: "Used to link the project event detail with table gdm.event."
+      - name: COST
+        description: "Cost implied by the event when gdm.event.cost_involved = YES.  (Functionnal currency)"
+      - name: PROVISION_AMOUNT
+        description: "Provision amount related to the event when gdm.event.backcharge = YES.  (Project currency) "
+      - name: CREDIT_PAYMENT_AMOUNT
+        description: "Credit note or payment amount related to the event.  (Project currency)"
+      - name: ENTITY_CODE
+        description: "Entity code linked to the event. Used for the emails sent for the project event management (follow-up, backcharge provision, credit note)"
+      - name: CREATION_DATETIME
+        description: "Date and time when the project event detail was created (used for the project event follow-up)."
+      - name: VALIDATED_DATETIME
+        description: "Represents the date and time when the event detail has been validated, meaning that it has been identified as a real problem and action can and will be taken in order to solve it."
+      - name: VALIDATED_BY_PEOPLE_ID
+        description: "People ID of the person who did validate the event.  Link with table people."
+      - name: CANCELLATION_DATETIME
+        description: "Date and time when the event has been cancelled."
+      - name: CANCELLATION_COMMENT
+        description: "Comment explaining why the event has been cancelled."
+      - name: CANCELED_BY_PEOPLE_ID
+        description: "Is used to identify who did the event cancellation.  Link with table people."
+      - name: LAST_UPDATE_ACTION
+        description: "Action triggered when the record was last updated (new, cancel, modify).  This field will be reset once the information will be sent to the financial department."
+      - name: PROJECT_EVENT_QUICK_REMARK_UUID
+        description: "UUID used to lonk with table ProjectEventQuickRemark"
+      - name: PROJECT_EVENT_MANUAL_REMARK
+        description: "Remark entered manually by the user. Is assigned and modifiable when ProjectEventQuickRemark.ManualEntryAllowed = YES."
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+  - name : prep_item
+    config: 
+      schema: SPM_CA
+    columns:
+    - name: IN_ENTITY
+      description: "I/M control entity (company/division) affected by transactions."
+    - name: ITEM_NO
+      description: "Number of the Item."
+    - name: SORT_NAME
+      description: "Short name used for alpha searching, etc."
+    - name: UOM_CODE
+      description: "Code for the Item's unit of measure."
+    - name: STATS_CODE
+      description: "Item that accumulates analysis statistics."
+    - name: BREAK_CODE
+      description: "Code for the price_break."
+    - name: PRICING_GRP
+      description: "Code that defines a Pricing Group for the Item."
+    - name: VENDOR_CODE
+      description: "Code for the Vendor."
+    - name: VOLUME
+      description: "Cubic volume of one UOM of the Item."
+    - name: WEIGHT
+      description: "Weight (tonnage) of one UOM of the item."
+    - name: STATUS_CODE
+      description: "User_defined code for the status of the record."
+    - name: ACTIVE
+      description: "Describes whether or not this record is active."
+    - name: DUTY_CODE
+      description: "Code for Duty charged on imported goods."
+    - name: LAST_PO_NO
+      description: "Dernier no bon commande pour l'article"
+    - name: EPIX_SEQ
+      description: "Sequence pour creation article systeme SAGE (EPIX)."
+    - name: CREATED_DATE
+      description: "Date of creation of the record"
+    - name: MODIFIED_DATE
+      description: "Date of the last modification of the record"
+    - name: GLOBAL_ITEM_UUID
+      description: "UUID linked to gdm.global_item record."
+    - name: ITEM_UUID
+      description: "UUID assigned with: GUID."
+    - name: STEEL_GRADE_UUID
+      description: "UUID linked to gdm.steel_grade record."
+    - name: CREATED_BY
+      description: "Name of the person who created the record"
+    - name: MODIFIED_BY
+      description: "Name of the person who last modified the record"
+  - name: prep_item_tech
+    config: 
+      schema: SPM_CA
+    columns:
+    - name: MASTER_ITEM
+      description: "Item from wich this item was produce."
+    - name: HOLES_QTY
+      description: "Number of holes for a connector"
+    - name: WIDTH_TOLERANCE
+      description: "Width Tolerance (+ or - the value, apply on item-tech.largeur, contains millimeters (in decimal). Update and display inches in US and Canada database, mm in Mexican databases (based on in-control.mesure)"
+    - name: THICKNESS_TOLERANCE_MIN
+      description: "Minimum Thickness Tolerance (contains millimeters (in decimal). Update and display inches in all databases.US and Canada database, mm in Mexican databases (based on in-control.mesure) "
+    - name: THICKNESS_TOLERANCE_MAX
+      description: "Maximum Thickness Tolerance (contains millimeters (in decimal).Update and display inches in all databases."
+    - name: ITEM_FINISHING_UUID
+      description: "Item finishing UUID linked to the table item_finishing"
+    - name: CREATED_DATE
+      description: "Date of creation of the record"
+    - name: MODIFIED_DATE
+      description: "Date of the last modification of the record"
+    - name: CREATED_BY
+      description: "Name of the person who created the record"
+    - name: MODIFIED_BY
+      description: "Name of the person who last modified the record"
+  - name: prep_item_alt
+    config: 
+      schema: SPM_CA
+    columns:
+    - name: WHS_CODE
+      description: "Code for the Warehouse used in shipping and/or receiving."
+    - name: MLI
+      description: "Describes whether an Item is * -> imported or  not imported."
+    - name: BIN_LOCATION
+      description: "Place where an item is located in a warehouse."
+    - name: REFERENCE
+      description: "Reference number for the transaction."
+    - name: LINE_NO
+      description: "Number of the line."
+    - name: USER
+      description: "User identification code."
+    - name: FATHR_NO
+      description: "(today - 08/01/97) * 100000 + time"
+    - name: SEQ_NO_LIST
+      description: "Linked divisions numbers list."
+    - name: OPER_CODE
+      description: "Operation Code"
+    - name: ITEM_ALT_ID
+      description: "Unique identifier of item_alt record."
+    - name: ABM_STATUS
+      description: "0:Available, 1:Linked with ABM, 2:In Production (ABM)"
+    - name: DROP_PROJECT
+      description: "Project to be assigned to drop"
+    - name: DROP_DIVISION
+      description: "Division to be assigned to drop"
+    - name: PLATE_NO
+      description: "Plate No"
+    - name: PO_NO
+      description: "Number of the Purchase Order."
+    - name: PO_LINE_NO
+      description: "Number of the po's line"
+    - name: SKETCH
+      description: "Sketch identifier"
+    - name: PIECE_ID
+      description: "Identifier for a piece or a group of piece."
+    - name: PROCSS_VENDOR_CODE
+      description: "Vendor Code where bars are sent for material processing."
+    - name: PROCSS_SEND_DATE
+      description: "When the bars were sent for material processing."
+    - name: PROCSS_BACK_DATE
+      description: "When the bars came back from material processing."
+    - name: TRANSF_DATE
+      description: "Transfered date (when bars are tranfered from a whs to another one)"
+    - name: CHARPY_TEST
+      description: "Yes: a sample has to be taken from this piece for a Charpy test."
+    - name: MATERIAL_REFERENCE_LIST
+      description: "Material reference list"
+    - name: COST
+      description: "Material real cost"
+    - name: GANTRYREQUESTEDDATETIME
+      description: "Date and time when the request has been send to the gantry "
+    - name: GANTRYCONFIRMEDDATETIME
+      description: "Date and time when the request has been confirmed by the Gantry (entered in the plants) "
+    - name: COMMENTPURCHASE
+      description: "Comment on purchase when the PO is late"
+    - name: COMMENTSTATUS
+      description: "Comment on status of the piece "
+    - name: COMMENTSOLUTION
+      description: "Comment on solution when the PO is late"
+    - name: BACKGROUNDHEXADECIMALCOLOR
+      description: "Hexadecimal color used to display the line on the gantry application"
+  - name: prep_req_prod
+    config: 
+      schema: SPM_CA
+    columns:
+    - name: NO_POIDS_LIE
+      description: "Master requisition"
+    - name: REAL_TIME_1
+      description: "Temps reels : 1-Prep 2-Ass 3-soud 4-Peint 5-Moul 6-Finition"
+    - name: REAL_TIME_2
+      description: "Temps reels : 1-Prep 2-Ass 3-soud 4-Peint 5-Moul 6-Finition"
+    - name: REAL_TIME_3
+      description: "Temps reels : 1-Prep 2-Ass 3-soud 4-Peint 5-Moul 6-Finition"
+    - name: REAL_TIME_4
+      description: "Temps reels : 1-Prep 2-Ass 3-soud 4-Peint 5-Moul 6-Finition"
+    - name: REAL_TIME_5
+      description: "Temps reels : 1-Prep 2-Ass 3-soud 4-Peint 5-Moul 6-Finition"
+    - name: REAL_TIME_6
+      description: "Temps reels : 1-Prep 2-Ass 3-soud 4-Peint 5-Moul 6-Finition"
+    - name: STATS_PROD_1
+      description: "Stats Production 1- Poids 2- Long. 3- Couts Mat. 4- Couts Fab."
+    - name: STATS_PROD_2
+      description: "Stats Production 1- Poids 2- Long. 3- Couts Mat. 4- Couts Fab."
+    - name: STATS_PROD_3
+      description: "Stats Production 1- Poids 2- Long. 3- Couts Mat. 4- Couts Fab."
+    - name: STATS_PROD_4
+      description: "Stats Production 1- Poids 2- Long. 3- Couts Mat. 4- Couts Fab."
+    - name: D_PROD
+      description: "Date de Fin de Production ( pour l'ensemble des marques )"
+    - name: NO_TROU
+      description: "No de trou pour bridging"
+    - name: DATE_CAL_TPS
+      description: "Last date the standard time calcul was done"
+    - name: DET_ENABLE
+      description: "Detail Enable"
+    - name: REMARK_1
+      description: "Remark of requisition..."
+    - name: REMARK_2
+      description: "Remark of requisition..."
+    - name: REMARK_3
+      description: "Remark of requisition..."
+    - name: REMARK_4
+      description: "Remark of requisition..."
+    - name: REMARK_5
+      description: "Remark of requisition..."
+    - name: REMARK_6
+      description: "Remark of requisition..."
+    - name: ORIGINAL_ENTITY
+      description: "Requisition original entity for when the entity of the req. is change."
+    - name: KRONOS_TRF_DATE
+      description: "Date and time the record was transfer to Kronos"
+    - name: DECK_NOTES_ID_LIST
+      description: "Deck notes list (id list)"
+    - name: PRIORITIZED
+      description: "Prioritized or Not"
+    - name: BRIDGING_GROUPED_DATE
+      description: "Date that bridging requisitions were grouped."
+    - name: BRIDGING_GROUPED_TIME
+      description: "Time that bridging requisitions were grouped."
+    - name: BRIDGING_GROUPED_BY
+      description: "User code that grouped bridging requisitions."
+    - name: REQUISITION_RECEIVED_DATE
+      description: "All requisitions recieved date"
+    - name: URGENT
+      description: "Urgent to produce"
+    - name: TRANSFER_STATUS
+      description: "Current Data Transfer Status"
+    - name: FABRICATION_DROPDEAD_DATE
+      description: "Planned end of fabrication date (for shipping)"
+    - name: FABRICATION_DROPDEAD_TIME
+      description: "Planned end of fabrication time (fabrication_dropdead_date)"
+    - name: FOB_CODE
+      description: "Code for FOB (free-on-board) location."
+    - name: DELIVERY_COMMENT
+      description: "Delivery Specifications "
+    - name: FABRICATION_SHOP_TIME
+      description: "Time of fabrication (d-shop)"
+    - name: DECK_GROUPED_REQUISITION
+      description: "Deck grouped requisition number"
+    - name: BIN_LOCATION
+      description: "Location where the rollbar requisition is place when prepared"
+    - name: BIN_LOCATION_UPD_BY
+      description: "User who entered the location"
+    - name: ROLLBAR_USE
+      description: "Indicate the use of the requisition, charge is use to charge some lost rollbar to the project"
+    - name: PRINT_INFORMATION_ON_ITEM
+      description: "No = Do not print information on the itemYes = Print information on the item "
+    - name: STRUCTURAL_BOLT_ASSEMBLY_LOC
+      description: "Structural bolt assembly location. This field is mandatory when ~the product of the requisition has the attribute BOLT_TYPE = STUCTURAL. Linked ~with gdm.description."
+    - name: MARKING_COLOR_UUID
+      description: "UUID of a marking color record.  Used to link the current record with teh table acctg.marking_color."
+    - name: MULTI_DESTINATION
+      description: "Yes: All the marks of the requisition can be assigned to more than one destination in the expedition module."
+    - name: PRE_ASSEMBLED
+      description: "For a X-bridging requisition, indicates if the bolt for the central hole must be pre-assembled in the shop."
+    - name: PRE_ASSEMBLED_BOLT_REQUISITION
+      description: "For a pre-assembled requisition, indicates the number of the bolt requisition to use for the central hole (nylon nut)"
+    - name: PANEL_BUNDLE_NUMBER
+      description: "For a murox requisition, indentifies the number of the panel bundle."
+    - name: CREATEDBY
+      description: "Name of the person who created the record"
+    - name: IMPORTATION_DATETIME
+      description: "Date and time when the requisition was imported in SPM."
+    - name: MODIFIEDDATE
+      description: "Date of the last modification of the record"
+    - name: ADDITIONAL_PLANNING_DATE
+      description: "Additional planning date (for fabricated girts & Z:manual operations start date) (for non-fabricated girts & Z: departure date) to be printed at the bottom of the requisition (different from end of fabrication date (d-shop)."
+    - name: PROJECT_PURCHASE_ORDER_UUID
+      description: "Project purchase order UUID"
+    - name: APPLICATION_TRANSFER_UUID
+      description: "Application that has created the requisition.  Linked to gdm.application_transfer."
+    - name: PRODUCTION_SHIPPING_DELAY
+      description: "Delay between end of production and shipping (days).  Shipping date of division is used to calculate end of production."
+    - name: SEQUENCED_PREPARATION
+      description: "Yes: the preparation is sequenced by Joist Detailer application"
+    - name: CRATINGWEIGHT
+      description: "Weight of the crating used to bundle this requisition."
+    - name: EXPECTEDASSEMBLYSHOPUUID
+      description: "Expected assembly shop/line. Assign at the creation of the first cut order of this requisition."
+    - name: EXPECTEDASSEMBLYDATETIME
+      description: "Expected assembly date and time. Assign at the creation of the first cut order of this requisition."
+    - name: BUNDLEDREQUISITION
+      description: "Requisition contains bundles. Assigned when bundle are created at the requisition's importation.  "
+    - name: EXTERNALID
+      description: "Requisition External Id (used when we need to refer to a requisition in an external system) "
+    - name: ERECTIONLABEL
+      description: "If we have mark detail it is Mark, if not it is Bundle"
+    - name: CREATEDDATE
+      description: "Date of creation of the record"
+    - name: MODIFIEDBY
+      description: "Name of the person who last modified the record"
+    - name: REQ_PROD_UUID
+      description: "Unique UUID"
+  - name: prep_item_alt_po
+    config: 
+      schema: SPM_CA
+    columns:
+    - name: IN_ENTITY
+      description: "I/M control entity (company/division) affected by transactions."
+    - name: LINE_NO
+      description: "Number of the line."
+    - name: ITEM_NO
+      description: "Number of the Item."
+    - name: WHS_CODE
+      description: "Code for the Warehouse used in shipping and/or receiving."
+    - name: REFERENCE
+      description: "Reference number for the transaction."
+    - name: FATHR_NO
+      description: "(today - 08/01/97) * 100000 + time"
+    - name: UPD_DATE
+      description: "Date a Lot number is created."
+    - name: USER
+      description: "User identification code."
+    - name: MLI
+      description: "Describes whether an Item is manufactured/local/imported."
+    - name: SEQ_NO_LIST
+      description: "Linked divisions numbers list."
+    - name: OPER_CODE
+      description: "Operation Code"
+    - name: ITEM_ALT_ID
+      description: "Unique identifier of item_alt_po record."
+    - name: ABM_STATUS
+      description: "0:Available, 1:Linked with ABM, 2:In Production (ABM)"
+    - name: HEAT_NO
+      description: "Heat Number"
+    - name: PLATE_NO
+      description: "Plate Number"
+    - name: PIECE_ID
+      description: "Identifier for a piece or a group of piece."
+    - name: MATERIAL_REFERENCE_LIST
+      description: "Material reference list"
+    - name: COMMENTSTATUS
+      description: "Comment on status of the piece "
+    - name: COMMENTSOLUTION
+      description: "Comment on solution when the PO is late"
+    - name: COMMENTPURCHASE
+      description: "Comment on purchase when the PO is late"
+  - name: prep_item_whs_d
+    config: 
+      schema: SPM_CA
+    columns:
+    - name: IN_ENTITY
+      description: "I/M control entity (company/division) affected by transactions."
+    - name: ITEM_NO
+      description: "Number of the Item."
+    - name: WHS_CODE
+      description: "Code for the Warehouse used in shipping and/or receiving."
+    - name: QTY_ON_HAND
+      description: "Quantity on-hand."
+    - name: ON_HAND_DATE
+      description: "Date the quantity on-hand was last updated."
+    - name: QTY_CUST_ORD
+      description: "Total quantity ordered by customers."
+    - name: QTY_ALLOC
+      description: "Quantity of the Item allocated to the Order."
+    - name: QTY_ON_PPS
+      description: "Total quantity on picking slips."
+    - name: QTY_ON_PO
+      description: "Total quantity on purchase orders."
+    - name: COST
+      description: "Item cost."
+    - name: COST_DATE
+      description: "Date the Item value was last updated."
+    - name: LAST_COST
+      description: "Last cost paid for an Item received/produced/transferred."
+    - name: LAST_CT_DATE
+      description: "Date of the last Item receipt/production/transfer."
+    - name: OHU_COUNT
+      description: "Number of times an Item's quantity on-hand has been updated."
+    - name: COMPUTED_MIN
+      description: "Used to flag stock shortages once items have been reset."
+    - name: OPENING_QTY
+      description: "Opening quantity of an Item, for the Inventory Movement Report."
+    - name: OPENING_AMT
+      description: "Opening value of an Item, for the Inventory Movement Report."
+    - name: CLASS
+      description: "User-defined Classification code."
+    - name: COS_YTD
+      description: "Total cost of Item sales year-to-date."
+    - name: QTY_YTD
+      description: "Total quantity sold/used year-to-date."
+    - name: QTY_ON_MEMO
+      description: "Total Quantity on Memo."
+    - name: ORDER_LEVEL
+      description: "Point de commande."
+    - name: CREATEDBY
+      description: "Name of the person who created the record"
+    - name: CREATEDDATE
+      description: "Date of creation of the record"
+    - name: MODIFIEDDATE
+      description: "Date of the last modification of the record"
+    - name: MODIFIEDBY
+      description: "Name of the person who last modified the record"
+  - name: prep_heat_no_country
+    config: 
+      schema: SPM_CA
+    columns:
+    - name: HEAT_NO
+      description: "This is the heat number."
+    - name: COUNTRY_CODE
+      description: "International short code."
+    - name: RECEIPT_NO
+      description: "Last receipt number where the heat-no has been assigned."
+  - name: prep_vendor
+    config: 
+      schema: SPM_CA
+    columns:
+    - name: VENDOR_CODE
+      description: "Code for the Vendor."
+    - name: NAME
+      description: "Pertinent name."
+    - name: ADDRESS_1
+      description: "The address."
+    - name: ADDRESS_2
+      description: "The address."
+    - name: CITY
+      description: "Name of the city/town/village."
+    - name: ST
+      description: "State or province."
+    - name: ZIP_CODE
+      description: "Zip/postal code of the mailing address."
+    - name: COUNTRY
+      description: "Name of the Country."
+    - name: TELEPHONE
+      description: "Telephone number."
+    - name: TELEX_TWX
+      description: "Telex/twx number."
+    - name: VALID_ENTITY
+      description: "Group of accounting entities allowed to use the code."
+    - name: SORT_NAME
+      description: "Short name used for alpha searching, etc."
+    - name: CONTACT
+      description: "Name of the Contact."
+    - name: MEMO
+      description: "Memoranda for internal use/forms printing."
+    - name: REMIT_VENDOR
+      description: "Vendor to be paid for any purchases."
+    - name: STATS_VENDOR
+      description: "Vendor who accumulates analysis statistics."
+    - name: STATUS_CODE
+      description: "Code for the status of the record:  P/T/I or user-defined."
+    - name: TERM_CODE
+      description: "Code for the payment terms."
+    - name: AUTO_DISBURS
+      description: "Tells whether or not automatic disbursements can be made for this Vendor"
+    - name: CLASS
+      description: "User-defined Classification code."
+    - name: BANK_CODE
+      description: "Default code for the bank."
+    - name: AP_ACCOUNT
+      description: "Default Ap-account (GL-code) for A/P transactions."
+    - name: DESCRIPTION
+      description: "Pertinent description."
+    - name: CURRENCY_COD
+      description: "Code for the Vendor's currency."
+    - name: PAY_DUTY
+      description: "Tells whether or not duty is paid for purchases from the Vendor."
+    - name: VIA_CODE
+      description: "Code for the Ship-Via method."
+    - name: FOB_CODE
+      description: "Code for the Vendor's FOB (free-on-board) location."
+    - name: BUYER_CODE
+      description: "Default code for the buyer."
+    - name: CHECK_ILL
+      description: "Permission d'emettre un cheque excedant $50,000"
+    - name: LANGUAGE
+      description: "Corresponding language of the vendor"
+    - name: AP_DISTRIBUT_1
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_2
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_3
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_4
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_5
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_6
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_7
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_8
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_9
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_10
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_11
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_12
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_13
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_14
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_15
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_16
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_17
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_18
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_19
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_20
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_21
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_22
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_23
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_24
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_25
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_26
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_27
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_28
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_29
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_30
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_31
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_32
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_33
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_34
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_35
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_36
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_37
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_38
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_39
+      description: "Default A/P distribution GL-Code"
+    - name: AP_DISTRIBUT_40
+      description: "Default A/P distribution GL-Code"    
+    - name: PO_S
+      description: "Indicator: keept po stats on file"
+    - name: CANSIS_VENDOR_NUMBER
+      description: "Corresponding Cansis vendor number"
+    - name: CANSIS_VENDOR_SITE_NAME
+      description: "Corresponding Cansis vendor site name"
+    - name: MESURE
+      description: "Vendor unit of measure."
+    - name: AFFILIATED
+      description: "Yes: vendor is affiliated to our company"
+    - name: RELATIONSHIP_CODE
+      description: "Relationship with our company (see desciption table)"
+    - name: SLITTING_PREFIX_FROM
+      description: "Range of prefix number use to assign the slit number when the slitting is done by this vendor. "
+    - name: SLITTING_PREFIX_TO
+      description: "Range of prefix number use to assign the slit number when the slitting is done by this vendor."
+    - name: DISPATCHER_EMAIL_ADDRESS1
+      description: "Email of the dispatcher (will be available for update when vendor.relationship_code = 1).  Used to send email from Expedition."
+    - name: DISPATCHER_EMAIL_ADDRESS2
+      description: "Email of the dispatcher (will be available for update when vendor.relationship_code = 1).  Used to send email from Expedition."
+    - name: ECOLOGO
+      description: "Yes: the supplier is certified Ecologo"
+    - name: CREATED_BY
+      description: "Name of the person who created the record"
+    - name: CREATED_DATE
+      description: "Date of creation of the record"
+    - name: MODIFIED_DATE
+      description: "Date of the last modification of the record"
+    - name: MODIFIED_BY
+      description: "Name of the person who last modified the record"
+    - name: EXTERNAL_VENDOR_CODE
+      description: "External Vendor Code"
+  - name: prep_product_attribute
+    config: 
+      schema: SPM_CA
+    columns:
+    - name: ENTITY_CODE
+      description: "Product entity code."
+    - name: NO_PRODUIT
+      description: "Product code"
+    - name: ATTRIBUTE_CODE
+      description: "Code needed to link an attribute to an another table."
+    - name: ATTRIBUTE_VALUE
+      description: "Specific value for an attribute for a product."
+  - name: prep_pe_job
+    config: 
+      schema: SPM_CA
+    columns:
+    - name: IN_ENTITY
+      description: "I/M control entity (company/division) for this Entity-code."
+    - name: COUT_JOB
+      description: "Total cost of project"
+  - name: prep_cmg_outbound_databases
+    config: 
+      schema: SPM_CA
+    columns:
+     - name: DATABASE_DESCRIPTION
+       description: "Pertient description of the database."
+     - name: LOCAL_OUTPUT_PATH
+       description: "Physical directory where the ASCII file will be downloaded."
+     - name: HOST_NAME
+       description: "Host name that will be used by FTP to transfer ASCII file."
+     - name: HOST_DESTINATION_PATH
+       description: "Physical directory on the host where the ASCII file will be copied."
+     - name: HOST_USER_NAME
+       description: "User name that will be used by FTP to connect to the host."
+     - name: HOST_PASSWORD
+       description: "Password that will be used by FTP to connect to the host(hidden+crypt)"
+     - name: SET_OF_BOOKS
+       description: "Set of Books for Oracle financial System."
+     - name: PROJECT_PREFIX
+       description: "Project Prefix for SPM Projects -> C, E or U."
+     - name: ADMINISTRATOR_EMAIL
+       description: "Email used to send message when error(s) occur."
+     - name: LOCAL_CURRENCY
+       description: "Indicate the working currency of the database."
+     - name: AR_ENTITY
+       description: "Control entity related to the database"
+     - name: MANUFACTURING_HELPDESK_EMAIL
+       description: "manufacturing application helpdesk email"
+     - name: FINAPPS_HELPDESK_EMAIL
+       description: "E-mail for financial systems"
+     - name: CUSTOMER_CREDIT_MANAGEMENT_EMAIL
+       description: "E-mail for transfer of customers to Notes credit management application"
+     - name: CREATEDBY
+       description: "Name of the person who created the record"
+     - name: CREATEDDATE
+       description: "Date of creation of the record"
+     - name: MODIFIEDDATE
+       description: "Date of the last modification of the record"
+     - name: MODIFIEDBY
+       description: "Name of the person who last modified the record"
+  - name: prep_receipt_line
+    config: 
+      schema: SPM_CA
+    columns:
+    - name: AP_ENTITY
+      description: "A/P control entity (company/division) affected by transactions."
+    - name: IN_ENTITY
+      description: "I/M control entity (company/division) affected by transactions."
+    - name: ENTITY_CODE
+      description: "Code for the accounting entity affected by the transaction."
+    - name: WHS_CODE
+      description: "Code for the Warehouse used in shipping and/or receiving."
+    - name: PO_NO
+      description: "Number of the Purchase Order."
+    - name: RELEASE_NO
+      description: "Release number of the Purchase Order."
+    - name: VENDOR_CODE
+      description: "Code for the Vendor."
+    - name: CURRENCY_COD
+      description: "Code for the Vendor s currency."
+    - name: CONV_MONEY
+      description: "Currency conversion rate (rate of exchange)."
+    - name: JOB_NO
+      description: "Number of the job/project that Items are purchased for."
+    - name: LINE_NO
+      description: "Number of the line."
+    - name: REQUEST_DATE
+      description: "Date requested for delivery."
+    - name: PROMISE_DATE
+      description: "Date promised by the Vendor for shipment."
+    - name: ITEM_NO
+      description: "Number of the Item."
+    - name: DESCRIPTION
+      description: "Pertinent description."
+    - name: UOM_CODE
+      description: "Code for the Item s unit of measure."
+    - name: ITEM_VENDOR
+      description: "Vendor s Item-no."
+    - name: UOM_VENDOR
+      description: "Vendor s UOM-code."
+    - name: CONV_UOM
+      description: "UOM conversion used to convert Item unit to Vendor unit and vice versa."
+    - name: FOB_VENDOR
+      description: "FOB amount, expressed in the Vendor's currency."
+    - name: RECEIPT_CODE
+      description: "Code for the Receipt."
+    - name: LINE_DISC
+      description: "Percentage of discount pertaining to the Item line."
+    - name: DUTY_CODE
+      description: "Code for Duty charged on imported goods."
+    - name: DUTY_PCT
+      description: "Percentage of Duty charged for imported goods."
+    - name: TAX_RATE_1
+      description: "Percentage of tax to be charged on Item purchases."
+    - name: TAX_RATE_2
+      description: "Percentage of tax to be charged on Item purchases."
+    - name: TAX_RATE_3
+      description: "Percentage of tax to be charged on Item purchases."
+    - name: MISC_PCT
+      description: "Percentage of charges other than Tax and Duty."
+    - name: RECEIPT_NO
+      description: "Number of the Receipt."
+    - name: RCPT_LINE_NO
+      description: "Receipt line number."
+    - name: RECEIPT_DATE
+      description: "Date of the Receipt."
+    - name: PO_DISC
+      description: "Percentage of discount given by the Vendor on a P.O."
+    - name: LOT
+      description: "Lot number if item is costed by LIFO or FIFO cost methods."
+    - name: NET_COST
+      description: "Cost of an Item upon receipt, minus any discounts."
+    - name: LANDED_COST
+      description: "Estimated cost of goods received (refer to:  Actual-cost)."
+    - name: QTY_RECEIVED
+      description: "Quantity received."
+    - name: QTY_TO_RCVE
+      description: "Quantity to be received."
+    - name: RCPT_VALUE
+      description: "Total value of the Receipt."
+    - name: CHANGED_QTY
+      description: "Variance quantity resulting from a modified receipt line."
+    - name: COST_METHOD
+      description: "Method of costing this stock item:  Weighted Avg/FIFO/LIFO/Seria"
+    - name: PO_EXIST
+      description: "Describes whether or not a Receipt matches with an existing P.O."
+    - name: SEQ_NO
+      description: "Internal sequential number."
+    - name: NET_EXTEND
+      description: "Cout net d un article, multiplie par la qte recue (=facturee)"
+    - name: JC_QTY
+      description: "Quantity transfered to Job Cost fo subcontract warehouse"
+    - name: JC_AMT
+      description: "Invoiced amount transfered to Job Cost for subcontract warehouse"
+    - name: CANSIS_TRANSF_DATE
+      description: "Date the receipt was transfered to the Cansis system"
+    - name: COUNTRY_CODE
+      description: "International short code."
+    - name: CREATED_BY
+      description: "Name of the person who created the record"
+    - name: CREATED_DATE
+      description: "Date of creation of the record"
+    - name: MODIFIED_DATE
+      description: "Date of the last modification of the record"
+    - name: MODIFIED_BY
+      description: "Name of the person who last modified the record"
+    - name: STEEL_MILL_UUID
+      description: "Unique identifier of a steel mill record"
+  - name: prep_warehouse
+    config: 
+      schema: SPM_CA
+    columns:
+    - name: WHS_CODE
+      description: 'Code for the Warehouse used in shipping and/or receiving.'
+    - name: DESCRIPTION
+      description: 'Pertinent description.'
+    - name: NAME
+      description: 'Pertinent name.'
+    - name: ADDRESS_1
+      description: 'The address.'
+    - name: ADDRESS_2
+      description: 'The address.'
+    - name: CITY
+      description: 'Name of the city/town/village.'
+    - name: ST
+      description: 'State or province.'
+    - name: ZIP_CODE
+      description: 'Zip/postal code of the mailing address.'
+    - name: COUNTRY
+      description: 'Name of the Country.'
+    - name: TELEPHONE
+      description: 'Telephone number.'
+    - name: TELEX_TWX
+      description: 'Telex/twx number.'
+    - name: TAX_CODE
+      description: 'Code for the Tax Authority.'
+    - name: MULT_INV
+      description: 'Describes if more than one invoice can be created for a receipt'
+    - name: PCT_PERTE
+      description: 'Pct de perte a ajouter aux materiaux pris en inventaire'
+    - name: USED
+      description: 'To isolate used items with new items for machine shop dept'
+    - name: RECEIPT_CODE
+      description: 'Code de Reception'
+    - name: EPIX_MAINTN
+      description: "Definit si l'entrepot existe dans le systeme EPIX."
+    - name: EPIX_USED_WHS
+      description: "Definit l'entrepot qui recevra les articles usages (EPIX)."
+    - name: MASTER_ENTITY
+      description: 'Entity affected by transaction on this warehouse'
+    - name: PROJECT_NO
+      description: 'Numero de projet pour le travail a Facon'
+    - name: BAR_CODE_FOLLOW
+      description: 'Identify if this warehouse has bar codes follow-up.'
+    - name: VENDOR_ID
+      description: 'Vendor Id'
+    - name: VENDOR_NAME
+      description: 'Vendor Name'
+    - name: INV_CONCILIATION_USAGES_FORMULA
+      description: 'Inventory reconciliation Usages formula (linked to table gdm.description)'
+    - name: OPTIMIZATION_MANAGE_HEAT_NO
+      description: 'Manage heat no in production optimization'
+    - name: MANAGE_SURFACE_ITEM_IN_WEIGHT
+      description: 'Manage surface items in weight in certain circumstances'
+    - name: LINKED_ABM_PROJECT_NUMBER
+      description: 'Used for external warehouses, to determine what project is affected to the warehouse'
+    - name: IGNORE_FINANCIAL_RAW_MAT_COST
+      description: 'Ignore financial raw material cost'
+    - name: CREATED_BY
+      description: 'Name of the person who created the record'
+    - name: CREATED_DATE
+      description: 'Date of creation of the record'
+    - name: MODIFIED_DATE
+      description: 'Date of the last modification of the record'
+    - name: MODIFIED_BY
+      description: 'Name of the person who last modified the record'
+  - name: prep_prodct_machn
+    config: 
+      schema: SPM_CA
+    columns:
+    - name: PRODCT_RATE
+      description: "Production Rate by minute"
+    - name: ACTIVE
+      description: "Describes whether or not this record is active."
+    - name: CAPACITY
+      description: "Hourly capacity of machine"
+    - name: UOM_CODE
+      description: "UOM Code of capacity"
+    - name: TRANSFER_FORMAT
+      description: "Data transfer format type ex: None, Matissoft..."
+    - name: LENGTH_METER
+      description: "The machine has an integrated length meter device"
+    - name: PRINTER
+      description: "Printer associated to the equipment"
+    - name: MAXIMUM_SPEED
+      description: "Maximum speed (mm/sec)"
+    - name: AUTOMATIC_PRODUCTION_ENTRY
+      description: "Process automatically production information coming from other systems."
+    - name: STROKES_COUNTER
+      description: "Strokes counter"
+    - name: STROKES_MAINTENANCE
+      description: "Strokes maintenance point (at this point maintenance must be done on the equipment)"
+    - name: STROKES_MANAGERS
+      description: "Strokes managers (receive a notification email when the strokes counter reaches the strokes maintenance)"
+    - name: STROKES_EMAIL_SENT
+      description: "Strokes notification email sent to strokes managers"
+    - name: DECK_EMBOSSING
+      description: "The deck is High Bound or not"
+    - name: ROBOT
+      description: "This equipment is a robot or not"
+    - name: AUTOMATIC_PRODUCTION_DATA_PURGE
+      description: "Automatic purge of received production data (purge req_automation_stats, bundle_automation_stats..)"
+    - name: DATA_WAREHOUSE_TRANSFER
+      description: "Transfer production data to data warehouse (EIS)"
+    - name: PRODCT_MACHN_UUID
+      description: "UUID assigned with: GUID"
+    - name: VALIDATE_COIL_INFORMATION
+      description: "Validate or not the coil number entered by the operator from another application (ex:Matissoft)."
+    - name: DEPT_NO
+      description: "Fabrication department (step). Linked to the table fabrication_step."
+    - name: VIRTEK_LASER
+      description: "Yes: The equipment is equipped with Virtek laser.  This is used with Production Planning by Line tools."
+    - name: DISPLAY_SHOP_DETAIL
+      description: "Yes: the Shop Detail electronic report will be displayed on screen.  This is used with Production Planning by Line tools."
+    - name: STATUSDISPLAY
+      description: "Yes: a Status Display is available for the equipment"
+    - name: ITEM_MANAGEMENT_PREPARATION
+      description: "Yes: preparation follow-up module is managed the item for each transaction time "
+    - name: DELAY_BEFORE_ASSEMBLY
+      description: "The asked delay between the end of the preparation and the assembly operation for this equipment (in minutes)"
+    - name: PREP_SHIFT_NUMBER_TO_DISPLAY
+      description: "Number of working shift to display in the operator option (current shift not included)"
+    - name: SHOP_UUID
+      description: "UUID linked to the table acctg.shop (default shop associated)"
+    - name: DELAY_FOR_REALTIME_CORRECTION
+      description: "Acceptable delay to do a time correction for a real time transaction about the start time (in minutes)for the robot equipment"
+    - name: EQUIPMENT_TYPE_UUID
+      description: "UUID linked to the table gdm.equipment_type"
+    - name: PREPARATION_PLANNING
+      description: "Yes: preparation planning module is used for this equipment"
+    - name: PREPARATION_ALLOW_GROUP
+      description: "Yes: preparation follow-up allow to group some requisition or component together"
+    - name: BRIDGEPREPARATIONGROUPORDER
+      description: "Order in which the groups are displayed in the schedule when not prioritized (prioritization, calendar, console). Linked to description table. Not mandatory. If empty default behavior."
+    - name: BRIDGEPREPARATIONDEFAULTPREPQTY
+      description: "Default value of the prepared quantity of each mark (on the console and in transaction screen). "
+    - name: EQUIPMENTID
+      description: "Shop Equipment ID"
+  - name: prep_working_shift
+    config: 
+      schema: SPM_CA
+    columns:
+    - name: ENTITY_CODE
+      description: "Entity code of the plant"
+    - name: WORKING_SHIFT_CODE
+      description: "Code of the working shift"
+    - name: WORKING_SHIFT_NAME_ID
+      description: "Name of the working shift.  ID to data_name table."
+    - name: ACTIVE
+      description: "Record activity status"
+    - name: WORKING_SHIFT_UUID
+      description: "Working Shift Universally Unique ID"
+    - name: CREATEDDATE
+      description: "Datetime when the record was created"
+    - name: PAYROLL_WORKING_SHIFT_UUID
+      description: "Payroll Working Shift UUID linked to the table payroll_working_shift"
+    - name: MODIFIEDDATE
+      description: "Datetime when the record was updated"
+    - name: MODIFIEDBY
+      description: "The last user who modified the record"
+    - name: CREATEDBY
+      description: "User who initiated the creation of the record"
+  - name: prep_working_shift_detail
+    config: 
+      schema: SPM_CA
+    columns:
+    - name: WORKING_SHIFT_TYPE
+      description: "1=Shop (production line), 2=Equipment (machine)"
+    - name: SHOP_NO
+      description: "Shop number (production line).  Value is 0 when working_shift_type = 2."
+    - name: MACHN_NO
+      description: "Machine number.  Value is 0 when working_shift_type = 1."
+    - name: WEEK_DAY
+      description: "Day of the week (1=Sunday, 2=Monday, ...)"
+    - name: SHIFT_DATE
+      description: "Exception for a specific date (override the default detail of the corresponding week day)"
+    - name: SHIFT_START_TIME
+      description: "Start time of the shift"
+    - name: SHIFT_END_TIME
+      description: "End time of the shift"
+    - name: BREAK1_START_TIME
+      description: "Start time of the shift's first break"
+    - name: BREAK1_END_TIME
+      description: "End time of the shift's first break"
+    - name: BREAK2_START_TIME
+      description: "Starty time of the shift's second break"
+    - name: BREAK2_END_TIME
+      description: "End time of the shift's second break"
+    - name: BREAK3_START_TIME
+      description: "Start time of the shift's third break"
+    - name: BREAK3_END_TIME
+      description: "End time of the shift's third break"
+    - name: TOTAL_WORKERS_NUMBER
+      description: "Total number of workers (used for capacity evaluation)"
+    - name: ENTITY_CODE
+      description: "Entity code of the plant"
+    - name: WORKING_SHIFT_UUID
+      description: "Working Shift Universally Unique ID (Foreign)"
+    - name: WORKING_SHIFT_DETAIL_UUID
+      description: "Working Shift Detail Universally Unique ID"
+    - name: ACTIVE_FROM_DATE
+      description: "The working calendar detail is active starting from this date.  ? indicates that there is no start date"
+    - name: ACTIVE_TO_DATE
+      description: "The working calendar detail is active up till this date.  ? indicates that there is no end date."
+    - name: FOREMAN_ID
+      description: "ID of the foreman linked to acctg.people.id"
+    - name: BREAK1_INCLUDED_STD_TIME
+      description: "The break time is included in the production time for this working shift"
+    - name: BREAK2_INCLUDED_STD_TIME
+      description: "The break time is included in the production time for this working shift"
+    - name: BREAK3_INCLUDED_STD_TIME
+      description: "The break time is included in the production time for this working shift"
+    - name: ASSEMBLY_WORKERS_NUMBER
+      description: "Number of workers used for the assembly step (used only if gsp-controld.online_workers_management = TRUE)"
+    - name: WELDING_WORKERS_NUMBER
+      description: "Number of workers used for the welding step (used only if gsp-controld.online_workers_management = TRUE)"
+    - name: NONWORKING_TIME
+      description: "Whether a working shift detail is working time or not."
+    - name: PREPARATION_WORKERS_NUMBER
+      description: "Number of workers used for the preparation step (used only if gsp-controld.online_workers_management = TRUE and gsp-controld.assembly_ratio_calculation = FALSE)"
+    - name: PAINTING_WORKERS_NUMBER
+      description: "Number of workers used for the painting step (used only if gsp-controld.online_workers_management = TRUE and gsp-controld.assembly_ratio_calculation = FALSE)"
+    - name: SHIFT_TO_UPDATE
+      description: "Yes: this record has been created by Online Schedule in the shop (by the operator)and this record must be reviewed"
+    - name: MODIFIEDBY
+      description: "The last user who modified the record"
+    - name: CREATEDDATE
+      description: "Datetime when the record was created"
+    - name: CREATEDBY
+      description: "User who initiated the creation of the record"
+    - name: MODIFIEDDATE
+      description: "Datetime when the record was updated"

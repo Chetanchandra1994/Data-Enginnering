@@ -1,0 +1,17 @@
+version: 2
+
+models:
+  - name: sche_bridge_Customer
+    columns:
+      - name: CUSTOMER_SK
+        description: "Foreign Key"
+      - name: ORIGIN_APPLICATION_CODE
+        description: "The code of the system where the quote was originally created"
+      - name: CUSTOMER_CODE
+        description: "The code of the customer"
+
+  - name: sche_bridge_Supplier
+    columns:
+      - name: BRIDGE_SUPPLIER_SK
+        tests:
+          - unique

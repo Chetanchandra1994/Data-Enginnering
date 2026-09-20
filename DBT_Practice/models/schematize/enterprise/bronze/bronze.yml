@@ -1,0 +1,7 @@
+version: 2
+
+models:
+  - name: sche_working_shift_calendar
+    description: >
+        This view provides a daily, time-specific schedule for all defined and active working shifts, normalizing local entity times to UTC and linking them to specific operational resources (shops or machines). 
+        Each record represents the complete effective configuration for a shift on a given day of the week, including identifying information, detailed start and end times.

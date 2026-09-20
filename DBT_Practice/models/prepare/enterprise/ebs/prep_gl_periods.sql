@@ -1,0 +1,61 @@
+{{
+  config(
+    materialized = "view",
+    alias = "gl_periods",
+    schema='EBS'
+  )
+}}
+
+SELECT 
+ DATA:"PERIOD_SET_NAME" AS PERIOD_SET_NAME,
+ DATA:"PERIOD_NAME" AS PERIOD_NAME,
+ DATA:"LAST_UPDATE_DATE" AS LAST_UPDATE_DATE,
+ DATA:"LAST_UPDATED_BY" AS LAST_UPDATED_BY,
+ DATA:"START_DATE" AS START_DATE,
+ DATA:"END_DATE" AS END_DATE,
+ DATA:"YEAR_START_DATE" AS YEAR_START_DATE,
+ DATA:"QUARTER_START_DATE" AS QUARTER_START_DATE,
+ DATA:"PERIOD_TYPE" AS PERIOD_TYPE,
+ DATA:"PERIOD_YEAR" AS PERIOD_YEAR,
+ DATA:"PERIOD_NUM" AS PERIOD_NUM,
+ DATA:"QUARTER_NUM" AS QUARTER_NUM,
+ DATA:"ENTERED_PERIOD_NAME" AS ENTERED_PERIOD_NAME,
+ DATA:"ADJUSTMENT_PERIOD_FLAG" AS ADJUSTMENT_PERIOD_FLAG,
+ DATA:"CREATION_DATE" AS CREATION_DATE,
+ DATA:"CREATED_BY" AS CREATED_BY,
+ DATA:"LAST_UPDATE_LOGIN" AS LAST_UPDATE_LOGIN,
+ DATA:"DESCRIPTION" AS DESCRIPTION,
+ DATA:"ATTRIBUTE1" AS ATTRIBUTE1,
+ DATA:"ATTRIBUTE2" AS ATTRIBUTE2,
+ DATA:"ATTRIBUTE3" AS ATTRIBUTE3,
+ DATA:"ATTRIBUTE4" AS ATTRIBUTE4,
+ DATA:"ATTRIBUTE5" AS ATTRIBUTE5,
+ DATA:"ATTRIBUTE6" AS ATTRIBUTE6,
+ DATA:"ATTRIBUTE7" AS ATTRIBUTE7,
+ DATA:"ATTRIBUTE8" AS ATTRIBUTE8,
+ DATA:"CONTEXT" AS CONTEXT,
+ FILENAME AS METADATA_FILENAME ,
+ FILE_ROW_NUMBER AS METADATA_FILE_ROW_NUMBER ,
+ FILE_LAST_MODIFIED AS METADATA_FILE_LAST_MODIFIED ,
+ START_SCAN_TIME AS METADATA_START_SCAN_TIME
+FROM
+    {{ source("landing_ebs", "GL_PERIODS") }}
+    -- to only take the files after the last fullLoad
+WHERE
+    split(FILENAME, '_') [array_size(split(FILENAME, '_')) - 2] >= (
+        SELECT
+            min_timestamp
+        FROM
+            (
+                SELECT
+                    split(FILENAME, '_') [array_size(split(FILENAME, '_')) - 2] AS min_timestamp,
+                    split(FILENAME, '/') [3] AS type_file
+                FROM
+                    {{ source("landing_ebs", "GL_PERIODS") }}
+                WHERE
+                    type_file LIKE 'fullload%' QUALIFY ROW_NUMBER() OVER (
+                        ORDER BY
+                            min_timestamp DESC
+                    ) = 1
+            )
+         )	

@@ -1,0 +1,87 @@
+{{
+  config(
+    full_refresh = true,
+    materialized="dynamic_table",
+    target_lag="1 hour",
+    snowflake_warehouse= var('task_warehouse'),
+    alias = "steel_purchase_orders_details",
+    schema= "dataproducts_bronze",
+    post_hook = "ALTER DYNAMIC TABLE {{ this }} SET LOG_LEVEL = ERROR"
+  )
+}}
+
+SELECT
+     PO.po_no as PURCHASE_ORDER_NUMBER
+    ,PL.line_no as PURCHASE_ORDER_LINE_NUMBER
+    ,PL.item_no AS ITEM_NUMBER
+    ,PL.DESCRIPTION AS ITEM_DESCRIPTION
+    ,PO.po_date AS PURCHASE_ORDER_DATE
+    ,PL.request_date as PURCHASE_ORDER_LINE_REQUEST_DATE
+    ,WH1.CITY AS WAREHOUSE_CITY
+    ,PL.VENDOR_CODE AS PURCHASE_ORDER_LINE_VENDOR_CODE
+    ,DS.SUPPLIER_NAME AS SUPPLIER_USUAL_NAME
+    ,DS.SUPPLIER_TYPE_CODE as PURCHASING_CATEGORY
+    ,INITCAP(DN1.NAME) AS RAW_MATERIAL_CATEGORY_NAME
+    ,INITCAP(SICC.DESCRIPTION) AS STEEL_CATEGORY
+    ,SUM(PL.QTY_ORIG_ORD/2000) AS WEIGHT_IN_TONS
+    ,DS.NATURE_OF_SUPPLY_NAME AS NATURE_OF_SUPPLY_NAME
+FROM 
+    {{ref('norm_po')}} PO
+LEFT JOIN
+    {{ref('norm_po_line')}} PL
+ON
+    UPPER(PO.PO_NO) = UPPER(PL.PO_NO) AND
+    UPPER(PO.WHS_CODE) = UPPER(PL.WHS_CODE)
+LEFT JOIN
+    {{ref('sche_bridge_Supplier')}} BS
+ON
+    UPPER(PL.VENDOR_CODE) = UPPER(BS.SPM_CODE)
+LEFT JOIN
+    {{ref('sche_dim_Supplier')}} DS
+ON
+    UPPER(BS.SUPPLIER_SK) = UPPER(DS.SUPPLIER_SK)
+LEFT JOIN
+    {{ref('norm_item')}}  I
+ON
+    UPPER(PL.ITEM_NO) = UPPER(I.ITEM_NO)
+LEFT JOIN
+    {{ref('norm_global_item')}} GI
+ON
+    UPPER(I.GLOBAL_ITEM_UUID) = UPPER(GI.GLOBAL_ITEM_UUID)
+LEFT JOIN
+    {{ref('norm_item_subcategory')}}  ISUB
+ON
+    UPPER(GI.ITEM_SUBCATEGORY_UUID) = UPPER(ISUB.ITEM_SUBCATEGORY_UUID)
+LEFT JOIN
+    {{ref('norm_item_category')}} IC
+ON
+    UPPER(ISUB.ITEM_CATEGORY_UUID) = UPPER(IC.ITEM_CATEGORY_UUID)
+LEFT JOIN
+    {{ref('norm_data_name')}} DN1
+ON
+    UPPER(IC.ITEM_CATEGORY_NAME_ID) = UPPER(DN1.NAME_ID) AND
+    DN1.LANGUAGE_CODE = 1
+LEFT JOIN 
+    {{ref('norm_warehouse')}} WH1
+ON
+    UPPER(PL.WHS_CODE) = UPPER(WH1.whs_code)
+LEFT JOIN
+    {{ref('norm_dsa_steel_items_categ_custom')}} SICC
+ON
+    UPPER(SICC.CATEGORY_CODE) = UPPER(IC.ITEM_CATEGORY_CODE)
+WHERE UPPER(PL.UOM_CODE) = 'LB' AND 
+UPPER(PL.ITEM_NO) NOT IN ('*REF','*DIV')
+GROUP BY 
+     PURCHASE_ORDER_NUMBER
+    ,PURCHASE_ORDER_LINE_NUMBER
+    ,ITEM_NUMBER
+    ,PURCHASE_ORDER_DATE
+    ,PURCHASE_ORDER_LINE_REQUEST_DATE
+    ,WAREHOUSE_CITY
+    ,ITEM_DESCRIPTION
+    ,PURCHASE_ORDER_LINE_VENDOR_CODE
+    ,SUPPLIER_USUAL_NAME
+    ,PURCHASING_CATEGORY
+    ,RAW_MATERIAL_CATEGORY_NAME
+    ,STEEL_CATEGORY
+    ,DS.NATURE_OF_SUPPLY_NAME    

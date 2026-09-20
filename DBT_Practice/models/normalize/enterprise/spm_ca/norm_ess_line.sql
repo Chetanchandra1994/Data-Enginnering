@@ -1,0 +1,125 @@
+{{
+  config(
+    materialized = "view",
+    alias = "ess_line",
+    schema='spm_ca',
+    meta = {
+        'table_key': 'ESS_LINE_UUID',
+        'tests': {
+            'null_values':{
+                'columns':[
+                    'RDM_ACTIVE_STATUS_CODE'
+                ]
+            }
+        }    
+    }
+  )
+}}
+
+WITH raw_ess_line AS (
+  SELECT * from {{ref('prep_ess_line')}}
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY TABLE_SK ORDER BY QUALIFY_TIMESTAMP DESC) = 1 AND UPPER(TRIM(SRC_SYSTEM_OPERATION::STRING)) <> 'DELETE'
+)
+
+  SELECT 
+UPPER(ENTITY_CODE::string) AS ENTITY_CODE
+,LINE_NO::INTEGER AS LINE_NO
+,SECTION_NO::INTEGER AS SECTION_NO
+,TO_BOOLEAN(DRAWING_TYPE::string) AS DRAWING_TYPE
+-- always 0
+--,TO_BOOLEAN(ACTION_COL_1::string) AS ACTION_COL_1
+-- always 0
+--,TO_BOOLEAN(ACTION_COL_2::string) AS ACTION_COL_2
+-- always 0
+--,TO_BOOLEAN(ACTION_COL_3::string) AS ACTION_COL_3
+-- always 0
+--,TO_BOOLEAN(ACTION_COL_4::string) AS ACTION_COL_4
+-- always 0
+--,TO_BOOLEAN(UNIT_COL_2_1::string) AS UNIT_COL_2_1
+-- always 0
+--,TO_BOOLEAN(UNIT_COL_2_2::string) AS UNIT_COL_2_2
+-- always 0
+--,TO_BOOLEAN(UNIT_COL_2_3::string) AS UNIT_COL_2_3
+-- always 0
+--,TO_BOOLEAN(UNIT_COL_2_4::string) AS UNIT_COL_2_4
+-- always 0
+--,TO_BOOLEAN(COL_VALUE_2_1::string) AS COL_VALUE_2_1
+-- always 0
+--,TO_BOOLEAN(COL_VALUE_2_2::string) AS COL_VALUE_2_2
+-- always 0
+--,TO_BOOLEAN(COL_VALUE_2_3::string) AS COL_VALUE_2_3
+-- always 0
+--,TO_BOOLEAN(COL_VALUE_2_4::string) AS COL_VALUE_2_4
+-- always 0
+--,NO_PRODUIT::INTEGER AS NO_PRODUIT
+-- always 0
+--,TO_BOOLEAN(TAXE_PROV::string) AS TAXE_PROV
+-- always 0
+--,TO_BOOLEAN(TAXE_FED::string) AS TAXE_FED
+-- always blank
+--,CATG_MAT::string AS CATG_MAT
+-- always C
+--,LINE_TYPE::string AS LINE_TYPE
+-- always 0
+--,COL_VALUE_1::string AS COL_VALUE_1
+-- always 0
+--,COL_VALUE_2::string AS COL_VALUE_2
+-- always 0
+--,COL_VALUE_3::string AS COL_VALUE_3
+-- always 0
+--,COL_VALUE_4::string AS COL_VALUE_4
+-- always 0
+--,COL_VALUE_5::string AS COL_VALUE_5
+-- always 0
+--,UNIT_COL_1::string AS UNIT_COL_1
+-- always 0
+--,UNIT_COL_2::string AS UNIT_COL_2
+-- always 0
+--,UNIT_COL_3::string AS UNIT_COL_3
+-- always 0
+--,UNIT_COL_4::string AS UNIT_COL_4
+-- always 0
+--,UNIT_COL_5::string AS UNIT_COL_5
+-- always 1
+--,PRN_TOTAL_1::string AS PRN_TOTAL_1
+-- always 1
+--,PRN_TOTAL_2::string AS PRN_TOTAL_2
+-- always 1
+--,PRN_TOTAL_3::string AS PRN_TOTAL_3
+-- always 1
+--,PRN_TOTAL_4::string AS PRN_TOTAL_4
+,TO_BOOLEAN(IND_S_CONT::string) AS IND_S_CONT
+-- always 0
+--,DASH_1::string AS DASH_1
+-- always 0
+--,DASH_2::string AS DASH_2
+,TO_BOOLEAN(STATUT::string) AS STATUT
+,NULLIF(GL_DEPENSE::string, '') AS GL_DEPENSE
+,UPPER(DESC_LINE_1::string) AS DESC_LINE_1
+,UPPER(DESC_LINE_2::string) AS DESC_LINE_2
+,NULLIF(GL_PROVISION::string, '') AS GL_PROVISION
+,EXPENSE_RATE::INTEGER AS EXPENSE_RATE
+,NULLIF(GL_INCOME::string, '') AS GL_INCOME
+,NULLIF(GL_IMPUTATION::string, '') AS GL_IMPUTATION
+,GROUP_NO::INTEGER AS GROUP_NO
+,UPPER(TRIM(TASK_NUMBER::string)) AS TASK_NUMBER
+,INV_TYPE::string AS INV_TYPE
+,TO_BOOLEAN(POUNDS_INPUT::string) AS POUNDS_INPUT
+,TO_BOOLEAN(AREA_INPUT::string) AS AREA_INPUT
+,TO_BOOLEAN(IS_ACTIVE::string) AS IS_ACTIVE
+,UPPER(TRIM(DW_TASK::string)) AS DW_TASK
+,TO_BOOLEAN(EXTERNAL::string) AS EXTERNAL
+-- always 0
+--,TO_BOOLEAN(ERECTOR_PRIVILEGE::string) AS ERECTOR_PRIVILEGE
+,ESS_LINE_UUID::string AS ESS_LINE_UUID
+,RDM.STANDARD_APPLICATION_VALUE AS RDM_ACTIVE_STATUS_CODE
+,TO_TIMESTAMP_NTZ(CREATED_DATE::string) AS CREATED_DATE
+,NULLIF(TRIM(CREATED_BY::string), '') AS CREATED_BY
+,TO_TIMESTAMP_NTZ(MODIFIED_DATE::string) AS MODIFIED_DATE
+,NULLIF(TRIM(MODIFIED_BY::string), '') AS MODIFIED_BY
+FROM raw_ess_line EL
+LEFT JOIN {{ref('gov_referencedata_rdm')}} RDM
+  ON CAST(EL.IS_ACTIVE AS INT) = CAST(RDM.BUSINESS_APPLICATION_VALUE AS INT)
+    AND UPPER(RDM.BUSINESS_APPLICATION_DOMAIN_CODE) = 'ACTIVESTATUS' 
+    AND UPPER(RDM.STANDARD_DOMAIN_APPLICATION_CODE) = 'ACTIVESTATUS' 
+    AND UPPER(RDM.BUSINESS_APPLICATION_CODE) = 'SPM'

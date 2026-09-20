@@ -1,0 +1,106 @@
+models:
+  - name: mkt_dataproduct_calendar
+    description: "Standard (ISO-8601), Fiscal and Canam calendar specific logic for date attributes."
+    columns:
+      - name: DATE_KEY
+        description: "Unique primary key for the date"
+      - name: FULL_DATE
+        description: "The complete date in standard date format."
+      - name: CALENDAR_YEAR
+        description: "The numerical year"
+      - name: CALENDAR_MONTH_NUMBER
+        description: "The numerical month of the calendar year"
+      - name: CALENDAR_MONTH_DAY_NUMBER
+        description: "The day's number within its month"
+      - name: CALENDAR_QUARTER_NUMBER
+        description: "The quarter number of the calendar year"
+      - name: CALENDAR_SEMESTER_NUMBER
+        description: "The semester number of the calendar year"
+      - name: CALENDAR_WEEK_DAY_NUMBER
+        description: "The day's numerical position in the week"
+      - name: CALENDAR_WEEK_NUMBER
+        description: "The sequential week number within the year based on standard ISO-8601 with “Sunday” as the start of the week"
+      - name: CALENDAR_WEEK_START_DATE
+        description: "The date of the week`s designated start day"
+      - name: CALENDAR_MONTH_NAME_FR
+        description: "Full month name in French"
+      - name: CALENDAR_MONTH_NAME_EN
+        description: "Full month name in English"
+      - name: CALENDAR_DAY_NAME_FR
+        description: "Full day of the week name in French"
+      - name: CALENDAR_DAY_NAME_EN
+        description: "Full day of the week name in English"
+      - name: FISCAL_YEAR
+        description: "The numerical year for financial reporting"
+      - name: FISCAL_PERIOD_NUMBER
+        description: "The numerical period of the fiscal year"
+      - name: FISCAL_PERIOD_NAME
+        description: "The descriptive name of the fiscal period"
+      - name: FISCAL_PERIOD_START_DATE
+        description: "The first date of the current fiscal period"
+      - name: FISCAL_PERIOD_END_DATE
+        description: "The last date of the current fiscal period"
+      - name : CANAM_WEEK_NUMBER
+        description: "The sequential week number within the year based on Canam logic"
+      - name : CANAM_WEEK_DAY_NUMBER
+        description: "The day's numerical position in the week based on Canam logic"
+      - name : CANAM_WEEK_START_DATE
+        description: "The date of the week`s designated start day based on Canam logic" 
+
+  - name: mkt_dataproduct_currency
+    columns:
+      - name: CURRENCY_CODE
+        description: "The code of the currency"
+      - name: CURRENCY_NAME_FR
+        description: "The name of the currency in french"
+      - name: CURRENCY_NAME_EN
+        description: "The name of the currency in english"
+  
+  - name: mkt_dataproduct_financial_company
+    columns:
+      - name: FINANCIAL_COMPANY_CODE
+        description: The identifier for the financial company
+      - name: CURRENCY_CODE
+        description: The three-letter code for the company's base currency
+
+  - name: mkt_dataproduct_unit_of_measure
+    columns:
+      - name: UOM_CODE
+        description: The code of the standard unit of measure
+      - name: UOM_TYPE
+        description: The type or category of the unit of measure   
+      - name: UOM_MEASURE_SYSTEM 
+        description: The standard system used for the unit of measure
+
+  - name: mkt_dataproduct_customer
+    columns:
+      - name: CUSTOMER_CODE
+        description: The code of the customer
+      - name: CUSTOMER_NAME
+        description: The official, full name of the customer  
+      - name: CUSTOMER_CLASS_CODE 
+        description: "Relationship a customer entity has with Canam (AFFILIATED : Directly owned or closely controlled company, 
+              AFFILIATED-EXT : Part of extended corporate family/network, NON-AFFILIATED : Independent third-party commercial customer)"
+      - name: BUSINESS_PARTNER_CODE
+        description: Code of the business partner that refer to the customer
+      - name: BUSINESS_PARTNER_NAME
+        description: Name of the business partner that refer to the customer
+
+  - name: mkt_dataproduct_exchange_rate
+    columns:
+      - name: EXCHANGE_RATE_DATE
+        description: Exchange rate date
+      - name: PROJECT_CODE
+        description: The code of the project 
+      - name: FROM_CURRENCY_CODE 
+        description: From currency code
+      - name: TO_CURRENCY_CODE
+        description: To currency code
+      - name: EXCHANGE_RATE_TYPE_CODE
+        description: The code of the exchange rate type    
+      - name: EXCHANGE_RATE_TYPE_NAME_FR 
+        description: The name in french of the exchange rate type
+      - name: EXCHANGE_RATE_TYPE_NAME_EN
+        description: The name in english of the exchange rate type
+      - name: EXCHANGE_RATE
+        description: The rate used to convert one currency to another                 

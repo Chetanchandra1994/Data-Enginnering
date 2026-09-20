@@ -1,0 +1,17 @@
+{{
+  config(
+    materialized = "view",
+    alias = "cmg_eam_kpi_shops",
+    schema='EBS'
+  )
+}}
+
+SELECT
+    SHOP_ID::NUMBER AS SHOP_ID,
+    UPPER(NULLIF(TRIM(SHOP_NAME::string),'')) AS SHOP_NAME,
+    TO_TIMESTAMP_NTZ(CREATION_DATE::string) AS CREATION_DATE,
+    TO_TIMESTAMP_NTZ(LAST_UPDATE_DATE::string) AS LAST_UPDATE_DATE,
+    ORGANIZATION_ID::NUMBER AS ORGANIZATION_ID,
+    UPPER(NULLIF(TRIM(ENABLED_FLAG::string),'')) AS ENABLED_FLAG    
+FROM {{ref('prep_cmg_eam_kpi_shops')}}
+QUALIFY ROW_NUMBER() OVER (PARTITION BY SHOP_ID ORDER BY TO_TIMESTAMP_NTZ(LAST_UPDATE_DATE) DESC) = 1

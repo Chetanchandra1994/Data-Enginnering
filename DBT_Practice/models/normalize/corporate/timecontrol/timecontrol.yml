@@ -1,0 +1,93 @@
+models:
+  - name: norm_timesheet
+    config:
+      schema: TIMECONTROL
+    columns:
+      - name: employee_code
+        description: "Employee's Code"
+      - name: employee_first_name
+        description: "Employee's First Name"
+      - name: employee_last_name
+        description: "Employee’s Last Name"
+      - name: employee_full_name
+        description: "Employee’s Full Name"
+      - name: employee_location
+        description: "Employee’s Physical location/ Primary location"
+      - name: working_hours
+        description: "Employee's Working Hours"
+      - name: oracle_employee_number
+        description: "Oracle Employee’s Number"
+      - name: employee_type
+        description: "Employee Type (e.g., salaried, contractor, Internal)"
+      - name: visibility_group_1
+        description: "Employee 's Visibility Group 1"
+      - name: visibility_group_2
+        description: "Employee 's Visibility Group 2"
+      - name: visibility_group_3
+        description: "Employee 's Visibility Group 3"
+      - name: visibility_group_4
+        description: "Employee 's Visibility Group 4"
+      - name: visibility_group_5
+        description: "Employee 's Visibility Group 5"
+      - name: working_team
+        description: "Employee 's Working Team"
+      - name: employee_approver
+        description: "Employee's Approver The name or ID of the employee's designated timesheet approver."
+      - name: employee_jobsite
+        description: "Employee Jobsite"
+      - name: employee_department
+        description: "Employee department"
+      - name: timesheet_timestamp
+        description: "Timesheet Timestamp"
+      - name: period_start_date
+        description: "Period Start Date"
+      - name: period_end_date
+        description: "Period End Date"
+      - name: date_work_performed
+        description: "Date Work Performed"
+      - name: week_ending_date
+        description: "Week Ending Date"
+      - name: timesheet_line_timestamp
+        description: "Timesheet Line Timestamp"
+      - name: service
+        description: "Service"
+      - name: division
+        description: "Dvision"
+      - name: extra
+        description: "Extra"
+      - name: project_name
+        description: "Project Name"
+      - name: project_description
+        description: "Project Description"
+      - name: customer_name
+        description: "Customer name associated with the project"
+      - name: oracle_project_number
+        description: "Oracle Project Number"
+      - name: quotation_number
+        description: "Quotation Number"
+      - name: project_type
+        description: "Project Type"
+      - name: charge_code
+        description: "Charge Code"
+      - name: charge_description
+        description: "Charge Description"
+      - name: charge_category
+        description: "Charge Category"
+      - name: rate_code
+        description: "The rate code applied to this historicized line item, linked to a type of timesheet entry (e.g.: Standard, Overtime, DUTY IND)"
+      - name: hours
+        description: "Hours"
+      - name: sunday_hours
+        description: "Sunday Hours"
+      - name: monday_hours
+        description: "Monday Hours"
+      - name: tuesday_hours
+        description: "Tuesday Hours"
+      - name: wednesday_hours
+        description: "Wednesday Hours"
+      - name: thursday_hours
+        description: "Thursday Hours"
+      - name: friday_hours
+        description: "Friday Hours"
+      - name: saturday_hours
+        description: "Saturday Hours"

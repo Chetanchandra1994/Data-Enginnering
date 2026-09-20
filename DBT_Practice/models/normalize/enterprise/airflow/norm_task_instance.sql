@@ -1,0 +1,43 @@
+{{
+  config(
+    materialized = "view",
+    alias = "task_instance",
+    schema='airflow',
+    tags=["airflow_task_instance"]
+  )
+}}
+
+SELECT 
+  TASK_ID,
+  DAG_ID, 
+  RUN_ID, 
+  MAP_INDEX, 
+  START_DATE, 
+  END_DATE, 
+  DURATION, 
+  STATE, 
+  TRY_NUMBER, 
+  MAX_TRIES, 
+  HOSTNAME, 
+  UNIXNAME, 
+  JOB_ID, 
+  POOL, 
+  POOL_SLOTS, 
+  QUEUE, 
+  PRIORITY_WEIGHT, 
+  OPERATOR, 
+  CUSTOM_OPERATOR_NAME, 
+  QUEUED_DTTM, 
+  QUEUED_BY_JOB_ID, 
+  PID, 
+  EXECUTOR,
+  UPDATED_AT, 
+  RENDERED_MAP_INDEX, 
+  EXTERNAL_EXECUTOR_ID, 
+  TRIGGER_ID, 
+  TRIGGER_TIMEOUT, 
+  NEXT_METHOD, 
+  NEXT_KWARGS, 
+  TASK_DISPLAY_NAME
+FROM  
+  {{ref('prep_task_instance')}}
