@@ -2,7 +2,7 @@
   config(
     materialized = "view",
     alias = "suppliers_invoicefromprofiles",
-    schema='canam_model'
+    schema='enterprise_model'
   )
 }}
 
@@ -22,7 +22,7 @@ SELECT
     -- Arrays:
     , LOCATIONS_ARRAY               as IF_LOCATIONS_ARRAY
     , COMMUNICATIONS_ARRAY          as IF_COMMUNICATIONS_ARRAY
-from {{ref('prep_canammodel_suppliersInvoiceFromProfiles')}}
+from {{ref('prep_enterprisemodel_suppliersInvoiceFromProfiles')}}
 QUALIFY ROW_NUMBER() OVER (PARTITION BY SUPPLIERCODE, IFF(SUPPLIERCODE=IF_PROFILECODE, IF_SITECODE, IF_PROFILECODE) ORDER BY TO_TIMESTAMP_NTZ(metadata_file_last_modified) desc, METADATA_FILE_ROW_NUMBER desc,IFF(SUPPLIERCODE=IF_PROFILECODE, IF_SITECODE, IF_PROFILECODE)) = 1
 --qualify metadata_file_last_modified = max(metadata_file_last_modified) OVER (PARTITION BY suppliercode)
 

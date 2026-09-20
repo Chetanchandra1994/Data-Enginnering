@@ -1,7 +1,7 @@
 version: 2
 
 models:
-  - name: prep_canammodel_suppliers
+  - name: prep_enterprisemodel_suppliers
     description: "The flattent table from the FCC source"
 
 

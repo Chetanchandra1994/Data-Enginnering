@@ -28,7 +28,7 @@ raw_data as (
       , IF_LOCATIONS_ARRAY[0].Route::string as IF_Route
       , IF_LOCATIONS_ARRAY[0].POBoxNumber::string as IF_PO_Box_Number
       , IF_LOCATIONS_ARRAY[0].PostalCode::string as IF_Postal_Code
-    from {{ref('norm_canammodel_suppliersInvoiceFromProfiles')}}
+    from {{ref('norm_enterprisemodel_suppliersInvoiceFromProfiles')}}
 
 )
 

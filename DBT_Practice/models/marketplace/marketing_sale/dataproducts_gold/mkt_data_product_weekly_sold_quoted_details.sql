@@ -17,8 +17,8 @@ WITH SS_WEEKLY_DIM_DATE AS
 (   
     SELECT 
         DATE_KEY,
-        CANAM_WEEK_START_DATE,
-        CANAM_WEEK_NUMBER,
+        enterprise_WEEK_START_DATE,
+        enterprise_WEEK_NUMBER,
         CALENDAR_YEAR,
         FISCAL_PERIOD_NUMBER,
         FISCAL_PERIOD_NAME,
@@ -107,8 +107,8 @@ WITH SS_WEEKLY_DIM_DATE AS
 ), SS_WEEKLY_SOLD_QUOTED_CAN AS 
 (
     SELECT 
-        SWDD.CANAM_WEEK_START_DATE                                      AS CANAM_WEEK_START_DATE,
-        SWDD.CANAM_WEEK_NUMBER                                          AS CANAM_WEEK_NUMBER,
+        SWDD.enterprise_WEEK_START_DATE                                      AS enterprise_WEEK_START_DATE,
+        SWDD.enterprise_WEEK_NUMBER                                          AS enterprise_WEEK_NUMBER,
         SWDD.CALENDAR_YEAR                                              AS CALENDAR_YEAR,
         SWDD.FISCAL_PERIOD_NUMBER                                       AS FISCAL_PERIOD_NUMBER,
         SWDD.FISCAL_PERIOD_NAME                                         AS FISCAL_PERIOD_NAME,
@@ -184,8 +184,8 @@ WITH SS_WEEKLY_DIM_DATE AS
     WHERE DC.CUSTOMER_CODE <> 'AFFILIATED' --  Equivalent of dc.customer_affiliated <> 'AFFILIATED'
         AND DI.ITEM_CODE <> 'N/A' -- Equivalent to NVL(dsa_salestrx.REJECTED_CODE,100) <> '8'
     GROUP BY 
-        SWDD.CANAM_WEEK_START_DATE,  
-        SWDD.CANAM_WEEK_NUMBER,
+        SWDD.enterprise_WEEK_START_DATE,  
+        SWDD.enterprise_WEEK_NUMBER,
         SWDD.CALENDAR_YEAR,
         SWDD.FISCAL_PERIOD_NUMBER,
         SWDD.FISCAL_PERIOD_NAME,
@@ -207,8 +207,8 @@ WITH SS_WEEKLY_DIM_DATE AS
         ITEM_NAME_GROUP
     UNION ALL
     SELECT 
-        SWDD.CANAM_WEEK_START_DATE                                          AS CANAM_WEEK_START_DATE,
-        SWDD.CANAM_WEEK_NUMBER                                              AS CANAM_WEEK_NUMBER,
+        SWDD.enterprise_WEEK_START_DATE                                          AS enterprise_WEEK_START_DATE,
+        SWDD.enterprise_WEEK_NUMBER                                              AS enterprise_WEEK_NUMBER,
         SWDD.CALENDAR_YEAR                                                  AS CALENDAR_YEAR,
         SWDD.FISCAL_PERIOD_NUMBER                                           AS FISCAL_PERIOD_NUMBER,
         SWDD.FISCAL_PERIOD_NAME                                             AS FISCAL_PERIOD_NAME,
@@ -294,8 +294,8 @@ WITH SS_WEEKLY_DIM_DATE AS
     WHERE DC.CUSTOMER_CODE <> 'AFFILIATED' --  Equivalent of dc.customer_affiliated <> 'AFFILIATED'
         AND DI.ITEM_CODE <> 'N/A' -- Equivalent to NVL(dsa_salestrx.REJECTED_CODE,100) <> '8'
     GROUP BY 
-        SWDD.CANAM_WEEK_START_DATE,
-        SWDD.CANAM_WEEK_NUMBER,
+        SWDD.enterprise_WEEK_START_DATE,
+        SWDD.enterprise_WEEK_NUMBER,
         SWDD.CALENDAR_YEAR,
         SWDD.FISCAL_PERIOD_NUMBER,
         SWDD.FISCAL_PERIOD_NAME,
@@ -319,8 +319,8 @@ WITH SS_WEEKLY_DIM_DATE AS
         ITEM_NAME_GROUP
     UNION ALL
     SELECT 
-        SWDD.CANAM_WEEK_START_DATE                                  AS CANAM_WEEK_START_DATE,
-        SWDD.CANAM_WEEK_NUMBER                                      AS CANAM_WEEK_NUMBER,                               
+        SWDD.enterprise_WEEK_START_DATE                                  AS enterprise_WEEK_START_DATE,
+        SWDD.enterprise_WEEK_NUMBER                                      AS enterprise_WEEK_NUMBER,                               
         SWDD.CALENDAR_YEAR                                          AS CALENDAR_YEAR,
         SWDD.FISCAL_PERIOD_NUMBER                                   AS FISCAL_PERIOD_NUMBER,
         SWDD.FISCAL_PERIOD_NAME                                     AS FISCAL_PERIOD_NAME,
@@ -381,9 +381,9 @@ WITH SS_WEEKLY_DIM_DATE AS
         END                                                         AS ITEM_NAME_GROUP_ORDER_DISPLAY
     FROM SS_WEEKLY_DIM_DATE SWDD
     -- Get a snapchot between a target week (excluded) and 3 month ago
-        LEFT JOIN SS_FACT_SALES_QUOTE_AGG SFSQA_ALL ON SFSQA_ALL.SALES_QUOTE_CLOSING_DATE BETWEEN DATEADD(MONTH,-3,DATEADD(day, 10, SWDD.CANAM_WEEK_START_DATE)) AND DATEADD(DAY,6,SWDD.CANAM_WEEK_START_DATE)
+        LEFT JOIN SS_FACT_SALES_QUOTE_AGG SFSQA_ALL ON SFSQA_ALL.SALES_QUOTE_CLOSING_DATE BETWEEN DATEADD(MONTH,-3,DATEADD(day, 10, SWDD.enterprise_WEEK_START_DATE)) AND DATEADD(DAY,6,SWDD.enterprise_WEEK_START_DATE)
         -- Get a snapchot between a target week (included) and 3 month ago
-        LEFT JOIN SS_FACT_SALES_QUOTE_AGG SFSQA_OLD ON SFSQA_OLD.SALES_QUOTE_CLOSING_DATE BETWEEN DATEADD(MONTH,-3,DATEADD(day, 10, SWDD.CANAM_WEEK_START_DATE)) AND DATEADD(DAY,-1,SWDD.CANAM_WEEK_START_DATE)
+        LEFT JOIN SS_FACT_SALES_QUOTE_AGG SFSQA_OLD ON SFSQA_OLD.SALES_QUOTE_CLOSING_DATE BETWEEN DATEADD(MONTH,-3,DATEADD(day, 10, SWDD.enterprise_WEEK_START_DATE)) AND DATEADD(DAY,-1,SWDD.enterprise_WEEK_START_DATE)
             AND SFSQA_ALL.SALES_QUOTE_CODE = SFSQA_OLD.SALES_QUOTE_CODE AND SFSQA_ALL.ITEM_NAME_GROUP = SFSQA_OLD.ITEM_NAME_GROUP
         INNER JOIN {{ref('sche_dim_Sales_Quote')}} DSQ ON CONCAT(SFSQA_ALL.SALES_QUOTE_CODE,'01') = DSQ.SALES_QUOTE_ALTERNATIVE_CODE
         LEFT JOIN {{ref('sche_dim_Business_Unit')}} DBU ON SFSQA_ALL.BUSINESS_UNIT_SK = DBU.BUSINESS_UNIT_SK
@@ -391,8 +391,8 @@ WITH SS_WEEKLY_DIM_DATE AS
         LEFT JOIN {{ref('sche_dim_Sales_Branch_Office')}} DSBO ON SFSQA_ALL.SALES_BRANCH_OFFICE_SK = DSBO.SALES_BRANCH_OFFICE_SK
         LEFT JOIN {{ref('sche_dim_Currency')}} DCU ON SFSQA_ALL.PRICE_CURRENCY_SK = DCU.CURRENCY_SK
     GROUP BY 
-        SWDD.CANAM_WEEK_START_DATE,
-        SWDD.CANAM_WEEK_NUMBER,
+        SWDD.enterprise_WEEK_START_DATE,
+        SWDD.enterprise_WEEK_NUMBER,
         SWDD.CALENDAR_YEAR,
         SWDD.FISCAL_PERIOD_NUMBER,
         SWDD.FISCAL_PERIOD_NAME,
@@ -411,8 +411,8 @@ WITH SS_WEEKLY_DIM_DATE AS
 )
 
 SELECT 
-    CANAM_WEEK_START_DATE::DATE AS CANAM_WEEK_START_DATE,
-    CANAM_WEEK_NUMBER::INTEGER AS CANAM_WEEK_NUMBER,
+    enterprise_WEEK_START_DATE::DATE AS enterprise_WEEK_START_DATE,
+    enterprise_WEEK_NUMBER::INTEGER AS enterprise_WEEK_NUMBER,
     CALENDAR_YEAR::INTEGER AS CALENDAR_YEAR,
     FISCAL_PERIOD_NUMBER::INTEGER AS FISCAL_PERIOD_NUMBER,
     FISCAL_PERIOD_NAME::STRING AS FISCAL_PERIOD_NAME,

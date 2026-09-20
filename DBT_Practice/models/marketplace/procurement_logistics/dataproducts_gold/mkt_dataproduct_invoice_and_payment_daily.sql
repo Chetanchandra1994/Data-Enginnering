@@ -80,7 +80,7 @@ SELECT
     ,f.AGREEMENT_TYPE_NAME AS Agreement_Type
     ,IFF(c.INVOICE_DATE >= f.Effective_Date 
         AND c.INVOICE_DATE <= f.Expiry_Date 
-        , 'yes','no') AS Agreement_Is_Template_Canam
+        , 'yes','no') AS Agreement_Is_Template_enterprise
     ,c.Invoice_Code
     ,a.Supplier_Payment_Detail_sk
     ,b.Supplier_Payment_sk

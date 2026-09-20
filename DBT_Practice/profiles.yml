@@ -4,14 +4,14 @@ dbt-enterprise-project:
     local:
       type: snowflake
       threads: 8
-      account: "as95259.ca-central-1.aws"
+      account: "QNFANFA-QI17075"
       user: "{{ env_var('DBT_SNOWFLAKE_USER') }}"
       
       authenticator: externalbrowser      
-      role: "TEST_ENTERPRISE_DATA_DEVELOPER"
-      database: "SANDBOX_ENTERPRISE_PREPARE"
-      warehouse: "TEST_ENTERPRISE_DATA_DEVELOPER_WH"
-      schema: "PUBLIC"
+      role: "ACCOUNTADMIN"
+      database: "ADVWORKS_DEV"
+      warehouse: "ETL_WH_DEV"
+      schema: "LANDING"
   
     test:
       type: snowflake
@@ -23,6 +23,7 @@ dbt-enterprise-project:
       warehouse: "{{ env_var('TEST_DBT_SNOWFLAKE_WAREHOUSE') }}"
       schema: "{{ env_var('TEST_DBT_SNOWFLAKE_SCHEMA') }}"
       private_key_path: "{{ env_var('DBT_SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      private_key_passphrase: "{{ env_var('DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE') }}"
       client_session_keep_alive: False
 
     preprod:
@@ -35,6 +36,7 @@ dbt-enterprise-project:
       warehouse: "{{ env_var('PREPROD_DBT_SNOWFLAKE_WAREHOUSE') }}"
       schema: "{{ env_var('PREPROD_DBT_SNOWFLAKE_SCHEMA') }}"
       private_key_path: "{{ env_var('DBT_SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      private_key_passphrase: "{{ env_var('DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE') }}"
       client_session_keep_alive: False
 
     prod:
@@ -47,5 +49,6 @@ dbt-enterprise-project:
       warehouse: "{{ env_var('PROD_DBT_SNOWFLAKE_WAREHOUSE') }}"
       schema: "{{ env_var('PROD_DBT_SNOWFLAKE_SCHEMA') }}"
       private_key_path: "{{ env_var('DBT_SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      private_key_passphrase: "{{ env_var('DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE') }}"
       client_session_keep_alive: False
 

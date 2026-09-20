@@ -112,7 +112,7 @@ DATA:"project_id" AS PROJECT_ID
 ,DATA:"estimated_last_shipping_date" AS ESTIMATED_LAST_SHIPPING_DATE
 ,DATA:"estimated_last_shipping_week" AS ESTIMATED_LAST_SHIPPING_WEEK
 ,DATA:"official_budget" AS OFFICIAL_BUDGET
-,DATA:"CanamTaskManagementExport" AS CANAMTASKMANAGEMENTEXPORT
+,DATA:"enterpriseTaskManagementExport" AS enterpriseTASKMANAGEMENTEXPORT
 ,DATA:"Package" AS PACKAGE
 ,DATA:"JobSiteResponsibleId" AS JOBSITERESPONSIBLEID
 ,DATA:"JobSiteResponsibleText" AS JOBSITERESPONSIBLETEXT

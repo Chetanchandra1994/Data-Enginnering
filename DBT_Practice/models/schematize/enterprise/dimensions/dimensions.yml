@@ -63,12 +63,12 @@ models:
         description: "The first date of the current fiscal period"
       - name: FISCAL_PERIOD_END_DATE
         description: "The last date of the current fiscal period"
-      - name : CANAM_WEEK_NUMBER
-        description: "The sequential week number within the year based on Canam logic"
-      - name : CANAM_WEEK_DAY_NUMBER
-        description: "The day's numerical position in the week based on Canam logic"
-      - name : CANAM_WEEK_START_DATE
-        description: "The date of the week`s designated start day based on Canam logic"  
+      - name : enterprise_WEEK_NUMBER
+        description: "The sequential week number within the year based on enterprise logic"
+      - name : enterprise_WEEK_DAY_NUMBER
+        description: "The day's numerical position in the week based on enterprise logic"
+      - name : enterprise_WEEK_START_DATE
+        description: "The date of the week`s designated start day based on enterprise logic"  
   - name: sche_dim_Project_Event
     columns:
       - name: PROJECT_EVENT_SK

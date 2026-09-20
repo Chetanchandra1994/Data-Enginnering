@@ -25,7 +25,7 @@ def export_report():
     # 2. Define the Source (ODBC MSSQL)
     timecontrol_source = MssqlSourceConnector (
         conn_id='timecontrol',
-        sql=f"SELECT inserted_tstmp,PSH_KEY,PSL_KEY,PSD_KEY,emp_code,emp_first,emp_last,emp_name,emp_fld1,emp_fld2,emp_fld3,emp_fld4,emp_fld5,emp_fld6,emp_fld7,emp_fld8,emp_fld9,emp_fld10,emp_fld11,emp_fld12,emp_fld15,psh_tstmp,Psh_psdate,Psh_pedate,psl_tstmp,psl_fld1,psl_fld2,psl_fld3,PSL_RAT_CD,Psd_date,psd_wedate,Hours,PSD_SUNDAY,PSD_MONDAY,PSD_TUESDAY,PSD_WEDNESDAY,PSD_THURSDAY,PSD_FRIDAY,PSD_SATURDAY,prj_name,PRJ_DESC,prj_fld2,CAC_DESC,prj_fld5,prj_fld6,chh_code,chh_desc,chh_fld3 FROM Canam.TimeControl_BI_Extract_View",
+        sql=f"SELECT inserted_tstmp,PSH_KEY,PSL_KEY,PSD_KEY,emp_code,emp_first,emp_last,emp_name,emp_fld1,emp_fld2,emp_fld3,emp_fld4,emp_fld5,emp_fld6,emp_fld7,emp_fld8,emp_fld9,emp_fld10,emp_fld11,emp_fld12,emp_fld15,psh_tstmp,Psh_psdate,Psh_pedate,psl_tstmp,psl_fld1,psl_fld2,psl_fld3,PSL_RAT_CD,Psd_date,psd_wedate,Hours,PSD_SUNDAY,PSD_MONDAY,PSD_TUESDAY,PSD_WEDNESDAY,PSD_THURSDAY,PSD_FRIDAY,PSD_SATURDAY,prj_name,PRJ_DESC,prj_fld2,CAC_DESC,prj_fld5,prj_fld6,chh_code,chh_desc,chh_fld3 FROM enterprise.TimeControl_BI_Extract_View",
         query_mode='delta',
         delta_column='inserted_tstmp',
         xcom_key='max_inserted_tstmp'

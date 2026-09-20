@@ -1,6 +1,6 @@
 models:
   - name: mkt_dataproduct_calendar
-    description: "Standard (ISO-8601), Fiscal and Canam calendar specific logic for date attributes."
+    description: "Standard (ISO-8601), Fiscal and enterprise calendar specific logic for date attributes."
     columns:
       - name: DATE_KEY
         description: "Unique primary key for the date"
@@ -40,12 +40,12 @@ models:
         description: "The first date of the current fiscal period"
       - name: FISCAL_PERIOD_END_DATE
         description: "The last date of the current fiscal period"
-      - name : CANAM_WEEK_NUMBER
-        description: "The sequential week number within the year based on Canam logic"
-      - name : CANAM_WEEK_DAY_NUMBER
-        description: "The day's numerical position in the week based on Canam logic"
-      - name : CANAM_WEEK_START_DATE
-        description: "The date of the week`s designated start day based on Canam logic" 
+      - name : enterprise_WEEK_NUMBER
+        description: "The sequential week number within the year based on enterprise logic"
+      - name : enterprise_WEEK_DAY_NUMBER
+        description: "The day's numerical position in the week based on enterprise logic"
+      - name : enterprise_WEEK_START_DATE
+        description: "The date of the week`s designated start day based on enterprise logic" 
 
   - name: mkt_dataproduct_currency
     columns:
@@ -79,7 +79,7 @@ models:
       - name: CUSTOMER_NAME
         description: The official, full name of the customer  
       - name: CUSTOMER_CLASS_CODE 
-        description: "Relationship a customer entity has with Canam (AFFILIATED : Directly owned or closely controlled company, 
+        description: "Relationship a customer entity has with enterprise (AFFILIATED : Directly owned or closely controlled company, 
               AFFILIATED-EXT : Part of extended corporate family/network, NON-AFFILIATED : Independent third-party commercial customer)"
       - name: BUSINESS_PARTNER_CODE
         description: Code of the business partner that refer to the customer

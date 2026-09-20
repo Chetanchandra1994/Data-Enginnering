@@ -1,7 +1,7 @@
 {{
   config(
     materialized = "view",
-    alias = "canam",
+    alias = "enterprise",
     schema='mqtt'
   )
 }}
@@ -10,4 +10,4 @@ SELECT
   routing_key,
   raw_body
 FROM 
-  {{ ref ('prep_canam') }}
+  {{ ref ('prep_enterprise') }}

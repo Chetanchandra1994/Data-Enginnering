@@ -2,7 +2,7 @@
   config(
     materialized = "view",
     alias = "entity_descriptions",
-    schema='CANAM_MANUAL'
+    schema='enterprise_MANUAL'
   )
 }}
 
@@ -21,4 +21,4 @@ SELECT
 	,LOCATIONCOUNTRYNAMEEN AS LOCATION_COUNTRY_NAME_EN
 	,LOCATIONCOUNTRYNAMEFR  AS LOCATION_COUNTRY_NAME_FR 
 
-from {{ source("landing_canam", "ENTITY_DESCRIPTIONS") }}
+from {{ source("landing_enterprise", "ENTITY_DESCRIPTIONS") }}

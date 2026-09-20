@@ -9,7 +9,7 @@ config-version: 2
 vars:
   env_name: 'test'
   task_warehouse: "{{ target.warehouse }}"
-  alert_email_address: "{{ env_var('ALERT_EMAIL', 'eisappts@canamgroupinc.com') if target.name == 'local' else 'eisappts@canamgroupinc.com' }}"
+  alert_email_address: "{{ env_var('ALERT_EMAIL', 'eisappts@enterprisegroupinc.com') if target.name == 'local' else 'eisappts@enterprisegroupinc.com' }}"
 
 # This setting configures which "profile" dbt uses for this project.
 profile: 'dbt-enterprise-project'

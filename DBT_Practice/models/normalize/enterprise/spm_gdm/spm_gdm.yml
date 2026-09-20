@@ -144,7 +144,7 @@ models:
       - name: IS_LAYOUT_JOB
         description: "Indicates that the job is layout."
       - name: DOUANE_PROJ
-        description: "yes: Duty paid by Canam\nno: Duty paid by the customer"
+        description: "yes: Duty paid by enterprise\nno: Duty paid by the customer"
       - name: TYPE_PROJET
         description: "Project type: regular or erected"
       - name: TAXATION_ADDRESS
@@ -243,8 +243,8 @@ models:
         description: "Estimated last shipping week"
       - name: OFFICIAL_BUDGET
         description: "yes: Official budget,\nno: Budget pending"
-      - name: CANAMTASKMANAGEMENTEXPORT #CANAM_TASK_MANAGEMENT_EXPORT
-        description: "The project will push its information to the Canam Task Management application"
+      - name: enterpriseTASKMANAGEMENTEXPORT #enterprise_TASK_MANAGEMENT_EXPORT
+        description: "The project will push its information to the enterprise Task Management application"
       - name: PACKAGE
         description: "BuildMaster project is a package"
       - name: SAPTRANSFER #SAP_TRANSFER
@@ -475,8 +475,8 @@ models:
         description: "Link with table gdm.data_name for the event name."
       - name: ACTIVE
         description: "Yes: The event is active and can be used."
-      - name: CANAM_ERROR
-        description: "Yes: The event represents an error made by one of Canam department."
+      - name: enterprise_ERROR
+        description: "Yes: The event represents an error made by one of enterprise department."
       - name: CREATED_DATE
         description: "Date of creation of the record"
       #- name: KPI_FIRST_PASS_YIELD_EXPORT_ENABLED

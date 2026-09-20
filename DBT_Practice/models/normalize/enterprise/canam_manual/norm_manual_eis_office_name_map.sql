@@ -2,7 +2,7 @@
   config(
     materialized = "view",
     alias = "eis_office_name_map",
-    schema='CANAM_MANUAL'
+    schema='enterprise_MANUAL'
   )
 }}
 

@@ -3,7 +3,7 @@ version: 2
 models:
   - name: norm_branch_office_business_unit_map
     config: 
-      schema: CANAM_MANUAL
+      schema: enterprise_MANUAL
     columns:
       - name: RDM_LINE_OF_BUSINESS_CODE
         description: "Standard code value of the lines of business"

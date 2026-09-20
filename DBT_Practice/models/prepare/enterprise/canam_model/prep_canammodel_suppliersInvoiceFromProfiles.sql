@@ -2,7 +2,7 @@
   config(
     materialized = "view",
     alias = "suppliers_invoicefromprofiles",
-    schema='canam_model'
+    schema='enterprise_model'
   )
 }}
 
@@ -27,14 +27,14 @@ select
     , FILE_LAST_MODIFIED            as METADATA_FILE_LAST_MODIFIED
     , START_SCAN_TIME               as METADATA_START_SCAN_TIME
 
-from {{ source("landing_canam_model", "SUPPLIER") }},
+from {{ source("landing_enterprise_model", "SUPPLIER") }},
 TABLE(FLATTEN(INPUT => DATA:InvoiceFromProfile)) f
 WHERE 
   split(FILENAME, '_')[array_size(split(FILENAME, '_')) - 2] >=
   (SELECT min_timestamp
   FROM
       (SELECT split(FILENAME, '_')[array_size(split(FILENAME, '_')) - 2] AS min_timestamp, split(FILENAME, '/')[3] AS type_file
-      FROM {{ source("landing_canam_model", "SUPPLIER") }}
+      FROM {{ source("landing_enterprise_model", "SUPPLIER") }}
       WHERE type_file LIKE 'fullload%'
       QUALIFY ROW_NUMBER() OVER (ORDER BY min_timestamp DESC) = 1)
   )

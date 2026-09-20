@@ -232,7 +232,7 @@ sources:
             with_pipe: true                   
                 
 
-  - name: landing_canam_model
+  - name: landing_enterprise_model
     description: json format
     database: >-
       {%- if target.name in ['prod', 'preprod'] -%}
@@ -242,7 +242,7 @@ sources:
       {% else %}
         SANDBOX_ENTERPRISE_LANDING
       {%- endif -%}
-    schema: CANAM_MODEL
+    schema: enterprise_MODEL
     tables:
       - name: SUPPLIER
         config:
@@ -286,7 +286,7 @@ sources:
           meta: 
             with_pipe: true
 
-  - name: landing_canam
+  - name: landing_enterprise
     description: csv format
     database: >-
       {%- if target.name in ['prod', 'preprod'] -%}
@@ -296,7 +296,7 @@ sources:
       {% else %}
         SANDBOX_ENTERPRISE_LANDING
       {%- endif -%}
-    schema: CANAM_MANUAL
+    schema: enterprise_MANUAL
     tables:
       - name: ENTITY_DESCRIPTIONS
         config:

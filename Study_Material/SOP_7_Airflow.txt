@@ -1103,11 +1103,11 @@ task-specific pods
 
 Useful for cloud-native dynamic workloads.
 
-36. Your Canam Connection
+36. Your enterprise Connection
 
 This is where your experience becomes valuable.
 
-Your Canam environment already uses concepts around:
+Your enterprise environment already uses concepts around:
 
 GKE
 Airflow
@@ -1120,7 +1120,7 @@ Snowflake
 
 So your interview answer can be:
 
-"For my personal project I use LocalExecutor because the objective is local orchestration. In a production environment such as our Canam architecture, distributed execution can be handled using Kubernetes/Celery-based workers depending on workload characteristics and platform standards."
+"For my personal project I use LocalExecutor because the objective is local orchestration. In a production environment such as our enterprise architecture, distributed execution can be handled using Kubernetes/Celery-based workers depending on workload characteristics and platform standards."
 
 That demonstrates you understand why, rather than simply memorizing executor names.
 

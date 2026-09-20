@@ -15,6 +15,6 @@ SELECT
   ,{{ dbt_utils.generate_surrogate_key(['a.SUPPLIERCODE']) }} as SUPPLIER_SK
   ,a.suppliercode as EBS_CODE
   ,b.vendor_code as SPM_CODE
-FROM {{ref('norm_canammodel_suppliers')}} a
+FROM {{ref('norm_enterprisemodel_suppliers')}} a
 LEFT JOIN {{ref('norm_vendor')}} b
 ON a.suppliercode::string = b.CANSIS_VENDOR_NUMBER::string

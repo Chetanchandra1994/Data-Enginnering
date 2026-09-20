@@ -2,7 +2,7 @@
   config(
     materialized = "view",
     alias = "rdm_descriptions",
-    schema='CANAM_MANUAL'
+    schema='enterprise_MANUAL'
   )
 }}
 
@@ -13,4 +13,4 @@ APPLICATIONCODE
 , VALUE
 , LANGUAGE
 , NAME
-from {{ source("landing_canam", "RDM_DESCRIPTIONS") }}
+from {{ source("landing_enterprise", "RDM_DESCRIPTIONS") }}
