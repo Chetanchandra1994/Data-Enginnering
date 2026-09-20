@@ -8,13 +8,13 @@
 }}
 
 -- ============================================================================
--- DATE DIMENSION TABLE WITH CUSTOM CANAM WEEK LOGIC
+-- DATE DIMENSION TABLE WITH CUSTOM enterprise WEEK LOGIC
 -- ============================================================================
 -- This model creates a date dimension table spanning 76 years (2000-2075)
--- with custom CANAM week numbering that follows ISO-8601 principles but
+-- with custom enterprise week numbering that follows ISO-8601 principles but
 -- adapted for Sunday-start weeks with special year-end/year-start handling.
 --
--- CANAM Week Rules:
+-- enterprise Week Rules:
 -- 1. Weeks run Sunday-Saturday (not Monday-Sunday like standard ISO)
 -- 2. Week 1 = week containing first Thursday of year (ISO rule)
 -- 3. Week 1 always starts on Jan 1 (even if not Sunday)
@@ -91,7 +91,7 @@ week_boundaries AS (
 ),
 
 -- ----------------------------------------------------------------------------
--- STEP 3: Calculate CANAM Week Numbers
+-- STEP 3: Calculate enterprise Week Numbers
 -- ----------------------------------------------------------------------------
 -- Uses a 3-branch CASE to assign week numbers based on date position:
 -- Branch 1: Before Week 2 starts → Week 1 (extended, can be 4-9 days)
@@ -124,7 +124,7 @@ week_numbers AS (
       -- Example: Jan 5 → FLOOR(0/7) + 2 = Week 2
       -- Example: Jan 12 → FLOOR(7/7) + 2 = Week 3
       ELSE FLOOR(DATEDIFF('day', WA.week2_start, WB.date_day) / 7) + 2
-    END AS canam_week_number,
+    END AS enterprise_week_number,
     
     -- Standard ISO week number (Monday-start) shifted by 1 day for Sunday-start
     -- Adding 1 day shifts Sunday from end of previous week to start of current week
@@ -136,21 +136,21 @@ week_numbers AS (
 ),
 
 -- ----------------------------------------------------------------------------
--- STEP 4: Calculate CANAM Week Start Dates
+-- STEP 4: Calculate enterprise Week Start Dates
 -- ----------------------------------------------------------------------------
--- Determines the actual calendar date when each CANAM week began.
+-- Determines the actual calendar date when each enterprise week began.
 -- This is used to calculate the day number within the week (1, 2, 3... etc)
 -- ----------------------------------------------------------------------------
 week_details AS (
   SELECT
     date_day,
-    canam_week_number,
+    enterprise_week_number,
     calendar_week_number,
     
     CASE
       -- Week 1 always starts on Jan 1 (even if Jan 1 is not Sunday)
       -- Example 2025: Jan 1 is Wed, but Week 1 starts Jan 1
-      WHEN canam_week_number = 1 
+      WHEN enterprise_week_number = 1 
         THEN jan1
       
       -- Year-end stretched/frozen weeks start at last_week_start
@@ -163,7 +163,7 @@ week_details AS (
       -- For Wed (4): subtract (4-1)=3 days to reach Sunday
       -- Example: Jan 8 (Wed) → Jan 8 - 3 = Jan 5 (Sun)
       ELSE DATEADD(day, -(EXTRACT(dayofweek FROM date_day)::INTEGER - 1), date_day)
-    END AS canam_week_start_date
+    END AS enterprise_week_start_date
     
   FROM week_numbers
 ),
@@ -188,7 +188,7 @@ main_data AS (
     -- ========== STANDARD ISO WEEK (Sunday-shifted) ==========
     WD.calendar_week_number::INTEGER AS CALENDAR_WEEK_NUMBER,
     
-    -- Standard week begin date (not CANAM, just for reference)
+    -- Standard week begin date (not enterprise, just for reference)
     /*IFF(
       WEEK(FULL_DATE) = 1,
       CONCAT(YEAR(DATE(FULL_DATE)), '-01-01')::DATE,
@@ -231,18 +231,18 @@ main_data AS (
     --NULL::STRING AS FISCAL_QUARTER_NUMBER,   -- Placeholder for future use
     --NULL::STRING AS FISCAL_SEMESTER_NUMBER,  -- Placeholder for future use
     
-    -- ========== CANAM WEEK DIMENSIONS ==========
+    -- ========== enterprise WEEK DIMENSIONS ==========
     -- Custom week numbering with ISO-adapted rules for Sunday-start weeks
-    WD.canam_week_number AS CANAM_WEEK_NUMBER,  -- Week number (1-52 or 1-53)
+    WD.enterprise_week_number AS enterprise_WEEK_NUMBER,  -- Week number (1-52 or 1-53)
     
-    -- Day number within the CANAM week (1-11, can exceed 7 for stretched weeks)
+    -- Day number within the enterprise week (1-11, can exceed 7 for stretched weeks)
     -- Calculation: Days since week started + 1
     -- Example: Dec 28 with start Dec 21 → DATEDIFF = 7 → Day 8
-    DATEDIFF('day', WD.canam_week_start_date, FULL_DATE) + 1 AS CANAM_WEEK_DAY_NUMBER,
+    DATEDIFF('day', WD.enterprise_week_start_date, FULL_DATE) + 1 AS enterprise_WEEK_DAY_NUMBER,
     
-    -- The date this CANAM week started (Sunday, or Jan 1 for Week 1)
+    -- The date this enterprise week started (Sunday, or Jan 1 for Week 1)
     -- Example: All days Dec 21-31 have start date = Dec 21
-    WD.canam_week_start_date AS CANAM_WEEK_START_DATE
+    WD.enterprise_week_start_date AS enterprise_WEEK_START_DATE
 
   FROM date_raw DR
   LEFT JOIN week_details WD 
@@ -283,6 +283,6 @@ SELECT
   NULL::TIMESTAMP AS FISCAL_PERIOD_END_DATE,
   --'Q4'::STRING AS FISCAL_QUARTER_NUMBER,
   --'S2'::STRING AS FISCAL_SEMESTER_NUMBER,
-  NULL::INTEGER AS CANAM_WEEK_NUMBER,
-  NULL::INTEGER AS CANAM_WEEK_DAY_NUMBER,
-  NULL::DATE AS CANAM_WEEK_START_DATE
+  NULL::INTEGER AS enterprise_WEEK_NUMBER,
+  NULL::INTEGER AS enterprise_WEEK_DAY_NUMBER,
+  NULL::DATE AS enterprise_WEEK_START_DATE

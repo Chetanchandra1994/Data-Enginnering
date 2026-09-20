@@ -76,7 +76,7 @@ PREPARED_RAW AS (
     ) = 1
 ),
 
--- It mimics logic from a similar view in BigQuery to ensure consistency. See edl-fast-track-canam.ProjectAccounting.vw_GL_TRANSLATION_RATES
+-- It mimics logic from a similar view in BigQuery to ensure consistency. See edl-fast-track-enterprise.ProjectAccounting.vw_GL_TRANSLATION_RATES
 GL_TRANSLATION_RATES_BY_PERIODS AS (
     SELECT 
         SET_OF_BOOKS_ID, 
@@ -298,9 +298,9 @@ SELECT
     CASE 
         WHEN PREPARED_RAW.LINE_OF_BUSINESS = 'M01' THEN 'Buildings Murox'
         WHEN PREPARED_RAW.LINE_OF_BUSINESS = 'H01' THEN 'Buildings Hambro'
-        WHEN PREPARED_RAW.LINE_OF_BUSINESS = 'S01' THEN 'Canam Structures'
+        WHEN PREPARED_RAW.LINE_OF_BUSINESS = 'S01' THEN 'enterprise Structures'
         WHEN PREPARED_RAW.LINE_OF_BUSINESS IN ('J01', 'J02', 'J03') THEN 'Joists & Deck Northeast'
-        WHEN PREPARED_RAW.LINE_OF_BUSINESS = 'D01' THEN 'Canam Detailin'
+        WHEN PREPARED_RAW.LINE_OF_BUSINESS = 'D01' THEN 'enterprise Detailin'
     END                                              AS BUSINESSUNITS_DESCRIPTION,
 
     -- Customer and Project Metadata

@@ -12,7 +12,7 @@ DATA:"event_uuid" AS EVENT_UUID
 ,DATA:"event_number" AS EVENT_NUMBER
 ,DATA:"event_name_id" AS EVENT_NAME_ID
 ,DATA:"active" AS ACTIVE
-,DATA:"canam_error" AS CANAM_ERROR
+,DATA:"enterprise_error" AS enterprise_ERROR
 ,DATA:"KPIFirstPassYieldExportEnabled" AS KPI_FIRST_PASS_YIELD_EXPORT_ENABLED
 ,DATA:"_rowid" AS ROW_ID
 ,DATA:"src_system_operation" AS SRC_SYSTEM_OPERATION

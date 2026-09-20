@@ -28,7 +28,7 @@ raw_data as (
       , PT_LOCATIONS_ARRAY[0].Route::string as PT_Route
       , PT_LOCATIONS_ARRAY[0].POBoxNumber::string as PT_PO_Box_Number
       , PT_LOCATIONS_ARRAY[0].PostalCode::string as PT_Postal_Code
-    from {{ref('norm_canammodel_suppliersPayToProfiles')}}
+    from {{ref('norm_enterprisemodel_suppliersPayToProfiles')}}
 
 )
 

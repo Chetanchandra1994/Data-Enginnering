@@ -2,7 +2,7 @@
   config(
     materialized = "view",
     alias = "rdm_descriptions",
-    schema='CANAM_MANUAL'
+    schema='enterprise_MANUAL'
   )
 }}
 

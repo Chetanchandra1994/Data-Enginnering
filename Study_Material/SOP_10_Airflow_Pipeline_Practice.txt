@@ -1,0 +1,2261 @@
+# SOP-02 — BUILDING THE AIRFLOW PIPELINE FROM SCRATCH
+
+**Project:** End-to-End Data Engineering Practice Project
+**Goal:** Build an Airflow-based data pipeline and deployment architecture from zero, using the same major concepts used in the Enterprise environment.
+
+---
+
+# 1. Overall Objective
+
+The pipeline should teach and demonstrate:
+
+```text
+Airflow
+Docker
+PostgreSQL
+RabbitMQ
+CeleryExecutor
+Python
+DAGs
+Plugins
+GCP
+GCS
+Artifact Registry
+IAM
+Service Accounts
+Azure DevOps
+CI/CD
+Unit Testing
+TEST/PROD environments
+Controlled deployment
+Git
+PR workflow
+A/M/D/R deployment
+```
+
+The larger data-engineering architecture is:
+
+```text
+SQL Server / Oracle
+        |
+        v
+     Python
+        |
+        v
+     Airflow
+        |
+        v
+       GCS
+        |
+        v
+    Pub/Sub
+        |
+        v
+    Snowpipe
+        |
+        v
+   Snowflake
+        |
+        v
+      dbt
+        |
+        v
+     Tableau
+```
+
+This SOP concentrates on the Airflow and deployment layer.
+
+---
+
+# 2. Infrastructure Required
+
+## GCP
+
+Required:
+
+```text
+GCP Project
+Artifact Registry
+TEST GCS bucket
+PROD GCS bucket
+Service Account
+IAM permissions
+```
+
+Practice project:
+
+```text
+electric-tesla-507710-k2
+```
+
+Region:
+
+```text
+northamerica-northeast1
+```
+
+Buckets:
+
+```text
+gs://advworks-airflow-test
+gs://advworks-airflow-prod
+```
+
+Artifact Registry:
+
+```text
+northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow
+```
+
+---
+
+# 3. Azure DevOps
+
+Required:
+
+```text
+Azure DevOps Project
+Git repository
+Pipeline
+TEST Environment
+PROD Environment
+Branch policy
+Build validation
+PROD approval
+```
+
+Pipeline architecture:
+
+```text
+PR validation
+      |
+      v
+unit_tests
+      |
+      v
+main
+      |
+      v
+deploy_test
+      |
+      v
+PROD approval
+      |
+      v
+deploy_prod
+```
+
+---
+
+# 4. Local Development Requirements
+
+Install:
+
+```text
+Git
+Docker Desktop
+PowerShell
+Python
+Google Cloud SDK
+```
+
+Verify Git:
+
+```powershell
+git --version
+```
+
+Verify Docker:
+
+```powershell
+docker --version
+```
+
+Verify Compose:
+
+```powershell
+docker compose version
+```
+
+Verify Python:
+
+```powershell
+python --version
+```
+
+Verify gcloud:
+
+```powershell
+gcloud --version
+```
+
+---
+
+# 5. Authenticate with GCP
+
+[ANY DIRECTORY]
+
+```powershell
+gcloud auth login
+```
+
+Set project:
+
+```powershell
+gcloud config set project electric-tesla-507710-k2
+```
+
+Verify:
+
+```powershell
+gcloud config get-value project
+```
+
+Expected:
+
+```text
+electric-tesla-507710-k2
+```
+
+---
+
+# 6. Enable Required GCP Services
+
+[ANY DIRECTORY]
+
+Typical services required for this architecture include:
+
+```powershell
+gcloud services enable artifactregistry.googleapis.com
+```
+
+```powershell
+gcloud services enable storage.googleapis.com
+```
+
+For later pipeline expansion:
+
+```powershell
+gcloud services enable pubsub.googleapis.com
+```
+
+Verify:
+
+```powershell
+gcloud services list --enabled
+```
+
+---
+
+# 7. Create Artifact Registry
+
+[ANY DIRECTORY]
+
+```powershell
+gcloud artifacts repositories create airflow `
+  --repository-format=docker `
+  --location=northamerica-northeast1 `
+  --description="Airflow practice Docker images"
+```
+
+Verify:
+
+```powershell
+gcloud artifacts repositories describe airflow `
+  --location=northamerica-northeast1
+```
+
+---
+
+# 8. Build the Docker Image
+
+[AIRFLOW]
+
+Dockerfile:
+
+```dockerfile
+FROM apache/airflow:2.11.0
+
+COPY requirements.txt /tmp/requirements.txt
+
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+```
+
+Requirements:
+
+```text
+apache-airflow==2.11.0
+pytest
+pytest-mock
+orjson
+```
+
+Build:
+
+```powershell
+docker build -t northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow/custom-airflow:latest .
+```
+
+Verify:
+
+```powershell
+docker images
+```
+
+---
+
+# 9. Push Image
+
+[ANY DIRECTORY]
+
+Configure Docker:
+
+```powershell
+gcloud auth configure-docker northamerica-northeast1-docker.pkg.dev
+```
+
+Push:
+
+```powershell
+docker push northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow/custom-airflow:latest
+```
+
+Verify:
+
+```powershell
+gcloud artifacts docker images list `
+  northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow/custom-airflow `
+  --include-tags
+```
+
+Expected:
+
+```text
+latest
+```
+
+---
+
+# 10. Create TEST and PROD Buckets
+
+[ANY DIRECTORY]
+
+```powershell
+gcloud storage buckets create gs://advworks-airflow-test --location=NORTHAMERICA-NORTHEAST1
+```
+
+```powershell
+gcloud storage buckets create gs://advworks-airflow-prod --location=NORTHAMERICA-NORTHEAST1
+```
+
+Verify:
+
+```powershell
+gcloud storage buckets describe gs://advworks-airflow-test
+```
+
+```powershell
+gcloud storage buckets describe gs://advworks-airflow-prod
+```
+
+---
+
+# 11. GCS Concept
+
+GCS uses object names rather than traditional folders.
+
+For example:
+
+```text
+gs://advworks-airflow-test/dags/my_dag.py
+```
+
+The apparent directory:
+
+```text
+dags/
+```
+
+is an object-name prefix.
+
+This matters because deletion and rename operations operate on objects.
+
+---
+
+# 12. Verify GCS Objects
+
+```powershell
+gcloud storage ls gs://advworks-airflow-test
+```
+
+```powershell
+gcloud storage ls gs://advworks-airflow-test/dags/
+```
+
+```powershell
+gcloud storage ls gs://advworks-airflow-test/plugins/
+```
+
+Recursive inspection:
+
+```powershell
+gcloud storage ls --recursive gs://advworks-airflow-test
+```
+
+Same for PROD:
+
+```powershell
+gcloud storage ls --recursive gs://advworks-airflow-prod
+```
+
+---
+
+# 13. Create Airflow Application Structure
+
+```text
+airflow-practice/
+│
+├── DAGS/
+├── plugins/
+├── config/
+├── Tests/
+│
+├── Dockerfile
+├── docker-compose.yaml
+├── requirements.txt
+├── pytest.ini
+├── conftest.py
+├── selectors.yml
+└── webserver_config.py
+```
+
+Conceptually:
+
+```text
+DAGS
+ =
+workflow definitions
+
+plugins
+ =
+custom Airflow extensions/operators/hooks
+
+Tests
+ =
+automated validation
+```
+
+---
+
+# 14. Airflow Docker Architecture
+
+Use:
+
+```text
+CeleryExecutor
+```
+
+Components:
+
+```text
+                    Airflow
+                       |
+        +--------------+--------------+
+        |              |              |
+    Scheduler       Worker       Triggerer
+        |              |
+        +--------- RabbitMQ
+                       |
+                    PostgreSQL
+```
+
+Webserver:
+
+```text
+localhost:8080
+```
+
+RabbitMQ management:
+
+```text
+localhost:15672
+```
+
+---
+
+# 15. Why PostgreSQL?
+
+Airflow needs a metadata database.
+
+It stores information such as:
+
+```text
+DAG runs
+Task instances
+Task states
+Connections
+Variables
+Schedules
+Metadata
+```
+
+In this practice setup:
+
+```text
+PostgreSQL 13
+```
+
+is used.
+
+---
+
+# 16. Why RabbitMQ?
+
+CeleryExecutor needs a message broker.
+
+The scheduler can send work through the broker:
+
+```text
+Scheduler
+    |
+    v
+RabbitMQ
+    |
+    v
+Worker
+```
+
+RabbitMQ therefore distributes task execution messages.
+
+---
+
+# 17. Why CeleryExecutor?
+
+`CeleryExecutor` allows task execution to be distributed across workers.
+
+Conceptually:
+
+```text
+Scheduler
+    |
+    +--> task 1
+    +--> task 2
+    +--> task 3
+             |
+             v
+          RabbitMQ
+             |
+       +-----+-----+
+       |           |
+    Worker 1    Worker 2
+```
+
+This is closer to a distributed production Airflow architecture than a single-process executor.
+
+---
+
+# 18. Start Airflow
+
+[AIRFLOW]
+
+```powershell
+docker compose up -d
+```
+
+Check:
+
+```powershell
+docker compose ps
+```
+
+Expected services:
+
+```text
+postgres
+rabbitmq
+airflow-init
+airflow-webserver
+airflow-scheduler
+airflow-worker
+airflow-triggerer
+```
+
+---
+
+# 19. Debug Airflow
+
+[AIRFLOW]
+
+Webserver:
+
+```powershell
+docker compose logs airflow-webserver
+```
+
+Scheduler:
+
+```powershell
+docker compose logs airflow-scheduler
+```
+
+Worker:
+
+```powershell
+docker compose logs airflow-worker
+```
+
+PostgreSQL:
+
+```powershell
+docker compose logs postgres
+```
+
+RabbitMQ:
+
+```powershell
+docker compose logs rabbitmq
+```
+
+---
+
+# 20. Airflow Health
+
+Open:
+
+```text
+http://localhost:8080/health
+```
+
+The webserver healthcheck itself uses:
+
+```bash
+curl --fail http://localhost:8080/health
+```
+
+---
+
+# 21. DAG Concept
+
+A DAG is a:
+
+```text
+Directed Acyclic Graph
+```
+
+It defines:
+
+```text
+what tasks exist
++
+dependencies
++
+schedule
++
+execution logic
+```
+
+Example conceptual DAG:
+
+```text
+extract
+   |
+   v
+validate
+   |
+   v
+load
+```
+
+The graph is:
+
+```text
+extract → validate → load
+```
+
+---
+
+# 22. Plugin Concept
+
+A plugin extends Airflow.
+
+Examples:
+
+```text
+Custom Operator
+Custom Hook
+Custom Sensor
+Custom UI component
+```
+
+Your project contains custom hooks/operators under:
+
+```text
+airflow-practice/plugins/
+```
+
+---
+
+# 23. Unit Testing
+
+Tests are stored under:
+
+```text
+Tests/
+```
+
+Run locally:
+
+[AIRFLOW]
+
+```powershell
+pytest Tests/ -v
+```
+
+Expected:
+
+```text
+5 passed
+```
+
+The tests validate operator behavior using mocks.
+
+Important distinction:
+
+```text
+Unit test
+ =
+test isolated logic
+
+Integration test
+ =
+test interaction with real services
+
+End-to-end test
+ =
+test complete pipeline
+```
+
+The current project primarily demonstrates unit testing at this stage.
+
+---
+
+# 24. Azure Pipeline Variables
+
+The pipeline uses:
+
+```yaml
+variables:
+- name: python_version
+  value: '3.10'
+
+- name: REGISTRY_URL_TEST
+  value: 'northamerica-northeast1-docker.pkg.dev'
+
+- name: IMAGE_PATH_TEST
+  value: 'electric-tesla-507710-k2/airflow/custom-airflow'
+```
+
+These avoid repeating configuration throughout the YAML.
+
+---
+
+# 25. Pipeline Stage 1 — Unit Tests
+
+The pipeline:
+
+```text
+checkout repository
+      ↓
+download GCP credentials
+      ↓
+Docker login
+      ↓
+pull Airflow image
+      ↓
+mount current repository
+      ↓
+install requirements
+      ↓
+pytest
+```
+
+Core command:
+
+```bash
+docker run --rm \
+  -v $(Build.SourcesDirectory)/airflow-practice:/workspace \
+  -w /workspace \
+  -e PYTHONPATH=/workspace:/workspace/plugins \
+  -e PYTEST_ADDOPTS="-p no:cacheprovider" \
+  $(REGISTRY_URL_TEST)/$(IMAGE_PATH_TEST):latest \
+  bash -c "pip install -r requirements.txt -q && pytest Tests/ -v"
+```
+
+---
+
+# 26. Important Docker Concepts for Interviews
+
+### `--rm`
+
+Deletes the container after execution.
+
+### `-v`
+
+Mounts host files into the container.
+
+### `-w`
+
+Sets the container working directory.
+
+### `-e`
+
+Sets environment variables.
+
+### `PYTHONPATH`
+
+Controls Python module lookup paths.
+
+### `&&`
+
+Second command executes only if the first succeeds.
+
+---
+
+# 27. Pipeline Stage 2 — TEST
+
+```yaml
+dependsOn: unit_tests
+```
+
+means:
+
+```text
+unit_tests
+    ↓
+deploy_test
+```
+
+Condition:
+
+```yaml
+condition: and(
+  succeeded(),
+  eq(variables['Build.SourceBranch'], 'refs/heads/main')
+)
+```
+
+means:
+
+```text
+tests/dependency successful
+AND
+main branch
+```
+
+Only then does TEST deployment execute.
+
+---
+
+# 28. Changed File Detection
+
+Core command:
+
+```bash
+git diff --name-status -M HEAD~1 HEAD
+```
+
+Example:
+
+```text
+M airflow-practice/DAGS/a.py
+A airflow-practice/DAGS/b.py
+D airflow-practice/DAGS/c.py
+R100 airflow-practice/DAGS/d.py airflow-practice/DAGS/e.py
+```
+
+---
+
+# 29. Controlled Deployment Algorithm
+
+## Added
+
+```text
+A
+↓
+COPY
+```
+
+## Modified
+
+```text
+M
+↓
+COPY / overwrite
+```
+
+## Deleted
+
+```text
+D
+↓
+DELETE
+```
+
+## Renamed
+
+```text
+R
+↓
+DELETE old
+↓
+COPY new
+```
+
+This is the fundamental deployment algorithm.
+
+---
+
+# 30. DAG Deployment
+
+For a changed DAG:
+
+```bash
+gcloud storage cp \
+  "$(Build.SourcesDirectory)/airflow-practice/DAGS/$relative_path" \
+  "gs://advworks-airflow-test/dags/$relative_path"
+```
+
+PROD changes only:
+
+```text
+advworks-airflow-test
+```
+
+to:
+
+```text
+advworks-airflow-prod
+```
+
+---
+
+# 31. Plugin Deployment
+
+Same algorithm:
+
+```text
+A → copy
+M → copy
+D → delete
+R → delete old + copy new
+```
+
+TEST:
+
+```text
+gs://advworks-airflow-test/plugins/
+```
+
+PROD:
+
+```text
+gs://advworks-airflow-prod/plugins/
+```
+
+---
+
+# 32. Why Detect Changes Instead of Copying Everything?
+
+Full-copy approach:
+
+```text
+Repository
+    ↓
+copy everything
+    ↓
+PROD
+```
+
+Problem:
+
+```text
+Developer A changes A
+Developer B changes B
+
+A deployment can accidentally promote B.
+```
+
+Controlled deployment:
+
+```text
+Commit A
+   ↓
+git diff
+   ↓
+A only
+   ↓
+PROD
+```
+
+This is safer for multi-developer environments.
+
+---
+
+# 33. PROD Stage
+
+The dependency:
+
+```yaml
+dependsOn: deploy_test
+```
+
+means:
+
+```text
+TEST must precede PROD
+```
+
+The condition:
+
+```yaml
+condition: and(
+  succeeded(),
+  eq(variables['Build.SourceBranch'], 'refs/heads/main')
+)
+```
+
+means:
+
+```text
+TEST/dependency succeeded
+AND
+branch is main
+```
+
+The environment:
+
+```yaml
+environment: 'PROD - Airflow DAGS'
+```
+
+connects the deployment job to the Azure PROD Environment.
+
+---
+
+# 34. Three Production Controls
+
+```text
+dependsOn
+    ↓
+dependency/order
+
+condition
+    ↓
+eligibility
+
+Azure Environment approval
+    ↓
+authorization
+```
+
+Interview answer:
+
+> `dependsOn` defines the prerequisite stage, `condition` determines whether the stage is eligible to run, and the Azure Environment approval provides an explicit deployment authorization/check before the PROD deployment job proceeds.
+
+---
+
+# 35. PR Workflow
+
+Feature branch:
+
+```powershell
+git switch main
+```
+
+```powershell
+git pull azure main
+```
+
+Create feature branch:
+
+```powershell
+git switch -c feature/test-pr
+```
+
+Make change.
+
+Check:
+
+```powershell
+git status
+```
+
+Commit:
+
+```powershell
+git add .
+git commit -m "Test PR workflow"
+```
+
+Push:
+
+```powershell
+git push -u azure feature/test-pr
+```
+
+Then:
+
+```text
+feature/test-pr
+       |
+       v
+PR
+       |
+       v
+main
+```
+
+---
+
+# 36. Why `trigger` and `pr` Are Different
+
+```yaml
+trigger:
+  branches:
+    include:
+      - main
+```
+
+means:
+
+```text
+push/commit to main
+→ pipeline
+```
+
+Whereas:
+
+```yaml
+pr:
+  branches:
+    include:
+      - "*"
+```
+
+means:
+
+```text
+PR validation
+→ pipeline
+```
+
+This allows:
+
+```text
+feature branch
+     ↓
+PR validation
+     ↓
+merge main
+     ↓
+main deployment pipeline
+```
+
+---
+
+# 37. Azure Branch Policy
+
+The repository should require:
+
+```text
+Pull Request
++
+minimum reviewer
++
+build validation
+```
+
+This prevents the intended workflow from becoming:
+
+```text
+developer
+   ↓
+direct push main
+   ↓
+production pipeline
+```
+
+Instead:
+
+```text
+developer
+   ↓
+feature branch
+   ↓
+PR
+   ↓
+validation
+   ↓
+review
+   ↓
+main
+```
+
+---
+
+# 38. GCP Inspection Commands — Master Reference
+
+## Project
+
+```powershell
+gcloud config get-value project
+```
+
+```powershell
+gcloud projects describe electric-tesla-507710-k2
+```
+
+## Services
+
+```powershell
+gcloud services list --enabled
+```
+
+## Artifact Registry
+
+```powershell
+gcloud artifacts repositories list --location=northamerica-northeast1
+```
+
+```powershell
+gcloud artifacts repositories describe airflow --location=northamerica-northeast1
+```
+
+```powershell
+gcloud artifacts docker images list northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow
+```
+
+```powershell
+gcloud artifacts docker images list northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow/custom-airflow --include-tags
+```
+
+## Buckets
+
+```powershell
+gcloud storage buckets list
+```
+
+```powershell
+gcloud storage buckets describe gs://advworks-airflow-test
+```
+
+```powershell
+gcloud storage buckets describe gs://advworks-airflow-prod
+```
+
+## Objects
+
+```powershell
+gcloud storage ls gs://advworks-airflow-test
+```
+
+```powershell
+gcloud storage ls --recursive gs://advworks-airflow-test
+```
+
+```powershell
+gcloud storage ls --recursive gs://advworks-airflow-prod
+```
+
+## Bucket IAM
+
+```powershell
+gcloud storage buckets get-iam-policy gs://advworks-airflow-test
+```
+
+```powershell
+gcloud storage buckets get-iam-policy gs://advworks-airflow-prod
+```
+
+## Service Account
+
+```powershell
+gcloud iam service-accounts describe terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com
+```
+
+## Project IAM
+
+```powershell
+gcloud projects get-iam-policy electric-tesla-507710-k2
+```
+
+---
+
+# 39. GCS Operational Commands
+
+Copy:
+
+```powershell
+gcloud storage cp local_file.py gs://advworks-airflow-test/dags/
+```
+
+List:
+
+```powershell
+gcloud storage ls gs://advworks-airflow-test/dags/
+```
+
+Delete:
+
+```powershell
+gcloud storage rm gs://advworks-airflow-test/dags/file.py
+```
+
+Recursive list:
+
+```powershell
+gcloud storage ls --recursive gs://advworks-airflow-test/dags/
+```
+
+The same commands apply to PROD by replacing:
+
+```text
+advworks-airflow-test
+```
+
+with:
+
+```text
+advworks-airflow-prod
+```
+
+---
+
+# 40. Core Concepts — Interview Reference
+
+## What is Airflow?
+
+Apache Airflow is a workflow orchestration platform used to define, schedule, execute, monitor and manage workflows.
+
+---
+
+## What is a DAG?
+
+Directed Acyclic Graph.
+
+It represents tasks and dependencies without cycles.
+
+---
+
+## What is an Operator?
+
+An Operator defines a unit of work in Airflow.
+
+Examples:
+
+```text
+PythonOperator
+BashOperator
+Custom Operator
+```
+
+---
+
+## What is a Hook?
+
+A Hook provides reusable connectivity logic to an external system.
+
+Examples:
+
+```text
+Database
+Cloud service
+API
+Message broker
+```
+
+---
+
+## Why use plugins?
+
+Plugins allow custom Airflow functionality such as:
+
+```text
+Hooks
+Operators
+Sensors
+```
+
+---
+
+## Why Docker?
+
+Docker packages:
+
+```text
+application
+dependencies
+runtime
+configuration
+```
+
+into a reproducible environment.
+
+---
+
+## Why Artifact Registry?
+
+It stores versioned container images.
+
+Architecture:
+
+```text
+Docker build
+    ↓
+Artifact Registry
+    ↓
+Azure pipeline
+    ↓
+Docker pull
+    ↓
+Airflow runtime
+```
+
+---
+
+## Why GCS?
+
+GCS provides durable cloud object storage.
+
+In this project:
+
+```text
+DAGs
+Plugins
+Data files
+```
+
+can be stored as objects.
+
+---
+
+## Why PostgreSQL?
+
+Airflow's metadata database.
+
+---
+
+## Why RabbitMQ?
+
+Message broker used by CeleryExecutor.
+
+---
+
+## Why CeleryExecutor?
+
+Allows distributed task execution through workers.
+
+---
+
+## What is CI?
+
+Continuous Integration.
+
+Typical activities:
+
+```text
+checkout
+test
+lint
+build
+validate
+```
+
+---
+
+## What is CD?
+
+Continuous Delivery/Deployment.
+
+In this project:
+
+```text
+TEST
+ ↓
+approval
+ ↓
+PROD
+```
+
+---
+
+## What is a deployment environment?
+
+A logical Azure DevOps deployment target where checks, approvals and deployment history can be configured.
+
+---
+
+# 41. Interview Questions — Architecture
+
+### Q1. Why should PROD not directly copy the TEST bucket?
+
+**Answer:**
+
+Because TEST can contain changes from multiple developers or branches. Copying the entire TEST bucket can unintentionally promote unrelated work. A commit-based changed-file deployment limits the deployment to the intended A/M/D/R changes.
+
+---
+
+### Q2. How do you handle a renamed DAG?
+
+**Answer:**
+
+Git detects the rename using:
+
+```bash
+git diff --name-status -M
+```
+
+The pipeline treats the rename as:
+
+```text
+delete old object
++
+copy new object
+```
+
+---
+
+### Q3. Why use `R*` rather than `R100`?
+
+**Answer:**
+
+Git can report different rename similarity percentages, such as:
+
+```text
+R100
+R095
+R090
+```
+
+Therefore the pipeline checks for a status beginning with `R`.
+
+---
+
+### Q4. How do you make deletion idempotent?
+
+**Answer:**
+
+Check whether the GCS object exists before deleting it:
+
+```bash
+gcloud storage ls "gs://bucket/path/file"
+```
+
+If it exists, delete it. If it does not exist, log that it is already absent and continue.
+
+---
+
+### Q5. What happens if unit tests fail?
+
+**Answer:**
+
+The deployment stages depend on successful upstream execution, so TEST/PROD deployment does not proceed.
+
+---
+
+### Q6. Why does PROD depend on TEST?
+
+**Answer:**
+
+To establish a promotion sequence:
+
+```text
+TEST
+ ↓
+PROD
+```
+
+The PROD deployment should not become an independent parallel deployment.
+
+---
+
+### Q7. What does `condition` do?
+
+**Answer:**
+
+It determines whether a stage/job is eligible to execute based on runtime variables and previous results.
+
+---
+
+### Q8. What does `dependsOn` do?
+
+**Answer:**
+
+It defines the dependency relationship between stages/jobs.
+
+---
+
+### Q9. What does an Azure Environment approval do?
+
+**Answer:**
+
+It provides a deployment authorization/check for the target environment. For PROD, the pipeline can pause until the required approval/check succeeds.
+
+---
+
+### Q10. Why isn't approval the same as `condition`?
+
+**Answer:**
+
+A condition determines whether the deployment is eligible. Approval is an authorization/check after eligibility has been established.
+
+---
+
+# 42. Interview Questions — Docker
+
+### Q11. Why mount the repository into the Docker container?
+
+**Answer:**
+
+The image provides the runtime and dependencies while the mounted repository provides the current Git code being tested.
+
+---
+
+### Q12. Why use `--rm`?
+
+**Answer:**
+
+To automatically remove the temporary container after the test finishes.
+
+---
+
+### Q13. Why use `PYTHONPATH`?
+
+**Answer:**
+
+To make the project's Python modules and Airflow plugins discoverable inside the container.
+
+---
+
+### Q14. Why should dependencies be stored in requirements.txt?
+
+**Answer:**
+
+It provides a reproducible dependency definition that can be installed locally, in Docker, and in CI.
+
+---
+
+# 43. Interview Questions — GCP
+
+### Q15. What is Artifact Registry?
+
+**Answer:**
+
+Google Cloud's artifact repository service. In this project it stores Docker images used by Airflow and CI/CD.
+
+---
+
+### Q16. What is GCS?
+
+**Answer:**
+
+Google Cloud Storage is object storage. Objects are addressed by bucket and object name rather than traditional filesystem paths.
+
+---
+
+### Q17. Why use separate TEST and PROD buckets?
+
+**Answer:**
+
+To isolate deployment environments and prevent test changes from directly becoming production state.
+
+---
+
+### Q18. Why use a service account?
+
+**Answer:**
+
+CI/CD needs non-human credentials to authenticate with GCP services. A dedicated service account allows permissions to be granted according to least-privilege requirements.
+
+---
+
+# 44. Interview Questions — CI/CD
+
+### Q19. Explain the complete pipeline.
+
+**Answer:**
+
+```text
+Developer
+   ↓
+Feature branch
+   ↓
+Pull Request
+   ↓
+PR validation
+   ↓
+Merge to main
+   ↓
+Unit tests
+   ↓
+TEST deployment
+   ↓
+PROD approval
+   ↓
+PROD deployment
+```
+
+---
+
+### Q20. What is the difference between CI and CD?
+
+**Answer:**
+
+CI focuses on validating and integrating code changes. CD focuses on delivering validated code through deployment environments.
+
+---
+
+### Q21. Why deploy only changed files?
+
+**Answer:**
+
+To avoid promoting unrelated developer changes and to reduce the deployment scope.
+
+---
+
+### Q22. What is the current limitation of the controlled deployment design?
+
+**Answer:**
+
+It identifies the changes associated with a deployment, but it does not yet provide full protection against an older deployment executing after a newer deployment and overwriting shared files.
+
+---
+
+# 45. Interview Questions — Production Scenarios
+
+### Q23. Developer A changes file A and Developer B changes file B. Can A's deployment copy B?
+
+**Answer:**
+
+With the controlled deployment design, A's deployment processes only the changes in A's commit, so B's unrelated file is not copied merely because it exists in TEST.
+
+---
+
+### Q24. Developer B deploys first and Developer A deploys an older commit later. Is the system fully protected?
+
+**Answer:**
+
+No. The current changed-file mechanism prevents unrelated file promotion, but an older deployment can still modify a file that was subsequently changed by a newer deployment. Deployment ordering/version protection is a separate concern.
+
+---
+
+### Q25. How would you explain this distinction?
+
+**Answer:**
+
+There are two independent problems:
+
+```text
+Change scope
+=
+Which files belong to this deployment?
+
+Deployment concurrency
+=
+Is this deployment newer/older than the state already in PROD?
+```
+
+The current implementation solves the first problem but not the second.
+
+---
+
+# 46. End-to-End Implementation Order
+
+The recommended implementation sequence is:
+
+```text
+1. Create GCP project
+       ↓
+2. Enable APIs
+       ↓
+3. Create Artifact Registry
+       ↓
+4. Create service account
+       ↓
+5. Configure IAM
+       ↓
+6. Create TEST bucket
+       ↓
+7. Create PROD bucket
+       ↓
+8. Create Airflow project structure
+       ↓
+9. Create requirements.txt
+       ↓
+10. Create Dockerfile
+       ↓
+11. Build Airflow image
+       ↓
+12. Push image to Artifact Registry
+       ↓
+13. Create docker-compose.yaml
+       ↓
+14. Start PostgreSQL/RabbitMQ/Airflow
+       ↓
+15. Verify Airflow
+       ↓
+16. Create/test DAGs
+       ↓
+17. Create plugins
+       ↓
+18. Create unit tests
+       ↓
+19. Run pytest
+       ↓
+20. Create Azure pipeline
+       ↓
+21. Configure Azure TEST environment
+       ↓
+22. Configure Azure PROD environment
+       ↓
+23. Add PROD approval
+       ↓
+24. Configure branch policy
+       ↓
+25. Test PR workflow
+       ↓
+26. Implement changed-file deployment
+       ↓
+27. Test A/M/D
+       ↓
+28. Test rename
+       ↓
+29. Test idempotent delete
+       ↓
+30. Test multi-developer isolation
+       ↓
+31. Test PROD approval
+       ↓
+32. Document concurrency limitation
+```
+
+---
+
+# 47. Final Architecture
+
+```text
+                         DEVELOPER
+                             |
+                             v
+                       Feature Branch
+                             |
+                             v
+                         Pull Request
+                             |
+                             v
+                       Azure Validation
+                             |
+                             v
+                           main
+                             |
+                             v
+                    +------------------+
+                    | Azure Pipeline   |
+                    +------------------+
+                             |
+                             v
+                       Unit Tests
+                             |
+                             v
+                     Docker Airflow Image
+                             |
+                             v
+                       deploy_test
+                             |
+                             v
+                  TEST Airflow GCS Bucket
+                             |
+                             v
+                     PROD Environment
+                         Approval
+                             |
+                             v
+                       deploy_prod
+                             |
+                             v
+                  PROD Airflow GCS Bucket
+                             |
+                             v
+                       Airflow Runtime
+                             |
+                             v
+                     Data Engineering
+                        Workflows
+```
+
+---
+
+# 48. Final Resource Checklist
+
+## GCP
+
+```text
+[ ] electric-tesla-507710-k2
+[ ] Artifact Registry: airflow
+[ ] custom-airflow:latest
+[ ] advworks-airflow-test
+[ ] advworks-airflow-prod
+[ ] practice service account
+[ ] Artifact Registry reader permission
+[ ] Storage object permissions
+```
+
+## Local
+
+```text
+[ ] Docker Desktop
+[ ] Python
+[ ] Git
+[ ] gcloud CLI
+[ ] Airflow Docker image
+[ ] docker-compose.yaml
+[ ] PostgreSQL
+[ ] RabbitMQ
+[ ] Airflow Webserver
+[ ] Scheduler
+[ ] Worker
+[ ] Triggerer
+```
+
+## Repository
+
+```text
+[ ] DAGS/
+[ ] plugins/
+[ ] Tests/
+[ ] Dockerfile
+[ ] requirements.txt
+[ ] docker-compose.yaml
+[ ] pytest.ini
+[ ] conftest.py
+[ ] Azure YAML
+```
+
+## Azure DevOps
+
+```text
+[ ] Repository
+[ ] Pipeline
+[ ] TEST Environment
+[ ] PROD Environment
+[ ] PROD approval
+[ ] Build validation
+[ ] Main branch policy
+[ ] Minimum reviewer
+[ ] PR workflow
+```
+
+---
+
+# 49. The Core Interview Story
+
+If asked:
+
+> "Tell me about the Airflow CI/CD architecture you implemented."
+
+A concise technical explanation is:
+
+```text
+I built a practice Airflow deployment architecture based on the
+Enterprise-style setup using Dockerized Airflow with CeleryExecutor,
+PostgreSQL and RabbitMQ.
+
+The Airflow DAGs and plugins are stored in Git and validated using
+pytest inside the same custom Airflow Docker image stored in Google
+Artifact Registry.
+
+After code is merged to main, Azure DevOps runs the unit tests and
+then deploys only the files changed by that commit to a TEST GCS
+bucket.
+
+The deployment detects Added, Modified, Deleted and Renamed files
+using git diff --name-status -M. Renames are implemented as delete
+old object plus copy new object, and deletes are made idempotent by
+checking object existence first.
+
+The PROD stage depends on TEST, requires the main branch condition,
+and is associated with a PROD Azure Environment where an approval
+can be configured before the actual production deployment.
+
+I also tested multi-developer scenarios to verify that a deployment
+does not simply copy the complete TEST environment into PROD.
+One remaining advanced concern is protection against out-of-order
+deployments, where an older deployment could modify a file after a
+newer deployment.
+```
+
+This is the core story tying the entire project together.
+
+create/prepare the resources in this order:
+
+GCP Project
+electric-tesla-507710-k2
+GCP billing account / active billing
+Required so GCP services and resources can be created.
+Required GCP APIs
+Artifact Registry API
+Cloud Storage API
+IAM API
+IAM Service Account Credentials API
+Compute/other APIs only if your eventual Airflow deployment requires them.
+GCP service account for CI/CD
+terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com
+IAM roles for the CI/CD service account
+Artifact Registry Reader
+Storage Object Admin on the Airflow TEST bucket
+Storage Object Admin on the Airflow PROD bucket
+GCP service-account JSON key
+practice-gcp-service-account.json
+Used by Azure DevOps to authenticate to GCP.
+Must not be committed to Git.
+Artifact Registry repository
+Repository: airflow
+Region: northamerica-northeast1
+Custom Airflow Docker image
+Repository/path:
+northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow/custom-airflow
+Current tag: latest
+Airflow Dockerfile
+Builds the custom Airflow image.
+Based on Airflow 2.11.0.
+Airflow requirements.txt
+Airflow dependencies
+pytest
+pytest-mock
+orjson
+Any future provider packages required by your DAGs.
+GCS TEST bucket
+gs://advworks-airflow-test
+
+GCS TEST folder structure
+
+gs://advworks-airflow-test/
+├── dags/
+├── plugins/
+GCS PROD bucket
+gs://advworks-airflow-prod
+
+GCS PROD folder structure
+
+gs://advworks-airflow-prod/
+├── dags/
+├── plugins/
+Azure DevOps Organization
+chetan... / your Azure DevOps organization
+Azure DevOps Project
+CHETAN_PROJECT
+Azure DevOps Git repository
+data-enginnering-practice
+Azure DevOps TEST - Airflow DAGS Environment
+Used by the deploy_test deployment job.
+Azure DevOps PROD - Airflow DAGS Environment
+Used by the deploy_prod deployment job.
+This is where the PROD approval/check is configured.
+Azure DevOps secure file
+practice-gcp-service-account.json
+Uploaded under Pipelines → Library → Secure files.
+Azure Pipeline
+Your Airflow YAML pipeline.
+Contains:
+unit_tests
+deploy_test
+deploy_prod
+
+Azure Pipeline variables
+
+python_version = 3.10
+REGISTRY_URL_TEST = northamerica-northeast1-docker.pkg.dev
+IMAGE_PATH_TEST = electric-tesla-507710-k2/airflow/custom-airflow
+Azure DevOps Build Validation policy
+Required on main.
+PR must pass the pipeline before merge.
+Azure DevOps minimum reviewer policy
+At least one reviewer for your practice setup.
+Azure DevOps main branch policy
+Direct changes to main should be prevented.
+
+Changes go:
+
+Feature branch
+    ↓
+Pull Request
+    ↓
+Build Validation
+    ↓
+Approval
+    ↓
+Merge to main
+Feature branches
+
+For example:
+
+feature/add-new-dag
+feature/modify-plugin
+feature/test-controlled-deployment
+Local Docker / Docker Compose environment
+Docker Desktop
+Docker Compose
+Used for local Airflow development/testing.
+Local PostgreSQL container
+Used by your docker-compose.yaml as the Airflow metadata database.
+Local RabbitMQ container
+Used as the Celery broker.
+Airflow Webserver
+Local:
+http://localhost:8080
+Airflow Scheduler
+Airflow Celery Worker
+Airflow Triggerer
+Airflow initialization container
+
+Runs:
+
+airflow db upgrade
+Airflow metadata database
+
+PostgreSQL database:
+
+airflow
+
+User:
+
+airflow
+RabbitMQ
+
+User:
+
+airflow
+Used by CeleryExecutor.
+Airflow Fernet key
+Used to encrypt sensitive Airflow connection/variable data.
+Airflow Webserver secret key
+Used for webserver/session security.
+
+Airflow DAG directory
+
+airflow-practice/DAGS/
+
+Airflow plugins directory
+
+airflow-practice/plugins/
+
+Airflow configuration directory
+
+airflow-practice/config/
+
+Airflow logs directory
+
+airflow-practice/logs/
+Airflow docker-compose.yaml
+
+Connects:
+
+Webserver
+Scheduler
+Worker
+Triggerer
+PostgreSQL
+RabbitMQ
+Airflow Dockerfile
+Builds the custom Airflow runtime used by Azure pipeline.
+
+Airflow unit tests
+
+airflow-practice/Tests/
+
+Pytest configuration
+
+airflow-practice/pytest.ini
+Python environment / dependencies
+Local .venv
+Python 3.10/compatible development environment.
+GitHub repository
+Your GitHub repository used as the second remote/source-control copy.
+
+Git remotes
+
+origin → GitHub
+azure → Azure DevOps
+Controlled-deployment Git logic
+
+Uses Git change detection:
+
+git diff --name-status -M HEAD~1 HEAD
+
+Handles:
+
+A = Add
+M = Modify
+D = Delete
+R = Rename
+
+GCS TEST deployment target
+
+gs://advworks-airflow-test/dags/
+gs://advworks-airflow-test/plugins/
+
+GCS PROD deployment target
+
+gs://advworks-airflow-prod/dags/
+gs://advworks-airflow-prod/plugins/
+Azure PROD approval/check
+Configured on:
+PROD - Airflow DAGS
+This controls whether the deploy_prod deployment can actually proceed.
+The overall dependency order
+
+The easiest way to remember the architecture is:
+
+1. GCP Project
+       ↓
+2. APIs + Billing
+       ↓
+3. GCP Service Account + IAM
+       ↓
+4. Artifact Registry
+       ↓
+5. Custom Airflow Docker Image
+       ↓
+6. TEST GCS Bucket
+       ↓
+7. PROD GCS Bucket
+       ↓
+8. Azure DevOps Project/Repo
+       ↓
+9. Azure Secure File
+       ↓
+10. Azure Pipeline Variables
+       ↓
+11. Azure TEST Environment
+       ↓
+12. Azure PROD Environment + Approval
+       ↓
+13. Branch Policies + Build Validation
+       ↓
+14. Local Airflow Docker Compose
+       ↓
+15. DAGs + Plugins + Tests
+       ↓
+16. Feature Branch → PR → main
+       ↓
+17. Unit Tests
+       ↓
+18. TEST GCS Deployment
+       ↓
+19. PROD Approval
+       ↓
+20. PROD GCS Deployment
+
+The minimum cloud/DevOps resource set for your current controlled-deployment pipeline is therefore essentially:
+
+GCP Project → Service Account/IAM → Artifact Registry → Airflow image → 2 GCS buckets → Azure Repo → Secure File → Pipeline → 2 Azure Environments → PROD approval → Branch/PR policies

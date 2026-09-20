@@ -47,7 +47,7 @@ LIST @DIMCUSTOMER_STAGE;
 LIST @ADVWORKS_DEV.LANDING.DIMCUSTOMER_STAGE;
 
 --Create the LANDING raw table
---Now we're going to use one of the most important concepts in your Canam-style architecture:
+--Now we're going to use one of the most important concepts in your enterprise-style architecture:
 --Raw data should initially remain raw.
 --We don't want to immediately create 30 typed columns.
 --Instead, we'll initially land each JSON record as a Snowflake VARIANT.

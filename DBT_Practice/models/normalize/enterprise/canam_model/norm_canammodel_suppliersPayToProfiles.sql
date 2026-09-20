@@ -2,7 +2,7 @@
   config(
     materialized = "view",
     alias = "suppliers_paytoprofiles",
-    schema='canam_model'
+    schema='enterprise_model'
   )
 }}
 
@@ -22,6 +22,6 @@ SELECT
     -- Arrays:
     , LOCATIONS_ARRAY               as PT_LOCATIONS_ARRAY
     , COMMUNICATIONS_ARRAY          as PT_COMMUNICATIONS_ARRAY
-from {{ref('prep_canammodel_suppliersPayToProfiles')}}
+from {{ref('prep_enterprisemodel_suppliersPayToProfiles')}}
 QUALIFY ROW_NUMBER() OVER (PARTITION BY SUPPLIERCODE, IFF(SUPPLIERCODE=PT_PROFILECODE, PT_SITECODE, PT_PROFILECODE) ORDER BY TO_TIMESTAMP_NTZ(metadata_file_last_modified) desc, METADATA_FILE_ROW_NUMBER desc,IFF(SUPPLIERCODE=PT_PROFILECODE, PT_SITECODE, PT_PROFILECODE)) = 1
 --qualify metadata_file_last_modified = max(metadata_file_last_modified) OVER (PARTITION BY suppliercode)

@@ -2,7 +2,7 @@
   config(
     materialized = "view",
     alias = "suppliers",
-    schema='canam_model'
+    schema='enterprise_model'
   )
 }}
 
@@ -25,6 +25,6 @@ COMPANYCODE::NUMBER(38,0) as COMPANYCODE
 , LOCATIONS_ARRAY as LOCATIONS_ARRAY
 , PAYTOPROFILES_ARRAY as PAYTOPROFILES_ARRAY
 , SHIPFROMPROFILES_ARRAY as SHIPFROMPROFILES_ARRAY
-from {{ref('prep_canammodel_suppliers')}}
+from {{ref('prep_enterprisemodel_suppliers')}}
 QUALIFY ROW_NUMBER() OVER (PARTITION BY SUPPLIERCODE ORDER BY TO_TIMESTAMP_NTZ(metadata_file_last_modified) desc, METADATA_FILE_ROW_NUMBER desc) = 1
 --qualify metadata_file_last_modified = max(metadata_file_last_modified) OVER (PARTITION BY suppliercode)

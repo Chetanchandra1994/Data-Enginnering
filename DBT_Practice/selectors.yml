@@ -47,58 +47,58 @@ selectors:
         - method: path
           value: "models/normalize/enterprise/bigquery/norm_bigquery_rdm.sql"  
 
-### Canam Manual
+### enterprise Manual
   - name: manual_entity_descriptions
     description: >
-      Description: Canam Manual Descriptions Entity
+      Description: enterprise Manual Descriptions Entity
       Status: 
     definition:
       union:
         - method: path
-          value: "models/prepare/enterprise/canam_manual/prep_manual_entity_descriptions.sql"
+          value: "models/prepare/enterprise/enterprise_manual/prep_manual_entity_descriptions.sql"
         - method: path
-          value: "models/normalize/enterprise/canam_manual/norm_manual_entity_descriptions.sql"   
+          value: "models/normalize/enterprise/enterprise_manual/norm_manual_entity_descriptions.sql"   
   - name: manual_rdm_descriptions
     description: >
-      Description: Canam Manual Descriptions
+      Description: enterprise Manual Descriptions
       Status: 
     definition:
       union:
         - method: path
-          value: "models/prepare/enterprise/canam_manual/prep_manual_rdm_descriptions.sql"
+          value: "models/prepare/enterprise/enterprise_manual/prep_manual_rdm_descriptions.sql"
         - method: path
-          value: "models/normalize/enterprise/canam_manual/norm_manual_rdm_descriptions.sql"     
+          value: "models/normalize/enterprise/enterprise_manual/norm_manual_rdm_descriptions.sql"     
   - name: manual_branch_office_business_unit_map
     description: >
-      Description: Canam Manual Branch Office Business Unit Map
+      Description: enterprise Manual Branch Office Business Unit Map
       Status: 
     definition:
       union:
         - method: path
-          value: "models/prepare/enterprise/canam_manual/prep_manual_branch_office_business_unit_map.sql"
+          value: "models/prepare/enterprise/enterprise_manual/prep_manual_branch_office_business_unit_map.sql"
         - method: path
-          value: "models/normalize/enterprise/canam_manual/norm_branch_office_business_unit_map.sql"                                       
+          value: "models/normalize/enterprise/enterprise_manual/norm_branch_office_business_unit_map.sql"                                       
   - name: manual_eis_office_name_map
     description: >
-      Description: Canam Manual EIS OFFICE NAME Map
+      Description: enterprise Manual EIS OFFICE NAME Map
       Status: 
     definition:
       union:
         - method: path
-          value: "models/prepare/enterprise/canam_manual/prep_manual_eis_office_name_map.sql"
+          value: "models/prepare/enterprise/enterprise_manual/prep_manual_eis_office_name_map.sql"
         - method: path
-          value: "models/normalize/enterprise/canam_manual/norm_manual_eis_office_name_map.sql" 
-### Canam Model
-  - name: canam_model_suppliers
+          value: "models/normalize/enterprise/enterprise_manual/norm_manual_eis_office_name_map.sql" 
+### enterprise Model
+  - name: enterprise_model_suppliers
     description: >
       Description:
       Status: PROD
     definition:
       union:
         - method: path
-          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliers.sql"
+          value: "models/prepare/enterprise/enterprise_model/prep_enterprisemodel_suppliers.sql"
         - method: path  
-          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliers.sql"
+          value: "models/normalize/enterprise/enterprise_model/norm_enterprisemodel_suppliers.sql"
   - name: suppliers_InvoiceFromProfiles
     description: >
       Description:
@@ -106,9 +106,9 @@ selectors:
     definition:
       union:
         - method: path
-          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersInvoiceFromProfiles.sql"
+          value: "models/prepare/enterprise/enterprise_model/prep_enterprisemodel_suppliersInvoiceFromProfiles.sql"
         - method: path  
-          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersInvoiceFromProfiles.sql"
+          value: "models/normalize/enterprise/enterprise_model/norm_enterprisemodel_suppliersInvoiceFromProfiles.sql"
   - name: suppliers_PayToProfiles
     description: >
       Description:
@@ -116,9 +116,9 @@ selectors:
     definition:
       union:
         - method: path
-          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersPayToProfiles.sql"
+          value: "models/prepare/enterprise/enterprise_model/prep_enterprisemodel_suppliersPayToProfiles.sql"
         - method: path  
-          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersPayToProfiles.sql"      
+          value: "models/normalize/enterprise/enterprise_model/norm_enterprisemodel_suppliersPayToProfiles.sql"      
 
 ### EBS
     ## Oracle tables
@@ -1379,9 +1379,9 @@ selectors:
         - method: path
           value: "models/normalize/manufacturing/mqtt/norm_spBv1.sql"
         - method: path
-          value: "models/prepare/manufacturing/mqtt/prep_canam.sql"
+          value: "models/prepare/manufacturing/mqtt/prep_enterprise.sql"
         - method: path
-          value: "models/normalize/manufacturing/mqtt/norm_canam.sql"
+          value: "models/normalize/manufacturing/mqtt/norm_enterprise.sql"
 
 #### Schematize & Marketplace tables - ENTERPRISE ####
 ### Dimensions GOLD
@@ -1403,11 +1403,11 @@ selectors:
         - method: path
           value: "models/schematize/enterprise/dimensions/sche_dim_Supplier.sql"
         - method: path
-          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliers.sql"
+          value: "models/prepare/enterprise/enterprise_model/prep_enterprisemodel_suppliers.sql"
         - method: path  
-          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliers.sql"
+          value: "models/normalize/enterprise/enterprise_model/norm_enterprisemodel_suppliers.sql"
         - method: path
-          value: "models/prepare/enterprise/canam_manual/prep_manual_rdm_descriptions.sql"
+          value: "models/prepare/enterprise/enterprise_manual/prep_manual_rdm_descriptions.sql"
   - name: dim_Invoice_From_Profile
     description: >
       Description:
@@ -2056,13 +2056,13 @@ selectors:
           value: "models/schematize/enterprise/facts/sche_fact_Supplier_Payment_Detail.sql"
       #NORMALIZE
         - method: path
-          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersInvoiceFromProfiles.sql"
+          value: "models/normalize/enterprise/enterprise_model/norm_enterprisemodel_suppliersInvoiceFromProfiles.sql"
         - method: path
-          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersPayToProfiles.sql"
+          value: "models/normalize/enterprise/enterprise_model/norm_enterprisemodel_suppliersPayToProfiles.sql"
         - method: path
-          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliers.sql"
+          value: "models/normalize/enterprise/enterprise_model/norm_enterprisemodel_suppliers.sql"
         - method: path
-          value: "models/normalize/enterprise/canam_manual/norm_manual_rdm_descriptions.sql"
+          value: "models/normalize/enterprise/enterprise_manual/norm_manual_rdm_descriptions.sql"
         - method: path
           value: "models/normalize/enterprise/googlesheet/norm_purchasing_agreement_register.sql"
         - method: path
@@ -2081,13 +2081,13 @@ selectors:
           value: "models/normalize/enterprise/bigquery/norm_bigquery_rdm.sql"   
       #PREPARE
         - method: path
-          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersInvoiceFromProfiles.sql"
+          value: "models/prepare/enterprise/enterprise_model/prep_enterprisemodel_suppliersInvoiceFromProfiles.sql"
         - method: path
-          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersPayToProfiles.sql"
+          value: "models/prepare/enterprise/enterprise_model/prep_enterprisemodel_suppliersPayToProfiles.sql"
         - method: path
-          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliers.sql"
+          value: "models/prepare/enterprise/enterprise_model/prep_enterprisemodel_suppliers.sql"
         - method: path
-          value: "models/prepare/enterprise/canam_manual/prep_manual_rdm_descriptions.sql"
+          value: "models/prepare/enterprise/enterprise_manual/prep_manual_rdm_descriptions.sql"
         - method: path
           value: "models/prepare/enterprise/googlesheet/prep_purchasing_agreement_register.sql"
         - method: path
@@ -2123,24 +2123,24 @@ selectors:
           value: "models/schematize/enterprise/dimensions/sche_dim_Supplier.sql"
       #NORMALIZE
         - method: path
-          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersInvoiceFromProfiles.sql"
+          value: "models/normalize/enterprise/enterprise_model/norm_enterprisemodel_suppliersInvoiceFromProfiles.sql"
         - method: path
-          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersPayToProfiles.sql"
+          value: "models/normalize/enterprise/enterprise_model/norm_enterprisemodel_suppliersPayToProfiles.sql"
         - method: path
-          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliers.sql"
+          value: "models/normalize/enterprise/enterprise_model/norm_enterprisemodel_suppliers.sql"
         - method: path
-          value: "models/normalize/enterprise/canam_manual/norm_manual_rdm_descriptions.sql" 
+          value: "models/normalize/enterprise/enterprise_manual/norm_manual_rdm_descriptions.sql" 
         - method: path
           value: "models/normalize/enterprise/bigquery/norm_bigquery_rdm.sql"  
       #PREPARE
         - method: path
-          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersInvoiceFromProfiles.sql"
+          value: "models/prepare/enterprise/enterprise_model/prep_enterprisemodel_suppliersInvoiceFromProfiles.sql"
         - method: path
-          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersPayToProfiles.sql"
+          value: "models/prepare/enterprise/enterprise_model/prep_enterprisemodel_suppliersPayToProfiles.sql"
         - method: path
-          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliers.sql"
+          value: "models/prepare/enterprise/enterprise_model/prep_enterprisemodel_suppliers.sql"
         - method: path
-          value: "models/prepare/enterprise/canam_manual/prep_manual_rdm_descriptions.sql"
+          value: "models/prepare/enterprise/enterprise_manual/prep_manual_rdm_descriptions.sql"
         - method: path
           value: "models/prepare/enterprise/bigquery/prep_bigquery_rdm.sql"
 
@@ -2190,11 +2190,11 @@ selectors:
         - method: path  
           value: "models/normalize/enterprise/ebs/norm_cm50_ap_checks_all.sql"
         - method: path
-          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersInvoiceFromProfiles.sql"
+          value: "models/normalize/enterprise/enterprise_model/norm_enterprisemodel_suppliersInvoiceFromProfiles.sql"
         - method: path
-          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersPayToProfiles.sql"
+          value: "models/normalize/enterprise/enterprise_model/norm_enterprisemodel_suppliersPayToProfiles.sql"
         - method: path
-          value: "models/normalize/enterprise/canam_model/norm_bigquery_rdm.sql"
+          value: "models/normalize/enterprise/enterprise_model/norm_bigquery_rdm.sql"
       #PREPARE
         - method: path
           value: "models/prepare/enterprise/ebs/prep_cm50_ap_invoice_payments.sql"
@@ -2205,9 +2205,9 @@ selectors:
         - method: path  
           value: "models/prepare/enterprise/ebs/prep_cm50_ap_checks_all.sql"
         - method: path
-          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersInvoiceFromProfiles.sql"
+          value: "models/prepare/enterprise/enterprise_model/prep_enterprisemodel_suppliersInvoiceFromProfiles.sql"
         - method: path
-          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersPayToProfiles.sql"
+          value: "models/prepare/enterprise/enterprise_model/prep_enterprisemodel_suppliersPayToProfiles.sql"
   - name: FULL_suppliers_invoices
     description: >
       Description:
@@ -2224,9 +2224,9 @@ selectors:
           value: "models/schematize/enterprise/dimensions/sche_dim_Invoice_From_Profile.sql"
       #NORMALIZE
         - method: path        
-          value: "models/normalize/enterprise/canam_model/norm_bigquery_rdm.sql"
+          value: "models/normalize/enterprise/enterprise_model/norm_bigquery_rdm.sql"
         - method: path        
-          value: "models/normalize/enterprise/canam_manual/norm_manual_rdm_descriptions.sql"
+          value: "models/normalize/enterprise/enterprise_manual/norm_manual_rdm_descriptions.sql"
         - method: path
           value: "models/normalize/enterprise/ebs/norm_cm50_ap_invoices_all.sql"
         - method: path  
@@ -2234,12 +2234,12 @@ selectors:
         - method: path  
           value: "models/normalize/enterprise/ebs/norm_cm50_po_supplier_site.sql"
         - method: path
-          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersInvoiceFromProfiles.sql"
+          value: "models/normalize/enterprise/enterprise_model/norm_enterprisemodel_suppliersInvoiceFromProfiles.sql"
       #PREPARE
         - method: path        
-          value: "models/prepare/enterprise/canam_model/prep_bigquery_rdm.sql"
+          value: "models/prepare/enterprise/enterprise_model/prep_bigquery_rdm.sql"
         - method: path        
-          value: "models/prepare/enterprise/canam_manual/prep_manual_rdm_descriptions.sql"
+          value: "models/prepare/enterprise/enterprise_manual/prep_manual_rdm_descriptions.sql"
         - method: path
           value: "models/prepare/enterprise/ebs/prep_cm50_ap_invoices_all.sql"
         - method: path  
@@ -2247,7 +2247,7 @@ selectors:
         - method: path  
           value: "models/prepare/enterprise/ebs/prep_cm50_po_supplier_site.sql"
         - method: path
-          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersInvoiceFromProfiles.sql"
+          value: "models/prepare/enterprise/enterprise_model/prep_enterprisemodel_suppliersInvoiceFromProfiles.sql"
 
   - name: FULL_project_event
     description: >
@@ -2310,11 +2310,11 @@ selectors:
         - method: path
           value: "models/normalize/enterprise/mdh/norm_employee.sql"    
         - method: path
-          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliers.sql"       
+          value: "models/normalize/enterprise/enterprise_model/norm_enterprisemodel_suppliers.sql"       
         - method: path
-          value: "models/normalize/enterprise/canam_manual/norm_manual_entity_descriptions.sql"   
+          value: "models/normalize/enterprise/enterprise_manual/norm_manual_entity_descriptions.sql"   
         - method: path
-          value: "models/normalize/enterprise/canam_manual/norm_manual_rdm_descriptions.sql"   
+          value: "models/normalize/enterprise/enterprise_manual/norm_manual_rdm_descriptions.sql"   
         - method: path
           value: "models/normalize/enterprise/spm_gdm/norm_people.sql"                                                                      
       #PREPARE
@@ -2343,11 +2343,11 @@ selectors:
         - method: path
           value: "models/prepare/enterprise/mdh/prep_employee.sql"                                  
         - method: path
-          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliers.sql"   
+          value: "models/prepare/enterprise/enterprise_model/prep_enterprisemodel_suppliers.sql"   
         - method: path
-          value: "models/prepare/enterprise/canam_manual/prep_manual_entity_descriptions.sql"   
+          value: "models/prepare/enterprise/enterprise_manual/prep_manual_entity_descriptions.sql"   
         - method: path
-          value: "models/prepare/enterprise/canam_manual/prep_manual_rdm_descriptions.sql"   
+          value: "models/prepare/enterprise/enterprise_manual/prep_manual_rdm_descriptions.sql"   
         - method: path
           value: "models/prepare/enterprise/spm_gdm/prep_people.sql"
                                
@@ -2582,7 +2582,7 @@ selectors:
         - method: path
           value: "models/normalize/enterprise/spm_gdm/norm_qc_office.sql"
         - method: path  
-          value: "models/normalize/enterprise/canam_manual/norm_branch_office_business_unit_map.sql"          
+          value: "models/normalize/enterprise/enterprise_manual/norm_branch_office_business_unit_map.sql"          
         - method: path  
           value: "models/normalize/enterprise/spm_gdm/norm_qc_branch_office.sql"          
         - method: path  
@@ -2607,9 +2607,9 @@ selectors:
         - method: path
           value: "models/marketplace/procurement_logistics/dataproducts_bronze/mkt_data_product_steel_purchase_orders_details.sql"
         - method: path
-          value: "models/prepare/enterprise/canam_manual/prep_dsa_steel_items_categ_custom.sql"
+          value: "models/prepare/enterprise/enterprise_manual/prep_dsa_steel_items_categ_custom.sql"
         - method: path
-          value: "models/normalize/enterprise/canam_manual/norm_dsa_steel_items_categ_custom.sql"    
+          value: "models/normalize/enterprise/enterprise_manual/norm_dsa_steel_items_categ_custom.sql"    
   - name: Custom_BI_8818
     description: >
       Description:
@@ -2911,7 +2911,7 @@ selectors:
     definition:
       union:
         - method: path
-          value: "models/normalize/enterprise/canam_manual/norm_branch_office_business_unit_map.sql"  
+          value: "models/normalize/enterprise/enterprise_manual/norm_branch_office_business_unit_map.sql"  
         - method: path
           value: "models/normalize/enterprise/spm_gdm/norm_business_unit.sql"        
         - method: path

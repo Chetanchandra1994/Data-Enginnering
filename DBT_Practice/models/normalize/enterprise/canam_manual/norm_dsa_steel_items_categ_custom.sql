@@ -2,7 +2,7 @@
   config(
     materialized = "view",
     alias = "dsa_steel_items_categ_custom",
-    schema='CANAM_MANUAL',
+    schema='enterprise_MANUAL',
     tags=["dsa_steel_items_categ_custom"]
   )
 }}

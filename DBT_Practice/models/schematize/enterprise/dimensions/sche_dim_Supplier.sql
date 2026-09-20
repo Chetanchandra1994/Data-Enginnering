@@ -27,7 +27,7 @@ SELECT
     , a.LOCATIONS_ARRAY[0].Route::STRING AS Route
     , a.LOCATIONS_ARRAY[0].POBoxNumber::STRING AS PO_Box_Number
     , a.LOCATIONS_ARRAY[0].PostalCode::STRING AS Postal_Code
-FROM {{ref('norm_canammodel_suppliers')}} AS a
+FROM {{ref('norm_enterprisemodel_suppliers')}} AS a
 LEFT JOIN {{ref('gov_referencedata_rdm')}} AS b
     ON a.NatureOfSupplyCode = b.STANDARD_APPLICATION_VALUE
     AND b.BUSINESS_APPLICATION_CODE = 'oracle-ebs'

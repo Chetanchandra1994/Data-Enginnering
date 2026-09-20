@@ -2,7 +2,7 @@
   config(
     materialized = "view",
     alias = "branch_office_business_unit_map",
-    schema='CANAM_MANUAL'
+    schema='enterprise_MANUAL'
   )
 }}
 

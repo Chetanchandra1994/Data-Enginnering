@@ -14,8 +14,8 @@ WITH SS_WEEKLY_DIM_DATE AS
 (   
     SELECT 
         DATE_KEY,
-        CANAM_WEEK_START_DATE,
-        CANAM_WEEK_NUMBER,
+        enterprise_WEEK_START_DATE,
+        enterprise_WEEK_NUMBER,
         CALENDAR_MONTH_NUMBER,
         CALENDAR_MONTH_NAME_EN,
         CALENDAR_YEAR,
@@ -27,8 +27,8 @@ WITH SS_WEEKLY_DIM_DATE AS
 ), SS_WEEKLY_PROJECT_BOOKING_AND_PROFIT_ESTIMATE AS
 (
 SELECT 
-    SWDD.CANAM_WEEK_START_DATE                                                      AS CANAM_WEEK_START_DATE,
-    SWDD.CANAM_WEEK_NUMBER                                                          AS CANAM_WEEK_NUMBER,
+    SWDD.enterprise_WEEK_START_DATE                                                      AS enterprise_WEEK_START_DATE,
+    SWDD.enterprise_WEEK_NUMBER                                                          AS enterprise_WEEK_NUMBER,
     SWDD.CALENDAR_MONTH_NUMBER                                                      AS CALENDAR_MONTH_NUMBER,
     SWDD.CALENDAR_MONTH_NAME_EN                                                     AS CALENDAR_MONTH_NAME_EN,
     SWDD.CALENDAR_YEAR                                                              AS CALENDAR_YEAR,
@@ -92,8 +92,8 @@ FROM SS_WEEKLY_DIM_DATE SWDD
             AND DD.DATE_KEY = FER.EXCHANGE_RATE_DATE_KEY AND DERT.EXCHANGE_RATE_TYPE_SK = FER.EXCHANGE_RATE_TYPE_SK
 WHERE DI.ITEM_CODE <> 'N/A' 
 GROUP BY 
-    SWDD.CANAM_WEEK_START_DATE,  
-    SWDD.CANAM_WEEK_NUMBER,
+    SWDD.enterprise_WEEK_START_DATE,  
+    SWDD.enterprise_WEEK_NUMBER,
     SWDD.CALENDAR_MONTH_NUMBER,
     SWDD.CALENDAR_MONTH_NAME_EN,
     SWDD.CALENDAR_YEAR,
@@ -129,8 +129,8 @@ GROUP BY
 UNION ALL
 
 SELECT 
-    SWDD.CANAM_WEEK_START_DATE                                                      AS CANAM_WEEK_START_DATE,
-    SWDD.CANAM_WEEK_NUMBER                                                          AS CANAM_WEEK_NUMBER,
+    SWDD.enterprise_WEEK_START_DATE                                                      AS enterprise_WEEK_START_DATE,
+    SWDD.enterprise_WEEK_NUMBER                                                          AS enterprise_WEEK_NUMBER,
     SWDD.CALENDAR_MONTH_NUMBER                                                      AS CALENDAR_MONTH_NUMBER,
     SWDD.CALENDAR_MONTH_NAME_EN                                                     AS CALENDAR_MONTH_NAME_EN,
     SWDD.CALENDAR_YEAR                                                              AS CALENDAR_YEAR,
@@ -201,8 +201,8 @@ FROM SS_WEEKLY_DIM_DATE SWDD
             AND DD.DATE_KEY = FER.EXCHANGE_RATE_DATE_KEY AND DERT.EXCHANGE_RATE_TYPE_SK = FER.EXCHANGE_RATE_TYPE_SK
 WHERE DI.ITEM_CODE <> 'N/A' 
 GROUP BY 
-    SWDD.CANAM_WEEK_START_DATE,  
-    SWDD.CANAM_WEEK_NUMBER,
+    SWDD.enterprise_WEEK_START_DATE,  
+    SWDD.enterprise_WEEK_NUMBER,
     SWDD.CALENDAR_MONTH_NUMBER,
     SWDD.CALENDAR_MONTH_NAME_EN,
     SWDD.CALENDAR_YEAR,
@@ -237,8 +237,8 @@ GROUP BY
 )
 
 SELECT 
-    CANAM_WEEK_START_DATE::DATE                                         AS CANAM_WEEK_START_DATE,
-    CANAM_WEEK_NUMBER::INTEGER                                          AS CANAM_WEEK_NUMBER,
+    enterprise_WEEK_START_DATE::DATE                                         AS enterprise_WEEK_START_DATE,
+    enterprise_WEEK_NUMBER::INTEGER                                          AS enterprise_WEEK_NUMBER,
     CALENDAR_MONTH_NUMBER::INTEGER                                      AS CALENDAR_MONTH_NUMBER,
     CALENDAR_MONTH_NAME_EN::STRING                                      AS CALENDAR_MONTH_NAME_EN,
     CALENDAR_YEAR::STRING                                               AS CALENDAR_YEAR,

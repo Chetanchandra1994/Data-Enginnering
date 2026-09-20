@@ -24,8 +24,8 @@ DATA:"no_projet" AS NO_PROJET
 ,DATA:"impr_histo" AS IMPR_HISTO
 ,DATA:"d_plans" AS D_PLANS
 ,DATA:"d_plans_sd" AS D_PLANS_SD
-,DATA:"appr_canam" AS APPR_CANAM
-,DATA:"d_app_canam" AS D_APP_CANAM
+,DATA:"appr_enterprise" AS APPR_enterprise
+,DATA:"d_app_enterprise" AS D_APP_enterprise
 ,DATA:"d_saisie" AS D_SAISIE
 ,DATA:"d_contrat" AS D_CONTRAT
 ,DATA:"type_appr" AS TYPE_APPR

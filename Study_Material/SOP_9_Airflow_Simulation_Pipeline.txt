@@ -1,0 +1,1623 @@
+# SOP-01 — CLONING any Enterprise AIRFLOW ARCHITECTURE INTO THE PRACTICE PROJECT
+
+**Project:** Data Engineering End-to-End Practice Project
+**Purpose:** Reproduce the relevant any Enterprise Airflow/DAG deployment architecture in an isolated personal GCP + Azure DevOps environment.
+
+---
+
+# 1. Objective
+
+The objective of this exercise was to take the Airflow/DAG deployment structure used at any Enterprise and reproduce its architecture in a personal practice environment without connecting the practice project to any Enterprise infrastructure.
+
+The resulting practice architecture is:
+
+```text
+                         GIT REPOSITORY
+                              |
+                              v
+                    Azure DevOps Pipeline
+                              |
+             +----------------+----------------+
+             |                                 |
+             v                                 v
+        Unit Tests                         Deployment
+             |                                 |
+             v                                 v
+        Docker Image                       TEST GCS
+             |                                 |
+             |                          Manual/automated
+             |                           verification
+             |                                 |
+             +----------------+----------------+
+                              |
+                              v
+                       PROD approval
+                              |
+                              v
+                          PROD GCS
+                              |
+                              v
+                       Airflow environment
+```
+
+The controlled deployment implementation additionally performs:
+
+```text
+Git commit
+    |
+    v
+git diff HEAD~1 HEAD
+    |
+    +---- A -> copy
+    +---- M -> copy
+    +---- D -> delete
+    +---- R -> delete old + copy new
+```
+
+Only changed DAG/plugin files are deployed.
+
+---
+
+# 2. any Enterprise Architecture Being Cloned
+
+The relevant any Enterprise Airflow architecture uses:
+
+```text
+Azure DevOps
+      |
+      v
+Azure Pipeline
+      |
+      +---- Unit tests
+      |
+      +---- Docker image
+      |
+      +---- TEST deployment
+      |
+      +---- PROD deployment
+                |
+                v
+             GCS DAGs
+             GCS plugins
+```
+
+any Enterprise's Airflow runtime is based around:
+
+* Apache Airflow
+* Docker
+* PostgreSQL
+* RabbitMQ
+* CeleryExecutor
+* DAGs
+* plugins
+* GCS
+* Artifact Registry
+* Azure DevOps
+* Azure Pipelines
+* TEST/PROD deployment environments
+
+The practice project intentionally preserves this architecture while replacing any Enterprise infrastructure with personal resources.
+
+---
+
+# 3. any Enterprise → Practice Resource Mapping
+
+| any Enterprise resource             | Practice resource                                                                                                   |
+| --------------------------          | ------------------------------------------------------------------------------------------------------------------- |
+| `Enterprise-resource`               | `electric-tesla-507710-k2`                                                                                          |
+| any Enterprise custom Airflow image | `northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow/custom-airflow:latest`                     |
+| any Enterprise TEST bucket          | `gs://advworks-airflow-test`                                                                                        |
+| any Enterprise PROD bucket          | `gs://advworks-airflow-prod`                                                                                        |
+| any Enterprise DAG path             | `airflow-practice/DAGS/`                                                                                            |
+| any Enterprise plugins path         | `airflow-practice/plugins/`                                                                                         |
+| any Enterprise TEST environment     | `TEST - Airflow DAGS`                                                                                               |
+| any Enterprise PROD environment     | `PROD - Airflow DAGS`                                                                                               |
+| any Enterprise service account      | `terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com` / practice GCP service account used by the pipeline |
+| any Enterprise repository           | Personal Azure/GitHub practice repository                                                                           |
+
+---
+
+# 4. Practice GCP Project
+
+Project:
+
+```text
+electric-tesla-507710-k2
+```
+
+Verify:
+
+[REPO ROOT / any PowerShell terminal]
+
+```powershell
+gcloud config get-value project
+```
+
+Expected:
+
+```text
+electric-tesla-507710-k2
+```
+
+If the active project is incorrect:
+
+```powershell
+gcloud config set project electric-tesla-507710-k2
+```
+
+Verify:
+
+```powershell
+gcloud projects describe electric-tesla-507710-k2
+```
+
+Expected output includes:
+
+```text
+projectId: electric-tesla-507710-k2
+```
+
+---
+
+# 5. Clone the any Enterprise Airflow Project Structure
+
+The original any Enterprise-style Airflow repository structure was copied into the practice repository while excluding the original Git history.
+
+The important principle was:
+
+```text
+DO NOT copy any Enterprise .git history
+```
+
+The practice project must have its own repository history.
+
+Resulting structure:
+
+```text
+airflow-practice/
+│
+├── config/
+├── DAGS/
+├── plugins/
+├── Tests/
+│
+├── Dockerfile
+├── docker-compose.yaml
+├── requirements.txt
+├── pytest.ini
+├── conftest.py
+├── selectors.yml
+├── webserver_config.py
+├── airflow-simulation.yml
+└── airflow-controlled-pipeline.yml
+```
+
+---
+
+# 6. Practice Docker Image
+
+The original any Enterprise Docker image reference was:
+
+```text
+Region-docker.pkg.dev/Enterprise-resource/airflow/custom-airflow:123456
+```
+
+It was changed to the practice image:
+
+```text
+northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow/custom-airflow:latest
+```
+
+This was the critical resource mapping inside `docker-compose.yaml`.
+
+The practice Dockerfile is:
+
+```dockerfile
+FROM apache/airflow:2.11.0
+
+COPY requirements.txt /tmp/requirements.txt
+
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+```
+
+---
+
+# 7. Practice Python Dependencies
+
+`airflow-practice/requirements.txt`:
+
+```text
+apache-airflow==2.11.0
+pytest
+pytest-mock
+orjson
+```
+
+The `orjson` dependency was added because the custom Airflow environment required it for the project code/tests.
+
+The image was subsequently rebuilt and pushed.
+
+Practice image:
+
+```text
+northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow/custom-airflow:latest
+```
+
+Known image digest:
+
+```text
+sha256:aa26f57dac51ec616bfefd9726e190183e24fb01f123dac598ec287e6e49eadd
+```
+
+---
+
+# 8. Verify Artifact Registry
+
+[ANY DIRECTORY]
+
+```powershell
+gcloud artifacts repositories list --location=northamerica-northeast1
+```
+
+Expected repository:
+
+```text
+airflow
+```
+
+Inspect repository:
+
+```powershell
+gcloud artifacts repositories describe airflow --location=northamerica-northeast1
+```
+
+List Docker images:
+
+```powershell
+gcloud artifacts docker images list northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow
+```
+
+List image versions:
+
+```powershell
+gcloud artifacts docker images list northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow/custom-airflow --include-tags
+```
+
+Expected:
+
+```text
+custom-airflow
+    latest
+```
+
+---
+
+# 9. Docker Authentication to Artifact Registry
+
+[ANY DIRECTORY]
+
+```powershell
+gcloud auth configure-docker northamerica-northeast1-docker.pkg.dev
+```
+
+Expected message similar to:
+
+```text
+Adding credentials for:
+northamerica-northeast1-docker.pkg.dev
+```
+
+Pull the practice image:
+
+```powershell
+docker pull northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow/custom-airflow:latest
+```
+
+Verify:
+
+```powershell
+docker images
+```
+
+---
+
+# 10. Docker Compose — any Enterprise Resources Replaced
+
+The any Enterprise image:
+
+```text
+northamerica-northeast1-docker.pkg.dev/Enterprise-resource/airflow/custom-airflow:162729
+```
+
+was replaced with:
+
+```text
+northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow/custom-airflow:latest
+```
+
+No other Airflow architecture was intentionally changed.
+
+The local services remain:
+
+```text
+postgres
+rabbitmq
+airflow-webserver
+airflow-scheduler
+airflow-worker
+airflow-triggerer
+airflow-init
+```
+
+---
+
+# 11. Local Airflow Architecture
+
+The compose file implements:
+
+```text
+                    Airflow Webserver
+                           |
+                           |
+                     PostgreSQL
+                           |
+            +--------------+--------------+
+            |              |              |
+        Scheduler       Worker        Triggerer
+            |              |
+            +------ RabbitMQ -----------+
+```
+
+Executor:
+
+```text
+CeleryExecutor
+```
+
+Database:
+
+```text
+PostgreSQL 13
+```
+
+Broker:
+
+```text
+RabbitMQ
+```
+
+---
+
+# 12. Start Airflow
+
+[AIRFLOW]
+
+```powershell
+docker compose up -d
+```
+
+Check containers:
+
+```powershell
+docker compose ps
+```
+
+Expected services include:
+
+```text
+airflow-webserver
+airflow-scheduler
+airflow-worker
+airflow-triggerer
+airflow-init
+postgres
+rabbitmq
+```
+
+Inspect logs:
+
+```powershell
+docker compose logs airflow-webserver
+```
+
+Scheduler:
+
+```powershell
+docker compose logs airflow-scheduler
+```
+
+Worker:
+
+```powershell
+docker compose logs airflow-worker
+```
+
+---
+
+# 13. Airflow UI
+
+Open:
+
+```text
+http://localhost:8080
+```
+
+Default development credentials from the compose configuration:
+
+```text
+Username: admin
+Password: admin
+```
+
+This is only for local practice.
+
+---
+
+# 14. Challenge — Docker Image Dependency Failure
+
+One challenge encountered was that the Airflow container did not initially have every Python dependency required by the project tests.
+
+Example:
+
+```text
+ModuleNotFoundError
+```
+
+The solution was:
+
+1. Identify missing dependency.
+2. Add dependency to `requirements.txt`.
+3. Rebuild the Docker image.
+4. Push the new image to Artifact Registry.
+5. Pull/use the updated image.
+6. Re-run tests.
+
+This established an important production principle:
+
+```text
+requirements.txt
+       ↓
+Dockerfile
+       ↓
+Docker image
+       ↓
+Artifact Registry
+       ↓
+CI pipeline
+```
+
+Dependencies should be reproducible through the image rather than manually installed on individual machines.
+
+---
+
+# 15. GCS TEST and PROD Buckets
+
+Practice buckets:
+
+```text
+gs://advworks-airflow-test
+gs://advworks-airflow-prod
+```
+
+Location:
+
+```text
+NORTHAMERICA-NORTHEAST1
+```
+
+The expected structure is:
+
+```text
+advworks-airflow-test/
+├── dags/
+└── plugins/
+```
+
+and:
+
+```text
+advworks-airflow-prod/
+├── dags/
+└── plugins/
+```
+
+---
+
+# 16. Create the Practice Buckets
+
+[ANY DIRECTORY]
+
+```powershell
+gcloud storage buckets create gs://advworks-airflow-test --location=NORTHAMERICA-NORTHEAST1
+```
+
+```powershell
+gcloud storage buckets create gs://advworks-airflow-prod --location=NORTHAMERICA-NORTHEAST1
+```
+
+If already created, do not recreate them.
+
+---
+
+# 17. Verify Buckets
+
+```powershell
+gcloud storage buckets list
+```
+
+Inspect TEST:
+
+```powershell
+gcloud storage buckets describe gs://advworks-airflow-test
+```
+
+Inspect PROD:
+
+```powershell
+gcloud storage buckets describe gs://advworks-airflow-prod
+```
+
+Expected location:
+
+```text
+location: NORTHAMERICA-NORTHEAST1
+```
+
+---
+
+# 18. Create Initial Folder Markers
+
+GCS does not have real directories. `dags/` and `plugins/` are object prefixes.
+
+The project used `.keep` objects to establish the initial structure.
+
+Example:
+
+```powershell
+New-Item -ItemType File .keep -Force
+gcloud storage cp .keep gs://advworks-airflow-test/dags/.keep
+gcloud storage cp .keep gs://advworks-airflow-test/plugins/.keep
+gcloud storage cp .keep gs://advworks-airflow-prod/dags/.keep
+gcloud storage cp .keep gs://advworks-airflow-prod/plugins/.keep
+Remove-Item .keep
+```
+
+Inspect:
+
+```powershell
+gcloud storage ls gs://advworks-airflow-test/dags/
+```
+
+```powershell
+gcloud storage ls gs://advworks-airflow-test/plugins/
+```
+
+---
+
+# 19. Service Account / IAM
+
+Practice service account:
+
+```text
+terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com
+```
+
+Relevant permissions include:
+
+```text
+roles/artifactregistry.reader
+roles/storage.objectAdmin
+```
+
+The storage permission was granted at bucket level for the practice buckets.
+
+Inspect service account:
+
+```powershell
+gcloud iam service-accounts describe terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com
+```
+
+Inspect project IAM:
+
+```powershell
+gcloud projects get-iam-policy electric-tesla-507710-k2
+```
+
+---
+
+# 20. Verify Bucket IAM
+
+[ANY DIRECTORY]
+
+```powershell
+gcloud storage buckets get-iam-policy gs://advworks-airflow-test
+```
+
+```powershell
+gcloud storage buckets get-iam-policy gs://advworks-airflow-prod
+```
+
+Confirm the practice deployment service account has appropriate object access.
+
+---
+
+# 21. Azure DevOps Pipeline — any Enterprise Baseline
+
+The original any Enterprise pipeline was adapted to the practice repository.
+
+Important path change:
+
+```text
+any Enterprise:
+$(Build.SourcesDirectory)/DAGS/
+
+Practice:
+$(Build.SourcesDirectory)/airflow-practice/DAGS/
+```
+
+Likewise:
+
+```text
+any Enterprise:
+$(Build.SourcesDirectory)/plugins/
+
+Practice:
+$(Build.SourcesDirectory)/airflow-practice/plugins/
+```
+
+The Docker mount became:
+
+```text
+$(Build.SourcesDirectory)/airflow-practice:/workspace
+```
+
+This is a repository-layout adaptation rather than a change in the deployment concept.
+
+---
+
+# 22. Practice Pipeline Flow
+
+```text
+unit_tests
+     |
+     v
+deploy_test
+     |
+     v
+deploy_prod
+```
+
+The deployment stages use:
+
+```text
+TEST - Airflow DAGS
+PROD - Airflow DAGS
+```
+
+as Azure DevOps Environments.
+
+---
+
+# 23. Unit Test Container
+
+The pipeline:
+
+```bash
+docker pull $(REGISTRY_URL_TEST)/$(IMAGE_PATH_TEST):latest
+```
+
+then:
+
+```bash
+docker run --rm \
+  -v $(Build.SourcesDirectory)/airflow-practice:/workspace \
+  -w /workspace \
+  -e PYTHONPATH=/workspace:/workspace/plugins \
+  -e PYTEST_ADDOPTS="-p no:cacheprovider" \
+  $(REGISTRY_URL_TEST)/$(IMAGE_PATH_TEST):latest \
+  bash -c "pip install -r requirements.txt -q && pytest Tests/ -v"
+```
+
+Conceptually:
+
+```text
+Docker image
+    +
+Current Git repository
+    ↓
+Test execution
+```
+
+The image supplies the runtime.
+
+The mounted repository supplies the current code being tested.
+
+---
+
+# 24. Why the Repository Is Mounted
+
+This:
+
+```bash
+-v $(Build.SourcesDirectory)/airflow-practice:/workspace
+```
+
+means:
+
+```text
+Azure agent repository
+        ↓
+Docker container
+        ↓
+/workspace
+```
+
+Therefore the container does not need a newly built image for every Git commit just to execute tests.
+
+---
+
+# 25. Controlled Deployment
+
+The original full-copy deployment created a serious problem:
+
+```text
+TEST contains:
+A
+B
+C
+
+Developer 1 changes A
+
+Pipeline:
+copy everything in TEST
+
+PROD receives:
+A
+B
+C
+```
+
+This could unintentionally promote another developer's work.
+
+The solution was changed-file deployment.
+
+---
+
+# 26. Changed File Detection
+
+[PIPELINE AGENT]
+
+```bash
+git diff --name-status -M HEAD~1 HEAD
+```
+
+Example:
+
+```text
+M airflow-practice/DAGS/foo.py
+A airflow-practice/DAGS/new.py
+D airflow-practice/DAGS/old.py
+R100 airflow-practice/DAGS/a.py airflow-practice/DAGS/b.py
+```
+
+Meaning:
+
+```text
+A = Added
+M = Modified
+D = Deleted
+R = Renamed
+```
+
+---
+
+# 27. Rename Detection
+
+The `-M` option enables rename detection:
+
+```bash
+git diff --name-status -M HEAD~1 HEAD
+```
+
+A rename may appear as:
+
+```text
+R095
+```
+
+rather than exactly:
+
+```text
+R100
+```
+
+Therefore the pipeline intentionally checks:
+
+```bash
+[[ "$status" == R* ]]
+```
+
+rather than:
+
+```bash
+[[ "$status" == "R100" ]]
+```
+
+This handles different Git rename similarity scores.
+
+---
+
+# 28. Rename Deployment Logic
+
+GCS does not use the same native rename operation as a local filesystem.
+
+Therefore:
+
+```text
+Rename:
+old.py → new.py
+```
+
+becomes:
+
+```text
+DELETE old.py
+COPY new.py
+```
+
+The deployment logic:
+
+```bash
+gcloud storage rm "gs://bucket/path/old.py"
+
+gcloud storage cp \
+  "local/path/new.py" \
+  "gs://bucket/path/new.py"
+```
+
+---
+
+# 29. Idempotent Deletion
+
+A problem encountered was:
+
+```text
+gcloud storage rm
+```
+
+failing if the object was already absent.
+
+The solution was to check existence first:
+
+```bash
+if gcloud storage ls \
+  "gs://bucket/path/file.py" \
+  >/dev/null 2>&1
+then
+    gcloud storage rm \
+      "gs://bucket/path/file.py"
+else
+    echo "File is already absent"
+fi
+```
+
+This makes deletion idempotent.
+
+---
+
+# 30. Controlled Deployment Results
+
+The following scenarios were successfully tested:
+
+```text
+A — Added
+M — Modified
+D — Deleted
+R — Renamed
+```
+
+Also tested:
+
+* multiple DAG changes
+* multiple plugin changes
+* simultaneous developer changes
+* TEST-only changes
+* PROD deployment of selected changes
+* rename detection
+* deletion of already-absent objects
+* unrelated files remaining untouched
+
+---
+
+# 31. Multi-Developer Safety Test
+
+Scenario:
+
+```text
+Developer A
+    |
+    +--> Change A
+    |
+    +--> TEST
+
+Developer B
+    |
+    +--> Change B
+    |
+    +--> TEST
+    |
+    +--> PROD
+```
+
+Then A was deployed later.
+
+Because the pipeline processes:
+
+```bash
+git diff HEAD~1 HEAD
+```
+
+A's deployment only contained A's changed files.
+
+It did not perform:
+
+```text
+copy entire TEST bucket
+```
+
+Therefore B's newer files were not automatically copied by A's deployment.
+
+This demonstrated the main controlled-deployment objective.
+
+---
+
+# 32. Important Limitation Discovered
+
+The testing also exposed an important limitation.
+
+Scenario:
+
+```text
+Developer A
+    |
+    v
+older commit
+    |
+    v
+TEST
+
+Developer B
+    |
+    v
+newer commit
+    |
+    v
+TEST
+    |
+    v
+PROD
+
+Developer A
+    |
+    v
+older commit
+    |
+    v
+PROD
+```
+
+The changed-file mechanism prevents unrelated files from being copied, but it does not by itself prevent an older deployment from modifying a file after a newer deployment.
+
+Therefore two separate problems must be distinguished:
+
+```text
+Problem 1:
+Which files does THIS commit change?
+        ↓
+Solved by A/M/D/R detection.
+
+Problem 2:
+Can an older deployment overwrite newer PROD state?
+        ↓
+Not solved by the current mechanism.
+```
+
+This becomes a future advanced CI/CD improvement.
+
+---
+
+# 33. Azure Environment Approval
+
+Azure environments:
+
+```text
+TEST - Airflow DAGS
+PROD - Airflow DAGS
+```
+
+The PROD environment can have an approval/check configured.
+
+The deployment sequence becomes:
+
+```text
+unit_tests
+    ↓
+deploy_test
+    ↓
+TEST success
+    ↓
+deploy_prod becomes eligible
+    ↓
+PROD Environment
+    ↓
+Approval
+    ↓
+PROD deployment
+```
+
+---
+
+# 34. Three Deployment Controls
+
+### `dependsOn`
+
+```yaml
+dependsOn: deploy_test
+```
+
+Means:
+
+```text
+deploy_prod depends on deploy_test
+```
+
+### `condition`
+
+```yaml
+condition: and(
+  succeeded(),
+  eq(variables['Build.SourceBranch'], 'refs/heads/main')
+)
+```
+
+Means:
+
+```text
+previous dependency must succeed
+AND
+execution must be from main
+```
+
+### Azure Environment approval
+
+```yaml
+environment: 'PROD - Airflow DAGS'
+```
+
+means the PROD deployment is subject to the checks/approval configured on that Azure Environment.
+
+The three concepts are:
+
+```text
+dependsOn
+    =
+dependency/order
+
+condition
+    =
+eligibility
+
+Environment approval
+    =
+authorization
+```
+
+---
+
+# 35. PR Workflow
+
+The intended final Git workflow is:
+
+```text
+feature branch
+      |
+      v
+push
+      |
+      v
+Pull Request
+      |
+      v
+PR validation
+      |
+      v
+review/approval
+      |
+      v
+merge to main
+      |
+      v
+main pipeline
+      |
+      v
+unit_tests
+      |
+      v
+TEST
+      |
+      v
+PROD approval
+      |
+      v
+PROD
+```
+
+Pipeline trigger:
+
+```yaml
+trigger:
+  branches:
+    include:
+      - main
+```
+
+PR validation:
+
+```yaml
+pr:
+  branches:
+    include:
+      - "*"
+```
+
+---
+
+# 36. Azure Branch Policy
+
+Recommended practice configuration:
+
+```text
+Minimum reviewers:
+1
+
+Allow requestor to approve:
+OFF
+
+Prohibit most recent pusher from approving:
+ON
+
+Allow completion with rejected/waiting reviewers:
+OFF
+
+Build validation:
+ON / Required
+
+Status checks:
+0
+
+Automatic reviewers:
+0
+```
+
+The branch policy forces the normal:
+
+```text
+feature → PR → validation → approval → merge
+```
+
+workflow.
+
+---
+
+# 37. Git Commands Used in the Workflow
+
+[REPO ROOT]
+
+Create feature branch:
+
+```powershell
+git switch main
+```
+
+```powershell
+git pull azure main
+```
+
+```powershell
+git switch -c feature/test-pr
+```
+
+Check:
+
+```powershell
+git status
+```
+
+Stage:
+
+```powershell
+git add .
+```
+
+Commit:
+
+```powershell
+git commit -m "Test PR workflow"
+```
+
+Push:
+
+```powershell
+git push -u azure feature/test-pr
+```
+
+Then create:
+
+```text
+feature/test-pr → main
+```
+
+Pull Request in Azure DevOps.
+
+---
+
+# 38. Major Challenges and Solutions
+
+| Challenge                                              | Solution                                             |
+| --------------------------------------------           | ---------------------------------------------------- |
+| any Enterprise resources in practice compose file      | Replace any Enterprise Artifact Registry image       |
+| Missing Python dependency                              | Add dependency to requirements.txt and rebuild image |
+| Full GCS copy leaked other developer changes           | Implement changed-file deployment                    |
+| Renames not detected correctly                         | Use `git diff --name-status -M`                      |
+| `R095` instead of `R100`                               | Match `R*`                                           |
+| Delete failed when object was absent                   | `gcloud storage ls` existence check                  |
+| PROD received unrelated TEST files                     | Deploy only commit-specific changes                  |
+| Need human PROD authorization                          | Azure PROD Environment approval                      |
+| Feature branch should not deploy                       | Main-branch condition                                |
+| TEST must precede PROD                                 | `dependsOn: deploy_test`                             |
+| Need reproducible runtime                              | Custom Docker image                                  |
+| Need isolated practice environment                     | Personal GCP project/buckets/service account         |
+
+---
+
+# 39. Final Cloned Architecture
+
+```text
+                    Git / Azure DevOps
+                           |
+                           v
+                     Feature Branch
+                           |
+                           v
+                           PR
+                           |
+                           v
+                      Unit Tests
+                           |
+                           v
+                         main
+                           |
+                           v
+                    Azure Pipeline
+                           |
+                           v
+                      Docker image
+                           |
+                           v
+                    deploy_test
+                           |
+                           v
+               gs://advworks-airflow-test
+                    /dags
+                    /plugins
+                           |
+                           v
+                    PROD approval
+                           |
+                           v
+                    deploy_prod
+                           |
+                           v
+               gs://advworks-airflow-prod
+                    /dags
+                    /plugins
+```
+
+This is the practice clone of the any Enterprise Airflow deployment architecture.
+
+---
+
+# 40. Verification Checklist
+
+Before considering the cloned architecture functional:
+
+```text
+[ ] GCP project correct
+[ ] Artifact Registry exists
+[ ] Practice Airflow image exists
+[ ] Docker can pull image
+[ ] Docker Compose starts
+[ ] PostgreSQL healthy
+[ ] RabbitMQ healthy
+[ ] Airflow webserver healthy
+[ ] Scheduler running
+[ ] Worker running
+[ ] TEST bucket exists
+[ ] PROD bucket exists
+[ ] DAG path exists
+[ ] Plugin path exists
+[ ] Service account has required permissions
+[ ] Azure pipeline runs
+[ ] Unit tests pass
+[ ] TEST deployment works
+[ ] A/M/D work
+[ ] Rename works
+[ ] Idempotent delete works
+[ ] PROD approval works
+[ ] PROD deployment works
+[ ] Multi-developer isolation tested
+```
+
+create/prepare the resources in this order:
+
+GCP Project
+electric-tesla-507710-k2
+GCP billing account / active billing
+Required so GCP services and resources can be created.
+Required GCP APIs
+Artifact Registry API
+Cloud Storage API
+IAM API
+IAM Service Account Credentials API
+Compute/other APIs only if your eventual Airflow deployment requires them.
+GCP service account for CI/CD
+terraform-ci@electric-tesla-507710-k2.iam.gserviceaccount.com
+IAM roles for the CI/CD service account
+Artifact Registry Reader
+Storage Object Admin on the Airflow TEST bucket
+Storage Object Admin on the Airflow PROD bucket
+GCP service-account JSON key
+practice-gcp-service-account.json
+Used by Azure DevOps to authenticate to GCP.
+Must not be committed to Git.
+Artifact Registry repository
+Repository: airflow
+Region: northamerica-northeast1
+Custom Airflow Docker image
+Repository/path:
+northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow/custom-airflow
+Current tag: latest
+Airflow Dockerfile
+Builds the custom Airflow image.
+Based on Airflow 2.11.0.
+Airflow requirements.txt
+Airflow dependencies
+pytest
+pytest-mock
+orjson
+Any future provider packages required by your DAGs.
+GCS TEST bucket
+gs://advworks-airflow-test
+
+GCS TEST folder structure
+
+gs://advworks-airflow-test/
+├── dags/
+├── plugins/
+GCS PROD bucket
+gs://advworks-airflow-prod
+
+GCS PROD folder structure
+
+gs://advworks-airflow-prod/
+├── dags/
+├── plugins/
+Azure DevOps Organization
+chetan... / your Azure DevOps organization
+Azure DevOps Project
+CHETAN_PROJECT
+Azure DevOps Git repository
+data-enginnering-practice
+Azure DevOps TEST - Airflow DAGS Environment
+Used by the deploy_test deployment job.
+Azure DevOps PROD - Airflow DAGS Environment
+Used by the deploy_prod deployment job.
+This is where the PROD approval/check is configured.
+Azure DevOps secure file
+practice-gcp-service-account.json
+Uploaded under Pipelines → Library → Secure files.
+Azure Pipeline
+Your Airflow YAML pipeline.
+Contains:
+unit_tests
+deploy_test
+deploy_prod
+
+Azure Pipeline variables
+
+python_version = 3.10
+REGISTRY_URL_TEST = northamerica-northeast1-docker.pkg.dev
+IMAGE_PATH_TEST = electric-tesla-507710-k2/airflow/custom-airflow
+Azure DevOps Build Validation policy
+Required on main.
+PR must pass the pipeline before merge.
+Azure DevOps minimum reviewer policy
+At least one reviewer for your practice setup.
+Azure DevOps main branch policy
+Direct changes to main should be prevented.
+
+Changes go:
+
+Feature branch
+    ↓
+Pull Request
+    ↓
+Build Validation
+    ↓
+Approval
+    ↓
+Merge to main
+Feature branches
+
+For example:
+
+feature/add-new-dag
+feature/modify-plugin
+feature/test-controlled-deployment
+Local Docker / Docker Compose environment
+Docker Desktop
+Docker Compose
+Used for local Airflow development/testing.
+Local PostgreSQL container
+Used by your docker-compose.yaml as the Airflow metadata database.
+Local RabbitMQ container
+Used as the Celery broker.
+Airflow Webserver
+Local:
+http://localhost:8080
+Airflow Scheduler
+Airflow Celery Worker
+Airflow Triggerer
+Airflow initialization container
+
+Runs:
+
+airflow db upgrade
+Airflow metadata database
+
+PostgreSQL database:
+
+airflow
+
+User:
+
+airflow
+RabbitMQ
+
+User:
+
+airflow
+Used by CeleryExecutor.
+Airflow Fernet key
+Used to encrypt sensitive Airflow connection/variable data.
+Airflow Webserver secret key
+Used for webserver/session security.
+
+Airflow DAG directory
+
+airflow-practice/DAGS/
+
+Airflow plugins directory
+
+airflow-practice/plugins/
+
+Airflow configuration directory
+
+airflow-practice/config/
+
+Airflow logs directory
+
+airflow-practice/logs/
+Airflow docker-compose.yaml
+
+Connects:
+
+Webserver
+Scheduler
+Worker
+Triggerer
+PostgreSQL
+RabbitMQ
+Airflow Dockerfile
+Builds the custom Airflow runtime used by Azure pipeline.
+
+Airflow unit tests
+
+airflow-practice/Tests/
+
+Pytest configuration
+
+airflow-practice/pytest.ini
+Python environment / dependencies
+Local .venv
+Python 3.10/compatible development environment.
+GitHub repository
+Your GitHub repository used as the second remote/source-control copy.
+
+Git remotes
+
+origin → GitHub
+azure → Azure DevOps
+Controlled-deployment Git logic
+
+Uses Git change detection:
+
+git diff --name-status -M HEAD~1 HEAD
+
+Handles:
+
+A = Add
+M = Modify
+D = Delete
+R = Rename
+
+GCS TEST deployment target
+
+gs://advworks-airflow-test/dags/
+gs://advworks-airflow-test/plugins/
+
+GCS PROD deployment target
+
+gs://advworks-airflow-prod/dags/
+gs://advworks-airflow-prod/plugins/
+Azure PROD approval/check
+Configured on:
+PROD - Airflow DAGS
+This controls whether the deploy_prod deployment can actually proceed.
+The overall dependency order
+
+The easiest way to remember the architecture is:
+
+1. GCP Project
+       ↓
+2. APIs + Billing
+       ↓
+3. GCP Service Account + IAM
+       ↓
+4. Artifact Registry
+       ↓
+5. Custom Airflow Docker Image
+       ↓
+6. TEST GCS Bucket
+       ↓
+7. PROD GCS Bucket
+       ↓
+8. Azure DevOps Project/Repo
+       ↓
+9. Azure Secure File
+       ↓
+10. Azure Pipeline Variables
+       ↓
+11. Azure TEST Environment
+       ↓
+12. Azure PROD Environment + Approval
+       ↓
+13. Branch Policies + Build Validation
+       ↓
+14. Local Airflow Docker Compose
+       ↓
+15. DAGs + Plugins + Tests
+       ↓
+16. Feature Branch → PR → main
+       ↓
+17. Unit Tests
+       ↓
+18. TEST GCS Deployment
+       ↓
+19. PROD Approval
+       ↓
+20. PROD GCS Deployment
+
+The minimum cloud/DevOps resource set for your current controlled-deployment pipeline is therefore essentially:
+
+GCP Project → Service Account/IAM → Artifact Registry → Airflow image → 2 GCS buckets → Azure Repo → Secure File → Pipeline → 2 Azure Environments → PROD approval → Branch/PR policies

@@ -2,7 +2,7 @@
   config(
     materialized = "view",
     alias = "entity_descriptions",
-    schema='CANAM_MANUAL'
+    schema='enterprise_MANUAL'
   )
 }}
 

@@ -1,17 +1,17 @@
-# Welcome to the Group Canam Enterprise Team DBT project  #
+# Welcome to the Group enterprise Enterprise Team DBT project  #
 
-The Enterprise team is responsible for providing data services and tools that will help generate business insights for the entire Canam organization. 
+The Enterprise team is responsible for providing data services and tools that will help generate business insights for the entire enterprise organization. 
 
 Data can be consumed directly from Snowflake by power users (via the Snowflake UI, python, etc.) or via BI reporting tools like Tableau. 
 
 Data from the following sources have been ingested so far:
 
 - Oracle's EBS
-- Canam's proprietary Supplier model.
-- Canam's RDM via Big Query.
+- enterprise's proprietary Supplier model.
+- enterprise's RDM via Big Query.
 - SPM data (factory production data)  
 
-Most of the data is automatically ingested using Snowpipes which load data written to GCP (more information in this [repo](https://dev.azure.com/canamgroup/Data%20Platform/_git/snowpipe-terraform)).
+Most of the data is automatically ingested using Snowpipes which load data written to GCP (more information in this [repo](https://dev.azure.com/enterprisegroup/Data%20Platform/_git/snowpipe-terraform)).
 
 ## Repository Structure ##
 
@@ -20,7 +20,7 @@ Most of the data is automatically ingested using Snowpipes which load data writt
 ├── models/
 │   ├── landing/            # Includes a landing.yml detailing where to get the source data from. 
 │   ├── prepare/       
-│       ├── /{sources}/     # sources ∈ {bigquery, ebs, canam_model, ...}.
+│       ├── /{sources}/     # sources ∈ {bigquery, ebs, enterprise_model, ...}.
 │   ├── normalize/ 
 │       ├── /{sources}/      
 |   ├── schematize/     
@@ -53,7 +53,7 @@ acquire data from Google Cloud Storage (CGS) and write it to this layer).
 2. PREPARE: Where (if needed) we transform/flatten the raw data (often .json)
 in a workable table structure.
 3. NORMALIZE: This is where the data is cleaned and standardized to an
-agreed-upon Canam format (for dates, numbers, currencies, locations,
+agreed-upon enterprise format (for dates, numbers, currencies, locations,
 addresses, etc.). 
 This is also where we use the **RDM** information to standardize some fields.
 This is also where data is **deduplicated**. 
@@ -63,7 +63,7 @@ schema.
 value-added (dataproducts & reporting) tables developed for reporting (+ other needs) 
 and the finalized dimensions and facts tables of the star schema for the power-users of the business.
 
-6. GOVERNANCE: Contains reference data, master data, policies, and metadata that are officially managed and approved by data stewards at Groupe Canam.
+6. GOVERNANCE: Contains reference data, master data, policies, and metadata that are officially managed and approved by data stewards at Groupe enterprise.
 
 ────────────
 
@@ -142,8 +142,8 @@ Additional documentation [here](https://docs.getdbt.com/reference/dbt-commands)
 **Note1**: you can run specifc dbt models using the --select flag.<br>
 **Note2**: you can run specific target profiles using the --target  flag.
 
-For example, executing `dbt run --select models/normalize/canam_model/norm_canammodel_suppliersInvoiceFromProfiles.sql --target local` <br>
-will only build the canam_model.suppliersInvoiceFromProfiles view in Snowflake in the database associated with your SANDBOX.
+For example, executing `dbt run --select models/normalize/enterprise_model/norm_enterprisemodel_suppliersInvoiceFromProfiles.sql --target local` <br>
+will only build the enterprise_model.suppliersInvoiceFromProfiles view in Snowflake in the database associated with your SANDBOX.
 
 
 ## Best practices & syntax ##
@@ -159,7 +159,7 @@ will only build the canam_model.suppliersInvoiceFromProfiles view in Snowflake i
 
 - **Naming .sql files**: 
 <br><br> For the 🟡 prepare and 🟠 normalize layers, the naming convention should be {*layer_abbreviation*}\_{*source_abbreviation*}_{*data_object_name_snake_case*}.sql
-<br> So *layer_abbreviation* ∈ {prep, norm}, (so far) *source_abbreviation* ∈ {bigquery, manual, canammoodel, cm50} 
+<br> So *layer_abbreviation* ∈ {prep, norm}, (so far) *source_abbreviation* ∈ {bigquery, manual, enterprisemoodel, cm50} 
 <br><br><mark>I think SPM source data needs to be revised and snake_case implemented for all objects.</mark>
 
     <br> For the 🔵 schematize and 🟢 marketplace layers, the naming convention should be {*layer_abbreviation*}\_{*data_category_abbreviation*}_{*data_object_name_snake_case*}.sql
@@ -167,7 +167,7 @@ will only build the canam_model.suppliersInvoiceFromProfiles view in Snowflake i
 
 - **Folder structure for the dbt model layers**: 
 
-    See the [Repository Structure](#Repository Structure) section. It is by source (ex: bigquery, canam_model, ebs, etc.) for the 🟡 prepare and 🟠 normalize layers. It is by data_category (ex: dimensions, facts, dataproducts, visuals) for the 🔵 schematize and 🟢 marketplace layers.
+    See the [Repository Structure](#Repository Structure) section. It is by source (ex: bigquery, enterprise_model, ebs, etc.) for the 🟡 prepare and 🟠 normalize layers. It is by data_category (ex: dimensions, facts, dataproducts, visuals) for the 🔵 schematize and 🟢 marketplace layers.
 
 - **SQL syntax styling**: 
 
