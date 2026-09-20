@@ -1,0 +1,20 @@
+# vscode IDE
+.vscode/
+
+# dbt specific
+target/
+logs/
+dbt_packages/
+dbt_modules/
+.user.yml
+
+# Virtual Environments
+venv/
+
+### AUTODBT ###
+# Google API credentials file (for autodbt)
+credentials.json
+token.json
+
+sample_data/
+

@@ -1,0 +1,8 @@
+version: 2
+
+models:
+  - name: mkt_dataproduct_invoice_and_payment_daily
+    columns:
+      - name: Supplier_Payment_Detail_sk
+        tests:
+          - unique

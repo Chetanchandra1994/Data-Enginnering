@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 1. Install dependencies from the doc subfolder
+COPY doc/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 2. Copy the server script from the doc subfolder
+COPY doc/main.py .
+
+# 3. Copy the docs from the target folder created by dbt at root
+COPY target/ ./target/
+
+CMD exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 main:app

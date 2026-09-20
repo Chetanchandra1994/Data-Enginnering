@@ -1,0 +1,756 @@
+version: 2
+
+models:
+  - name: norm_cmg_task #
+    config: 
+      schema: SPM_GDM
+    columns:
+      - name: SALES_GROUP_CODE
+        description: "Sales Group Code of the task (imported from Oracle)."
+      - name: RDM_ACTIVE_STATUS_CODE
+        description: "Standard code value of the active status"
+      - name: RDM_ACTIVE_STATUS_NAME_FR
+        description: "Standard name value of the active status in french"
+      - name: RDM_ACTIVE_STATUS_NAME_EN
+        description: "Standard name value of the active status in english"            
+  - name: norm_data_name #
+    config: 
+      schema: SPM_GDM
+    columns:
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: DATA_NAME_UUID
+        description: "Unique UUID"
+  - name: norm_project # ##
+    config: 
+      schema: SPM_GDM
+    columns:
+      - name: PROJECT_ID
+        description: "Unique record identifier from next_project_id sequence"
+      - name: PROJECT_NAME
+        description: "Project full name"
+      - name: PROJECT_SHORT_NAME
+        description: "Project short name"
+      - name: PROJECT_CODE
+        description: "Master project number.  Fed by SPM."
+      - name: QUOTATION_CODE
+        description: "Quotation Number"
+      - name: QUOTATION_DATE
+        description: "Date of quotation"
+      - name: CONTRACT_CODE
+        description: "Contract Number"
+      - name: CONTRACT_DATE
+        description: "Date the contract take effect"
+      - name: CUSTOMER_PROJECT_CODE
+        description: "Customer Project Number"
+      - name: PROJECT_STATUS_CODE
+        description: "Project status code linked to gdm.description. 0: Inactive, 1: Active, 2: On hold, 3: Cancelled."
+      #- name: CREATED_BY
+      #  description: "Creator of the record"
+      - name: LAST_UPDATED_BY
+        description: "User who updated the record"
+      - name: CUSTOMER_PO
+        description: "Customer Purchase Order Number"
+      - name: CURRENCY_CODE
+        description: "Currency code from SPM"
+      - name: REPORT_TEMPLATE_ID
+        description: "Default Report Template ID"
+      - name: BUSINESS_UNIT_ID
+        description: "ID to business_unit table"
+      - name: ESTIMATED_SHIPPING_DATE
+        description: "Estimated shipping date"
+      - name: EXTRA_PREFIX
+        description: "Prefix for all the extras of the project"
+      - name: MASTER_PROJECT_ID
+        description: "Financial parent project for consolidation purpose. Linked to gdm.project.project_id"
+      - name: LINK_DB_ALIAS
+        description: "Linked database identifier"
+      - name: PROJECT_SOURCE_CODE
+        description: "From which application the project has been created from (CMS,SPM,etc)"
+      - name: ERECTION_ADVANCEMENT_PERCENTAGE
+        description: "Erection advancement percentage of the project for owners application purpose."
+      - name: BILL_TO_CUSTOMER_UUID
+        description: "Field linked to the table gdm.customer(customer_uuid)"
+      - name: ERECTOR_PRIVILEGE_PARENT_PROJ_ID
+        description: "Parent project id (link to the master project for Turbo Package project sales)"
+      #- name: JOB_SITE_IMAGE_PATH
+      #  description: "Job site image path."
+      #- name: ERECTION_TARGET_END_DATE
+      #  description: "Erection target end date."
+      #- name: ERECTION_REVISED_END_DATE
+      #  description: "Erection revised end date."
+      - name: ERECTOR_PRIVILEGE_INCLUDED
+        description: "Yes: Erector privilege will be applied on this project"
+      - name: MARKET_UUID
+        description: "Market uuid to which the project belongs. Linked to gdm.market"
+      - name: NO_PROJET
+        description: "Project number (without prefix).\nThis number is unique by market."
+      - name: JOB_NO
+        description: "Desgo quotation number linked to dsg_proj.quote-no in Desgo"
+      - name: QUOTATION_ENTITY_CODE
+        description: "Entity in which the quotation was made. Linked to gen.entity."
+      - name: PRICE_EXPIRATION_DATE
+        description: "Quotation price expiration date"
+      #- name: QUOTATION_SENT_DATE
+      #  description: "Date on which the quotation was sent to the customer"
+      - name: D_CONTRAT
+        description: "PO Date"
+      - name: NOM_CONTACT
+        description: "Contact name"
+      - name: SITE_PHONE
+        description: "Contact phone number"
+      #- name: SITE_FAX
+      #  description: "Contact fax number"
+      #- name: CONTACT_EMAIL
+      #  description: "Contact email address"
+      - name: FINANCIAL_COMMENTS
+        description: "Project general comments"
+      - name: EXCHGN_RATE
+        description: "Currency exchange rate"
+      - name: CMG_INVOICE_STYLE
+        description: "Printing style of invoice linked to gdm.description"
+      - name: TERM_CODE
+        description: "Payment term code linked to gdm.ar-term"
+      - name: NO_AGENT_CT
+        description: "Credit officier number linked to gdm.agent-ct"
+      - name: TYPE_APPR
+        description: "Credit approval type linked to gdm.type-appcred"
+      - name: D_APP_CREDIT
+        description: "Credit approval date"
+      - name: CREDIT_APPROVED_BY
+        description: "Name of the user who has approved the project (transfered from the financial applications)."
+      - name: NO_APPR_CRE
+        description: "Credit approval number"
+      - name: CMG_CHECK_AMT
+        description: "Amount of the check to collect for approval no 4 and 5"
+      - name: CMG_CREDIT_COMM
+        description: "Credit information for the delivery"
+      - name: MAN_AUTO_CRED
+        description: "yes: Manual credit approval\nno: Automatic credit approval"
+      - name: DENONCIATION
+        description: "yes: there is a notice to owner (denunciation) for the project"
+      - name: SET_OFF_INFORMATION
+        description: "Indicate if the customer has signed the quotation or the customer PO ."
+      - name: ENTITY_CODE
+        description: "Master entity code for the project.\nLinked to gen.entity."
+      - name: FORM_ENTITY
+        description: "Form entity code for invoices, bol, customer statements.\nLinked to gen.entity."
+      - name: IS_LAYOUT_JOB
+        description: "Indicates that the job is layout."
+      - name: DOUANE_PROJ
+        description: "yes: Duty paid by Canam\nno: Duty paid by the customer"
+      - name: TYPE_PROJET
+        description: "Project type: regular or erected"
+      - name: TAXATION_ADDRESS
+        description: "Indicates the address that will be used in the financial system to calculate the taxes.\nShipping: Shipping address, Customer: Customer address"
+      - name: TERR_CODE
+        description: "Shipping territory code that will be used to determine the tax code. Linked to gdm.territory."
+      - name: PST_LICENSE
+        description: "PST license number"
+      - name: FST_LICENSE
+        description: "FST license number"
+      - name: SLSMN_CODE
+        description: "Salesman code linked to gdm.salesman"
+      - name: OFFICE_CODE
+        description: "Sales office code linked to gdm.qc_office"
+      - name: BRANCH_OFFICE_CODE
+        description: "Branch office code linked to gdm.qc_branch_office"
+      - name: MAX_DECK_BUNDL_WEIGHT
+        description: "Maximum weight of a deck bundle"
+      - name: MAX_DECK_BUNDL_PIECES
+        description: "Maximum number of deck pieces"
+      - name: DECK_BUNDL_PIECES_TOLERANCE
+        description: "Acceptable difference of deck pieces"
+      - name: STATUT_PROJ
+        description: "Yes: the project is active, No: the project is inactive"
+      - name: PROJECT_STATUS_COMMENT
+        description: "Comment related to the project status. Mandatory when the project_status_code is 2 or 3."
+      - name: PROJECT_STATUS_UPDATED_BY
+        description: "User who updated the project status."
+      - name: PROJECT_STATUS_UPDATED_DATETIME
+        description: "Date when the project status was updated."
+      - name: ESTIMATED_SHIPMENT_NUMBER
+        description: "Estimated shipments number"
+      - name: ESTIMATED_ESCORT_NUMBER
+        description: "Estimated escorts number"
+      - name: SEQUENCING
+        description: "yes: the sequencing is active for the project."
+      - name: FOLLOW_DIV
+        description: "yes: the division follow-up is active for the project"
+      - name: FOLLOW_MARK
+        description: "yes: the mark follow-up is active for the project"
+      - name: MARK_TYPE
+        description: "Codification type of the marks.\n1- Mark (ex: B1), 2- Division + Mark (ex: 01B1)"
+      - name: ESTIMATED_SHIPPING_WEEK
+        description: "Estimated shipping week"
+      - name: ESTIMATED_FABRICATION_DATE
+        description: "Estimated fabrication date"
+      - name: ESTIMATED_ENGINEERING_DATE
+        description: "Estimated Engineering release date"
+      - name: ESTIMATED_FABRICATION_WEEK
+        description: "Estimated fabrication week"
+      - name: ESTIMATED_ENGINEERING_WEEK
+        description: "Estimated Engineering release week"
+      - name: PO_NO_TRANS_ORACLE
+        description: "yes: transfer the extras to the financial applications."
+      - name: LST_BCKLOG
+        description: "Does this project have to be listed on the backlog ?"
+      - name: WEIGHT_INCREASE_COMMENT
+        description: "Comment used to justify an eventual discrepancy between the weight estimated versus the one produced. This comment is imported from QC and can be updated in SPM."
+      - name: CMG_TRANSFER
+        description: "yes: Transfer the project to the financial applications"
+      - name: DSG_TRANSFER
+        description: "yes: Transfer the project to Desgo"
+      - name: DSMS_TRANSFER
+        description: "yes: The project will be automatically created in DSMS "
+      - name: PRIORITY_CODE
+        description: "Project priority code (ex: 1-High, 2-Normal, 3-Low)."
+      - name: SPECIAL_ELEMENTS
+        description: "Yes: There are special elements on the project."
+      - name: SPECIAL_ELEMENTS_COMMENTS
+        description: "Special elements comments such as special product,spec.,sales strategy"
+      #- name: DRAWING_DUE_IN
+      #  description: "Drawing Due In (from QC)"
+      - name: LAYOUT_PROCESS_CODE
+        description: "Method used to process the layout for the project.  Linked to the gdm.description table."
+      - name: CMG_SOURCE_TEMPLATE
+        description: "Source template code linked to gdm.cmg_src_template. Used in financial applications to setup specific invoicing information."
+      - name: MESURE
+        description: "Project measure. True: metric, False: imperial"
+      - name: NO_PEINTURE
+        description: "Default painting code linked to gdm.peinture with project.entity-code."
+      - name: FINISHING_CODE
+        description: "Default finishing code linked to gdm.finition"
+      - name: CREATION_DATETIME
+        description: "Date the record was created"
+      - name: LAST_UPDATED_DATETIME
+        description: "Date the record was updated"
+      - name: GLOBAL_PROJECT_UUID
+        description: "Global project uuid linked to gdm.global_project"
+      - name: PREPARATION_FOLLOW_UP
+        description: "Yes = Preparation advancement follow-up is used for this project"
+      - name: PREP_FOLLOW_UP_MARKS_FILTER
+        description: "Filter applied on project's marks in Advancement Follow-up"
+      - name: ESTIMATED_LAST_SHIPPING_DATE
+        description: "Estimated last shipping date"
+      - name: ESTIMATED_LAST_SHIPPING_WEEK
+        description: "Estimated last shipping week"
+      - name: OFFICIAL_BUDGET
+        description: "yes: Official budget,\nno: Budget pending"
+      - name: CANAMTASKMANAGEMENTEXPORT #CANAM_TASK_MANAGEMENT_EXPORT
+        description: "The project will push its information to the Canam Task Management application"
+      - name: PACKAGE
+        description: "BuildMaster project is a package"
+      - name: SAPTRANSFER #SAP_TRANSFER
+        description: "Is project being transferred to SAP by Design"
+  - name: norm_qc_office #
+    config: 
+      schema: SPM_GDM
+    columns:
+      - name: OFFICE_CODE
+        description: "Office code"
+      - name: NEXT_JOB_NO
+        description: "Next quotation number"
+      - name: PREFIX
+        description: "Prefix of quotation number "
+      - name: BILL_SHIP
+        description: "Indicates if we Bill and Ship to the same customer (Internal Invoicing)"
+      - name: ADDRSS1
+        description: "Address line 1"
+      - name: ADDRSS2
+        description: "Address line 1"
+      - name: CITY
+        description: "City"
+      - name: ST
+        description: "Province/State"
+      - name: COUNTRY
+        description: "Country"
+      - name: ZIP_CODE
+        description: "Zip code"
+      - name: PHONE
+        description: "Phone number"
+      - name: FAX
+        description: "Fax number"
+      - name: OPENING_FEE
+        description: "Opening fee amount"
+      - name: ROUNDING_FACTOR
+        description: "Rounding factor to apply on the amount shown on the FPS"
+      - name: MESURE
+        description: "Indicates the default mesure (Imperial/Metric)"
+      - name: LOGO_FILE_1
+        description: "Logo file with path"
+      - name: LOGO_FILE_2
+        description: "Logo file with path"
+      - name: LOGO_FILE_3
+        description: "Logo file with path"
+      - name: NAME
+        description: "Office name"
+      - name: CURRENCY_COD #CURRENCY_CODE ?
+        description: "Currency code linked to qc_currency table"
+      - name: CALC_SOFT
+        description: "Calculating software -> 1: Desgo, 2: CFCQ"
+      - name: SEQ_YEAR
+        description: "In what year the sequence has been re-initialyze at 0..."
+      - name: ACTIVE
+        description: "Is the office active ?"
+      - name: DEFAULT_CONTRC_NOTE_1
+        description: "Default Contract Note"
+      - name: DEFAULT_CONTRC_NOTE_2
+        description: "Default Contract Note"
+      - name: DEFAULT_CONTRC_NOTE_3
+        description: "Default Contract Note"
+      - name: DATE_FORMAT
+        description: "Date Format"
+      - name: TOLERANCE_FACTOR
+        description: "Tolerance Factor"
+      - name: SIGNATURE
+        description: "Customer's salesrep / Quotation's salesrep"
+      - name: PHONE_FORMAT
+        description: "Phone format"
+      - name: PRICE_EXPIRATION_DELAY
+        description: "Office default price expiration delay in days."
+      - name: DETAIL_EDIT_ALLOWED
+        description: "Indicates wheter or not the sales office have the right to edit the section detail in FPS."
+      - name: USE_OFFICE_LOGO
+        description: "Use sales office logo on documents generated by a user linked to this sales office"
+      - name: ENG_SOLUTION_COMPLETED_MANDATORY
+        description: "The VES entry completed confirmation in the quotation calendar is mandatory to print the final price sheet"
+      - name: AR_ENTITY
+        description: "Market (Control entity)"
+      - name: SHOW_ADDRESSES_ON_FPS
+        description: "Indicates if the addresses lines have to be displayed on the FPS for the quotations linked to the sales office."
+      - name: TOLL_FREE
+        description: "Toll free telephone number"
+      - name: OFFICE_ADDRESS_FORMAT_ON_DOC
+        description: "Format to use when the office address is displayed on the documents for the quotations linked to the sales office."
+      - name: SHOW_CURRENCY_ON_FPS
+        description: "Indicates if the currency has to be displayed on the final price sheet for the quotations linked to the sales office."
+      - name: DOCUMENTS_DUE_IN_DELAY
+        description: "Document due in delay in days."
+      - name: SALESMANAGERPEOPLEID #SALES_MANAGER_PEOPLE_ID
+        description: "Peeple ID of teh regional sales manager.  Link with table people."
+      - name: ESTIMATIONTARGETDATEDELAY #ESTIMATION_TARGET_DATE_DELAY
+        description: "Default working days delay used to calculate the estimation target date of a quotation"
+      - name: RDM_COUNTRY_CODE
+        description: "Standard code value of the country"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: RDM_COUNTRY_NAME_FR
+        description: "Standard name value of the country in french"  
+      - name: RDM_COUNTRY_NAME_EN
+        description: "Standard name value of the country in english" 
+      - name: RDM_SALES_OFFICE_DEPARTMENT_NAME_FR
+        description: "Standard name value of the sales office department in french"  
+      - name: RDM_SALES_OFFICE_DEPARTMENT_NAME_FR
+        description: "Standard name value of the sales office department in french"
+      - name: RDM_SALES_OFFICE_DEPARTMENT_NAME_EN
+        description: "Standard name value of the sales office department in english"        
+  - name: norm_salesman #
+    config: 
+      schema: SPM_GDM
+    columns:
+      - name: SALESMAN_UUID
+        description: "UUID assigned with: GUID"
+      - name: SLSMN_CODE
+        description: "Salesman code"
+      - name: SLSMN_NAME
+        description: "Salesman name"
+      - name: PEOPLE_ID
+        description: "People id linked to gdm.people"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+  - name: norm_uom #
+    config: 
+      schema: SPM_GDM
+    columns:
+      - name: RDM_UOM_CODE
+        description: "Standard code value of the unit of measure"
+      - name: UOM_NAME_ID
+        description: "Link with table gdm.data_name for the uom name"
+      - name: UNIT
+        description: "Number of elements which make up the Unit of Measure."
+      - name: EXP_DECIMAL
+        description: "The number of decimals used by the Unit of Measure."
+      - name: MAX_VALUE
+        description: "Maximum quantity allowed for an Item expressed in this UOM"
+      - name: MASK
+        description: "Mask for the UOM-code."
+      - name: TYPE
+        description: "UOM type"
+      - name: BASE_UOM
+        description: "Base uom for surface and volume."
+      - name: CANSIS_UOM
+        description: "Corresponding Cansis uom code."
+      - name: MEASURE_SYSTEM
+        description: "UOM measure system."
+      - name: RDM_UOM_TYPE_CODE
+        description: "Standard code value of the unit of measure type."  
+      - name: RDM_UOM_SYSTEM_CODE
+        description: "Standard code value of the unit of measure system." 
+      - name: RDM_UOM_NAME_FR
+        description: "Standard name value of the unit of measure in french." 
+      - name: RDM_UOM_NAME_EN
+        description: "Standard name value of the unit of measure in english." 
+      - name: RDM_UOM_TYPE_NAME_FR
+        description: "Standard name value of the unit of measure type in french."
+      - name: RDM_UOM_TYPE_NAME_EN
+        description: "Standard name value of the unit of measure type in english." 
+      - name: RDM_UOM_SYSTEM_NAME_FR
+        description: "Standard name value of the unit of measure system in french."
+      - name: RDM_UOM_SYSTEM_NAME_EN
+        description: "Standard name value of the unit of measure system in english."                
+  - name: norm_department
+    config: 
+      schema: SPM_GDM
+    columns:
+      - name: DEPARTMENT_UUID
+        description: "UUID assigned with: GUID."
+      - name: DEPARTMENT_NUMBER
+        description: "Department number"
+      - name: DEPARTMENT_NAME_ID
+        description: "Link with table gdm.data_name for the department name."
+      - name: ACTIVE
+        description: "Yes: The department is active and can be used."
+      - name: PERFORMANCE_IND_CALCULATION
+        description: "Yes: the performance indicator calculated for a project has to be done for this particular department."
+      - name: PERFORMANCE_IND_MASTER_DEPART_UUID
+        description: "Department to which the current one is linked to for the performance indicator calculation (for example, the backcharges of the current department will affect the indicator of which department). Mandatory when the performance indicator calculation is activated."
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+  - name: norm_project_event_trans_type
+    config: 
+      schema: SPM_GDM
+    columns:
+      - name: PROJECT_EVENT_TRANS_TYPE_UUID
+        description: "UUID assigned with: GUID"
+      - name: PROJECT_EVENT_TRANS_TYPE_CODE
+        description: "Project event transaction type code."
+      - name: PROJECT_EVENT_TRANS_TYPE_NAME_ID
+        description: "Project event transaction type name.  Link with table gdm.data_name."
+      - name: ACTIVE
+        description: "Indicates if the transaction type is active."
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+  - name: norm_event
+    config: 
+      schema: SPM_GDM
+    columns:
+      - name: EVENT_UUID
+        description: "UUID assigned with: GUID."
+      - name: DEPARTMENT_UUID
+        description: "Link with table gdm.department."
+      - name: EVENT_NUMBER
+        description: "Event number."
+      - name: EVENT_NAME_ID
+        description: "Link with table gdm.data_name for the event name."
+      - name: ACTIVE
+        description: "Yes: The event is active and can be used."
+      - name: CANAM_ERROR
+        description: "Yes: The event represents an error made by one of Canam department."
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      #- name: KPI_FIRST_PASS_YIELD_EXPORT_ENABLED
+      #  description: "Determine if the detail of the event will be exported to the KPI First Pass Yield indicator in EIS"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+  - name : norm_global_item
+    config: 
+      schema: SPM_GDM
+    columns:
+      - name: GLOBAL_ITEM_UUID
+        description: "UUID assigned with: GUID"
+      - name: GLOBAL_ITEM_CODE
+        description: "Item code (steel grade code not included)"
+      - name: GLOBAL_ITEM_NAME_ID
+        description: "Link with table gdm.data_name for the global item name"
+      - name: GLOBAL_ITEM_SHORT_CODE
+        description: "Item short code"
+      - name: MEASURE
+        description: "Global item measure, imperial or metric"
+      - name: EQUIVALENT_ITEM_UUID
+        description: "UUID linked to gdm.global_item record. Equivalent code. For an imperial item, this field will contain the metric equivalent code."
+      - name: UOM_CODE
+        description: "Unit of measure (LB, UN, ...). Link with table gdm.uom."
+      - name: ALTERNATIVE_UOM_CODE
+        description: "Alternative unit of measure.  Link with table gdm.uom"
+      - name: ITEM_SUBCATEGORY_UUID
+        description: "UUID Linked to gdm.item_subcategory record"
+      - name: WEIGHT
+        description: "Item weight. Based on the unit of measure."
+      - name: SHAPE_AISC_UUID
+        description: "UUID Linked to gdm.shape_aisc record."
+      - name: SHAPE_CISC_UUID
+        description: "UUID Linked to gdm.shape_cisc record."
+      - name: SDS_CODE
+        description: "SDS software code associated to the item."
+      - name: TECKLA_STRUCTURES_CODE
+        description: "Teckla structures software code associated to the item."
+      - name: ESTIMATING_SOFTWARE_CODE
+        description: "estimating software_code associated to the item."
+      - name: BIM_CODE
+        description: "Building Information Model code associated to the item"
+      - name: DEFAULT_R_MARQUE
+        description: "Default recipe mark to use when not supplied by the detailing application (Ex: bolts in Teckla Structures)"
+      - name: ACTIVE
+        description: "Yes : the item is active."
+      - name: TECHNICAL_INFORMATION_AVAILABLE
+        description: "Yes: item_technical_property record for this global_item exists."
+      - name: ITEM_GAGE_UUID
+        description: "UUID Linked to gdm.item_gage record."
+      - name: TECHNICAL_CATEGORY_UUID
+        description: "UUID Linked to gdm.technical_category record."
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+  - name: norm_item_technical_property
+    config: 
+      schema: SPM_GDM
+    columns:
+      - name: ITEM_TECHNICAL_PROPERTY_UUID
+        description: "UUID assigned with: GUID"
+      - name: GLOBAL_ITEM_UUID
+        description: "UUID Linked to gdm.global_item record."
+      - name: TECHNICAL_DESCRIPTION_NAME_ID
+        description: "Link with table gdm.data_name for the technical description of the proprety"
+      - name: NOMINAL_HEIGHT
+        description: "Nominal height (in mm). CISC equivalent: D - Depth of section or height of vertical leg"
+      - name: NOMINAL_WIDTH
+        description: "Nominal width (in mm). CISC equivalent: B - Width of flange or horizontal leg"
+      - name: NOMINAL_THICKNESS
+        description: "Nominal thickness (in mm). CISC equivalent: T - Thickness of flange; leg or wall"
+      - name: NOMINAL_SURFACE
+        description: "Nominal surface (in mm2). CISC equivalent: A - Cross-sectional area"
+      - name: UNFOLDED_LENGTH
+        description: "Unfolded length (in mm)."
+      - name: PAINTING_SURFACE
+        description: "Painting surface (m2/m). CISC equivalent: SA - Surface area per metre"
+      - name: MASTER_ITEM_UUID
+        description: "UUID Linked to gdm.global_item record."
+      - name: ITEM_FINISHING_UUID
+        description: "UUID Linked to gdm.item_finishing record."
+      - name: WIDTH_TOLERANCE
+        description: "Width Tolerance (+ or - the value, apply on item_technical_property.nominal_width, contains millimeters (in decimal). Update and display inches)."
+      - name: THICKNESS_TOLERANCE_MIN
+        description: "Minimum thickness tolerance (contains millimeters (in decimal). Update and display inches."
+      - name: THICKNESS_TOLERANCE_MAX
+        description: "Maximum thickness tolerance (contains millimeters (in decimal). Update and display inches."
+      - name: FABRICATION_CODE
+        description: "Fabrication code. Possible values : N/A, hot_rolled, cold_rolled."
+  - name: norm_technical_category
+    config: 
+      schema: SPM_GDM
+    columns:
+      - name: TECHNICAL_CATEGORY_UUID
+        description: "UUID assigned with: GUID"
+      - name: TECHNICAL_CATEGORY_CODE
+        description: "Technical category code"
+      - name: TECHNICAL_CATEGORY_NAME_ID
+        description: "Link with table gdm.data_name for the technical category name"
+      - name: ITEM_PREFIX
+        description: "Item's prefix accepted for this technical category"
+      - name: PERFORATION_COST_INPUT_ALLOWED
+        description: "Allow input of perforation cost in the reception entry"
+      - name: ALLOW_DUPLICATE_ABM_ITEM_NO
+        description: "Allow duplication of abm_page_line_item.abm_item_no for items related to this categorie"
+      - name: ACTIVE
+        description: "Yes : The technical category is active."
+  - name: norm_steel_grade
+    config: 
+      schema: SPM_GDM
+    columns:
+      - name: STEEL_GRADE_UUID
+        description: "UUID assigned with: GUID"
+      - name: STEEL_GRADE_CODE
+        description: "Steel grade code"
+      - name: DESCRIPTION
+        description: "Description of the steel grade"
+      - name: KSI
+        description: "Steel grade strength(Mpa)"
+      - name: CREATED_BY
+        description: "Name of the person who created the record"
+      - name: ACTIVE
+        description: "Yes : the steel grade is active"
+      - name: MODIFIED_DATE
+        description: "Date of the last modification of the record"
+      - name: MODIFIED_BY
+        description: "Name of the person who last modified the record"
+      - name: CREATED_DATE
+        description: "Date of creation of the record"
+  - name: norm_country
+    config: 
+      schema: SPM_GDM
+    columns:
+    - name: COUNTRY_UUID
+      description: "UUID assigned with : GUID"
+    - name: COUNTRY_CODE
+      description: "Country code"
+    - name: NAME
+      description: "Name of country"
+    - name: NAFTA
+      description: "Country member of North American Free Trade Agreement (NAFTA)"
+    - name: CREATED_BY
+      description: "Name of the person who created the record"
+    - name: CREATED_DATE
+      description: "Date of creation of the record"
+    - name: MODIFIED_DATE
+      description: "Date of the last modification of the record"
+    - name: MODIFIED_BY
+      description: "Name of the person who last modified the record"
+  - name: norm_item_category
+    config: 
+      schema: SPM_GDM
+    columns:
+    - name: ITEM_CATEGORY_UUID
+      description: "UUID assigned with: GUID"
+    - name: ITEM_CATEGORY_CODE
+      description: "Item category code"
+    - name: ITEM_CATEGORY_NAME_ID
+      description: "Link with table gdm.data_name for the item category name"
+    - name: ORIGIN_REQUIRED
+      description: "Origin (Country and local/imported) must be specifed when receiving item related to this category"
+    - name: ACTIVE
+      description: "Yes: the item category is active"
+    - name: CREATED_DATE
+      description: "Date of creation of the record"
+    - name: MODIFIED_DATE
+      description: "Date of the last modification of the record"
+    - name: MODIFIED_BY
+      description: "Name of the person who last modified the record"
+    - name: CREATED_BY
+      description: "Name of the person who created the record"
+  - name: norm_item_subcategory
+    config: 
+      schema: SPM_GDM
+    columns:
+    - name: ITEM_SUBCATEGORY_UUID
+      description: "UUID assigned with: GUID"
+    - name: ITEM_CATEGORY_UUID
+      description: "UUID Linked to gdm.item_category record."
+    - name: ITEM_SUBCATEGORY_CODE
+      description: "Item subcategory code"
+    - name: ITEM_SUBCATEGORY_NAME_ID
+      description: "Link with table gdm.data_name for the item subcategory name"
+    - name: ITEM_PREFIX
+      description: "Item s prefix accepted for this subcategory"
+    - name: STANDARD_CONNECTION
+      description: "Indicates if items related to this subcategory are used as standard connection."
+    - name: CISC_AISC_CODE_MANDATORY
+      description: "AISC/CISC code will be mandatory for items with this subcategory"
+    - name: ACTIVE
+      description: "Yes : the item subcategory is active"
+    - name: CREATED_BY
+      description: "Name of the person who created the record"
+    - name: CREATED_DATE
+      description: "Date of creation of the record"
+    - name: MODIFIED_DATE
+      description: "Date of the last modification of the record"
+    - name: MODIFIED_BY
+      description: "Name of the person who last modified the record"
+  - name: norm_business_unit
+    config: 
+      schema: SPM_GDM
+    columns:
+    - name: BUSINESS_UNIT_ID
+      description: "Unique ID for the record"
+    - name: BUSINESS_UNIT_CODE
+      description: "Business unit unique code"
+    - name: BUSINESS_UNIT_NAME_ID
+      description: "ID to data_name record"
+    - name: IS_ACTIVE
+      description: "Indicates if the record is active"
+    - name: COMPANY_REFERENCE_NAME_ID
+      description: "ID to data_name record for company reference"
+    - name: LOGO_FILE_NAME_ID
+      description: "ID to data_name record (path and name of the main logo file for each lang)"
+    - name: BUSINESS_UNIT_SHORT_NAME_ID
+      description: "ID to data_name record"
+    - name: REQ_SENT_OUT_TARGET_DELAY
+      description: "Delay (days) used to calculate req. sent out target date at division level division delivery date _ delay = req sent out target date."
+    - name: ALLOW_DSMS_TRANSFER
+      description: "Determines if the project can be set to transfer to DSMS during the creation process."
+    - name: BUSINESS_UNIT_TAG_NAME_ID
+      description: "ID to data_name record for company name to print on tag"
+    - name: BOL_DESCRIPTION_NAME_ID
+      description: "Business Unit BOL Description. ID linked to data_name table."
+    - name: REVENUE_QUANTITY_TYPE_UUID
+      description: "Revenue quantity type UUID.  Linked to gdm.revenue_quantity_type table."
+    - name: PROJECT_EVENT_MANAGE_BY_PROJCOOR
+      description: "Yes: The project events(OM) for the business unit are managed by the project coordinator (i.e. they have to be informed of everything related to the project events).  No: the project events are managed by the project manager"
+    - name: PERFORMANCE_IND_CALCULATION
+      description: "Yes: the performance indicator has to be calculated for the products associated to this business unit."
+    - name: PCX_LOGO_FILE_NAME_ID
+      description: "ID to data_name record (path and name of the pcx version of the logo file for each lang)"
+    - name: ALLOW_LINK_TO_CMS
+      description: "yes: The projects of this business unit can be linked to CMS."
+    - name: CMS_GLOBAL_APPROVAL
+      description: "yes: The projects of this business unit can be linked to CMS."
+    - name: RDM_ACTIVE_STATUS_CODE
+      description: "Standard code value of the active status"
+    - name: RDM_LINE_OF_BUSINESS_CODE
+      description: "Standard code value of the lines of business"   
+    - name: RDM_LINE_OF_BUSINESS_NAME_FR
+      description: "Standard name value of the lines of business in french"   
+    - name: RDM_LINE_OF_BUSINESS_NAME_EN
+      description: "Standard name value of the lines of business in english"                   
+  - name: norm_qc_branch_office
+    config: 
+      schema: SPM_GDM
+    columns:
+    - name: RDM_SALES_OFFICE_DEPARTMENT_NAME_FR
+      description: "Standard name value of the sales office department in french"
+    - name: RDM_SALES_OFFICE_DEPARTMENT_NAME_EN
+      description: "Standard name value of the sales office department in english"
+    - name: RDM_SALES_BRANCH_OFFICE_DEPARTMENT_NAME_FR
+      description: "Standard name value of the sales branch office department in french"  
+    - name: RDM_SALES_BRANCH_OFFICE_DEPARTMENT_NAME_EN
+      description: "Standard name value of the sales branch office department in english"  
+
+  - name: norm_customer
+    config: 
+      schema: SPM_GDM
+    columns:
+    - name: RDM_CUSTOMER_CLASS_CODE
+      description: "Standard code value of the customer class"    
+    - name: RDM_CUSTOMER_CLASS_NAME_FR
+      description: "Standard name value of the customer class in french"      
+    - name: RDM_CUSTOMER_CLASS_NAME_EN
+      description: "Standard name value of the customer class in english"        

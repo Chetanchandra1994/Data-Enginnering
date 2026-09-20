@@ -1,0 +1,855 @@
+# https://docs.getdbt.com/reference/source-properties
+version: 2
+
+sources:
+  - name: landing_ebs
+    description: ndjson format
+    database: >-
+      {%- if target.name in ['prod', 'preprod'] -%}
+        PROD_ENTERPRISE_LANDING
+      {%- elif target.name in ['test', 'local'] -%}
+        TEST_ENTERPRISE_LANDING
+      {% else %}
+        SANDBOX_ENTERPRISE_LANDING
+      {%- endif -%}
+    schema: EBS
+    tables:
+      - name: FND_FLEX_VALUES_TL
+        config:
+          meta: 
+            with_pipe: true
+      - name: HZ_CUST_ACCT_SITES_ALL
+        config:
+          meta: 
+            with_pipe: true
+      - name: PA_PERIODS_ALL
+        config:
+          meta: 
+            with_pipe: true
+      - name: PER_ORG_STRUCTURE_ELEMENTS_V
+        config:
+          meta: 
+            with_pipe: true
+      - name: PA_PROJECTS_ALL
+        config:
+          meta: 
+            with_pipe: true
+      - name: AR_COLLECTORS
+        config:
+          meta: 
+            with_pipe: true
+      - name: CM50_AP_INVOICE_DISTRIBUTION
+        config:
+          meta: 
+            with_pipe: true
+      - name: CM50_AP_INVOICE_PAYMENTS
+        config:
+          meta: 
+            with_pipe: true
+      - name: FND_FLEX_VALUE_SETS
+        config:
+          meta: 
+            with_pipe: true
+      - name: HZ_LOCATIONS
+        config:
+          meta: 
+            with_pipe: true
+      - name: HZ_PARTY_SITES
+        config:
+          meta: 
+            with_pipe: true
+      - name: CM50_AP_CHECKS_ALL
+        config:
+          meta: 
+            with_pipe: true
+      - name: CM50_AP_INVOICES_ALL
+        config:
+          meta: 
+            with_pipe: true
+      - name: CM50_PO_SUPPLIER_SITE
+        config:
+          meta: 
+            with_pipe: true
+      - name: FND_FLEX_VALUES
+        config:
+          meta: 
+            with_pipe: true
+      - name: HZ_CUST_ACCOUNTS
+        config:
+          meta: 
+            with_pipe: true
+      - name: PA_SEGMENT_VALUE_LOOKUPS
+        config:
+          meta: 
+            with_pipe: true
+      - name: CM50_PO_SUPPLIER
+        config:
+          meta: 
+            with_pipe: true
+      - name: GL_PERIODS
+        config:
+          meta: 
+            with_pipe: true
+      - name: HZ_CUSTOMER_PROFILES
+        config:
+          meta: 
+            with_pipe: true
+      - name: HZ_CUST_SITE_USES_ALL
+        config:
+          meta: 
+            with_pipe: true
+      - name: HZ_PARTIES
+        config:
+          meta: 
+            with_pipe: true
+      - name: GL_TRANSLATION_RATES
+        config:
+          meta: 
+            with_pipe: true
+      - name: PA_SEGMENT_VALUE_LOOKUP_SETS
+        config:
+          meta: 
+            with_pipe: true
+      - name: PA_TASKS
+        config:
+          meta: 
+            with_pipe: true
+      - name: HR_ORGANIZATION_UNITS_V
+        config:
+          meta: 
+            with_pipe: true
+      - name: WIP_DISCRETE_JOBS
+        config:
+          meta: 
+            with_pipe: true
+      - name: HR_ALL_ORGANIZATION_UNITS
+        config:
+          meta: 
+            with_pipe: true
+      - name: PO_VENDORS
+        config:
+          meta: 
+            with_pipe: true
+      - name: CM50_PO_HEADERS_ALL
+        config:
+          meta: 
+            with_pipe: true
+      - name: WIP_ENTITIES
+        config:
+          meta: 
+            with_pipe: true
+      - name: BOM_DEPARTMENTS
+        config:
+          meta: 
+            with_pipe: true
+      - name: CM50_GL_CODE_COMBINATIONS
+        config:
+          meta: 
+            with_pipe: true
+      - name: WIP_ACCOUNTING_CLASSES
+        config:
+          meta: 
+            with_pipe: true
+      - name: bom_resources
+        config:
+          meta: 
+            with_pipe: true
+      - name: CMG_EAM_KPI_PRODUCT_LINES   
+        config:
+          meta: 
+            with_pipe: true  
+      - name: CMG_EAM_KPI_AREAS   
+        config:
+          meta: 
+            with_pipe: true
+      - name: MTL_EAM_ASSET_ATTR_VALUES
+        config:
+          meta: 
+            with_pipe: true 
+      - name: MTL_SERIAL_NUMBERS
+        config:
+          meta: 
+            with_pipe: true
+      - name: MTL_OBJECT_GENEALOGY
+        config:
+          meta: 
+            with_pipe: true 
+      - name: CMG_EAM_KPI_SHOPS
+        config:
+          meta: 
+            with_pipe: true
+      - name: MTL_SYSTEM_ITEMS_B
+        config:
+          meta: 
+            with_pipe: true    
+      - name: EAM_WORK_ORDERS
+        config:
+          meta: 
+            with_pipe: true
+      - name: CST_DISTRIBUTION
+        config:
+          meta: 
+            with_pipe: true
+      - name: CM50_PA_PROJECTS
+        config:
+          meta: 
+            with_pipe: true
+      - name: PA_EXPENDITURE_TYPES
+        config:
+          meta: 
+            with_pipe: true
+      - name: CMG_DW_PROJECTS_ETL
+        config:
+          meta: 
+            with_pipe: true
+      - name: CMG_EAM_KPI_ACTIVITY_TARGET
+        config:
+          meta: 
+            with_pipe: true
+      - name: BOM_RESOURCE_EMPLOYEES
+        config:
+          meta: 
+            with_pipe: true
+      - name: CMG_PA_ANALYSIS
+        config:
+          meta: 
+            with_pipe: true
+      - name: CMG_PA_SHIPPED_QUANTITIES
+        config:
+          meta: 
+            with_pipe: true 
+      - name: CM50_PO_LINE_LOCATIONS
+        config:
+          meta: 
+            with_pipe: true  
+      - name: CM50_PO_DISTRIBUTIONS
+        config:
+          meta: 
+            with_pipe: true
+      - name: CM50_PO_LINES_ALL
+        config:
+          meta: 
+            with_pipe: true                   
+                
+
+  - name: landing_canam_model
+    description: json format
+    database: >-
+      {%- if target.name in ['prod', 'preprod'] -%}
+        PROD_ENTERPRISE_LANDING
+      {%- elif target.name in ['test'] -%}
+        TEST_ENTERPRISE_LANDING
+      {% else %}
+        SANDBOX_ENTERPRISE_LANDING
+      {%- endif -%}
+    schema: CANAM_MODEL
+    tables:
+      - name: SUPPLIER
+        config:
+          meta: 
+            with_pipe: true
+  - name: landing_bigquery
+    description: json format
+    database: >-
+      {%- if target.name in ['prod', 'preprod'] -%}
+        PROD_ENTERPRISE_LANDING
+      {%- elif target.name in ['test'] -%}
+        TEST_ENTERPRISE_LANDING
+      {% else %}
+        SANDBOX_ENTERPRISE_LANDING
+      {%- endif -%}
+    schema: BIGQUERY
+    tables:
+      - name: RDM
+        config:
+          meta: 
+            with_pipe: true
+
+  - name: landing_rdm
+    description: json format
+    database: >-
+      {%- if target.name in ['prod', 'preprod'] -%}
+        PROD_ENTERPRISE_LANDING
+      {%- elif target.name in ['test'] -%}
+        TEST_ENTERPRISE_LANDING
+      {% else %}
+        SANDBOX_ENTERPRISE_LANDING
+      {%- endif -%}
+    schema: RDM
+    tables:
+      - name: standard_code_mapping
+        config:
+          meta: 
+            with_pipe: true
+      - name: descriptions
+        config:
+          meta: 
+            with_pipe: true
+
+  - name: landing_canam
+    description: csv format
+    database: >-
+      {%- if target.name in ['prod', 'preprod'] -%}
+        PROD_ENTERPRISE_LANDING
+      {%- elif target.name in ['test'] -%}
+        TEST_ENTERPRISE_LANDING
+      {% else %}
+        SANDBOX_ENTERPRISE_LANDING
+      {%- endif -%}
+    schema: CANAM_MANUAL
+    tables:
+      - name: ENTITY_DESCRIPTIONS
+        config:
+          meta: 
+            with_pipe: false      
+      - name: RDM_DESCRIPTIONS
+        config:
+          meta:
+            with_pipe: false
+      - name: BRANCH_OFFICE_BUSINESS_UNIT_MAP
+        config:
+          meta: 
+            with_pipe: false  
+      - name: EIS_OFFICE_NAME_MAP
+        config:
+          meta: 
+            with_pipe: false    
+      - name: DSA_STEEL_ITEMS_CATEG_CUSTOM
+        config:
+          meta:
+            with_pipe: false                 
+                                 
+  - name: landing_spm_ca
+    description: ndjson format
+    database: >-
+      {%- if target.name in ['prod', 'preprod'] -%}
+        PROD_ENTERPRISE_LANDING
+      {%- elif target.name in ['test'] -%}
+        TEST_ENTERPRISE_LANDING
+      {% else %}
+        SANDBOX_ENTERPRISE_LANDING
+      {%- endif -%}
+    schema: SPM_CA
+    tables:
+      - name: CMG_SALES_GROUP
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: ESS_TRANS
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PRODUIT_S
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PROJETX_G
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PROJ_SEQ
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PROJ_SEQ_LP
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PROJETX_L
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: QC_QUOTATION
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: ESS_LINE
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PROJET_E
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: QC_QUOTATION_CUSTOMER
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: ITEM_WHS
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: QC_PEOPLE
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: ESS_TRANX
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: IN_CONTROL
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PROJET_G
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PROJET_L
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: QC_COMPETITOR
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: QC_QUOTATION_PRODUCT
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PROJECT_EVENT
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PROJECT_EVENT_SALES_GROUP
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PROJECT_EVENT_DETAIL
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: ITEM
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: ITEM_ALT
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true
+      - name: ITEM_TECH
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: REQ_PROD
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: ITEM_ALT_PO
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true
+      - name: ITEM_WHS_D
+        config:
+          meta: 
+            with_pipe: true 
+            with_fullload_delete: true  
+      - name: HEAT_NO_COUNTRY
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true       
+      - name: VENDOR
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PRODUCT_ATTRIBUTE
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: CMAITRE_S
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PE_JOB
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: RECEIPT_LINE
+        config:
+          meta: 
+            with_pipe: true  
+            with_fullload_delete: true  
+      - name: CMG_OUTBOUND_DATABASES
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PO
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: DUTY
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PO_LINE
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: WAREHOUSE
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PRODCT_MACHN
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: WORKING_SHIFT
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: WORKING_SHIFT_DETAIL
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: MARQUES
+        config:
+          meta:
+            with_pipe: true
+            with_fullload_delete: true  
+          
+  - name: landing_spm_gdm
+    description: ndjson format
+    database: >-
+      {%- if target.name in ['prod', 'preprod'] -%}
+        PROD_ENTERPRISE_LANDING
+      {%- elif target.name in ['test'] -%}
+        TEST_ENTERPRISE_LANDING
+      {% else %}
+        SANDBOX_ENTERPRISE_LANDING
+      {%- endif -%}
+    schema: SPM_GDM
+    tables:
+      - name: CUSTOMER
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: DATA_NAME
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PEOPLE
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: CUSTOMER_MARKET
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: CUSTOMER_TYPE
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: SALESMAN
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: QC_BRANCH_OFFICE
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: QC_OFFICE
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: DATAEVENTS
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: UOM
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: CMG_TASK
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PROJECT
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: DEPARTMENT
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: PROJECT_EVENT_TRANS_TYPE
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: EVENT
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: GLOBAL_ITEM
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: ITEM_TECHNICAL_PROPERTY
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true
+      - name: TECHNICAL_CATEGORY
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true
+      - name: STEEL_GRADE
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: COUNTRY
+        config:
+          meta: 
+            with_pipe: true 
+            with_fullload_delete: true  
+      - name: ITEM_CATEGORY
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: ITEM_SUBCATEGORY
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: BUSINESS_UNIT
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+  - name: landing_spm_gen
+    description: ndjson format
+    database: >-
+      {%- if target.name in ['prod', 'preprod'] -%}
+        PROD_ENTERPRISE_LANDING
+      {%- elif target.name in ['test'] -%}
+        TEST_ENTERPRISE_LANDING
+      {% else %}
+        SANDBOX_ENTERPRISE_LANDING
+      {%- endif -%}
+    schema: SPM_GEN
+    tables:
+      - name: USERS
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: ENTITY
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+      - name: ENTITY_D
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true  
+    
+  - name: landing_roll_former
+    description: ndjson format
+    database: >-
+      {%- if target.name in ['prod', 'preprod'] -%}
+        PROD_ENTERPRISE_LANDING
+      {%- elif target.name in ['test'] -%}
+        TEST_ENTERPRISE_LANDING
+      {% else %}
+        SANDBOX_ENTERPRISE_LANDING
+      {%- endif -%}
+    schema: ROLL_FORMER
+    tables:
+      - name: PRODUCTION_TRANSACTIONS
+        config:
+          meta: 
+            with_pipe: true
+    
+  - name: landing_googlesheet
+    description: ndjson format
+    database: >-
+      {%- if target.name in ['prod', 'preprod'] -%}
+        PROD_ENTERPRISE_LANDING
+      {%- elif target.name in ['test'] -%}
+        TEST_ENTERPRISE_LANDING
+      {% else %}
+        SANDBOX_ENTERPRISE_LANDING
+      {%- endif -%}
+    schema: GOOGLESHEET
+    tables:
+      - name: PURCHASING_AGREEMENT_REGISTER
+        config:
+          meta: 
+            with_pipe: true
+  - name: landing_mdh
+    description: ndjson format
+    database: >-
+      {%- if target.name in ['prod', 'preprod'] -%}
+        PROD_ENTERPRISE_LANDING
+      {%- elif target.name in ['test'] -%}
+        TEST_ENTERPRISE_LANDING
+      {% else %}
+        SANDBOX_ENTERPRISE_LANDING
+      {%- endif -%}
+    schema: MDH
+    tables:
+      - name: EMPLOYEE
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true
+  
+  - name: landing_CTM
+    description: ndjson format
+    database: >-
+      {%- if target.name in ['prod', 'preprod'] -%}
+        PROD_ENTERPRISE_LANDING
+      {%- elif target.name in ['test'] -%}
+        TEST_ENTERPRISE_LANDING
+      {% else %}
+        SANDBOX_ENTERPRISE_LANDING
+      {%- endif -%}
+    schema: CTM
+    tables:
+      - name: Projects
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true
+      - name: ProjectTypeTaskCodes
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true      
+      - name: Tasks
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true         
+      - name: ProjectDivisionProducts
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true
+      - name: ProjectDivisions
+        config:
+          meta: 
+            with_pipe: true
+            with_fullload_delete: true
+
+  - name: landing_infor
+    description: ndjson format
+    database: >-
+      {%- if target.name in ['prod', 'preprod'] -%}
+        PROD_CORPORATE_LANDING
+      {%- elif target.name in ['test'] -%}
+        TEST_CORPORATE_LANDING
+      {% else %}
+        SANDBOX_CORPORATE_LANDING
+      {%- endif -%}
+    schema: INFOR
+    tables:
+      - name: PROJECT_IMPACT
+        config:
+          meta: 
+            with_pipe: true
+  
+  - name: landing_airflow
+    description: ndjson format
+    database: >-
+      {%- if target.name in ['prod', 'preprod'] -%}
+        PROD_ENTERPRISE_LANDING
+      {%- elif target.name in ['test'] -%}
+        TEST_ENTERPRISE_LANDING
+      {% else %}
+        SANDBOX_ENTERPRISE_LANDING
+      {%- endif -%}
+    schema: AIRFLOW
+    tables:
+      - name: DAG_RUN
+        config:
+          meta:
+            with_pipe: true
+      - name: TASK_INSTANCE
+        config:
+          meta:
+            with_pipe: true
+      - name: TASK_FAIL
+        config:
+          meta:
+            with_pipe: true
+      - name: JOB
+        config:
+          meta:
+            with_pipe: true
+
+  - name: landing_timecontrol
+    description: ndjson format
+    database: >-
+      {%- if target.name in ['prod', 'preprod'] -%}
+        PROD_CORPORATE_LANDING
+      {%- elif target.name in ['test'] -%}
+        TEST_CORPORATE_LANDING
+      {% else %}
+        SANDBOX_CORPORATE_LANDING
+      {%- endif -%}
+    schema: TIMECONTROL
+    tables:
+      - name: TIMESHEET
+        config:
+          meta:
+            with_pipe: false                                       

@@ -1,0 +1,112 @@
+version: 2
+
+models:
+  - name: sche_fact_Purchase_Invoice
+    columns:
+      - name: Supplier_Purchase_Invoice_sk
+        tests:
+          - unique
+  - name: sche_fact_Supplier_Payment
+    columns:
+      - name: Supplier_Payment_sk
+        tests:
+          - unique
+  - name: sche_fact_Supplier_Payment_Detail
+    columns:
+      - name: Supplier_Payment_Detail_sk
+        tests:
+          - unique
+  - name: sche_fact_Project_Event_Detail
+    columns:
+      - name: PROJECT_EVENT_DETAIL_SK
+        tests:
+          - unique  
+  - name: sche_fact_Sales_Quote_Line
+    columns:
+      - name: LENGTH
+        description : "The measured or calculated length dimension"
+      - name: WEIGHT
+        description : "The measured or calculated weight of the item or component"
+      - name: AREA
+        description : "The measured or calculated surface area"
+      - name: QUANTITY
+        description : "The counted number of units or items"        
+      - name: GROSS_PRICE_LINE_AMOUNT
+        description : "The total price before any discounts for this specific line items" 
+  - name: sche_fact_Sales_Quote
+    columns:
+      - name: SALES_QUOTE_SK
+        description : "Unique surrogate key for the sales quote"
+      - name: QUOTED_TO_PROFILE_SK
+        description : "Unique surrogate key for the quoted-to profile"
+      - name: CUSTOMER_SK
+        description : "Unique surrogate key for the customer"        
+      - name: SALES_QUOTE_INSCRIPTION_DATE_KEY
+        description : "Unique primary key for the date" 
+      - name: SALES_QUOTE_CLOSING_DATE_KEY
+        description : "Unique primary key for the date"
+      - name: SALES_OFFICE_SK
+        description : "Unique surrogate key for the sales office"
+      - name: SALES_BRANCH_OFFICE_SK
+        description : "Unique surrogate key for the sales branch office"        
+      - name: FINANCIAL_COMPANY_SK
+        description : "Unique surrogate key for the financial company" 
+  - name: sche_fact_Sales_Contract_Line
+    columns:
+      - name: LENGTH
+        description : "The measured or calculated length dimension"
+      - name: WEIGHT
+        description : "The measured or calculated weight of the item"
+      - name: AREA
+        description : "The measured or calculated surface area"        
+      - name: QUANTITY
+        description : "The counted number of units or items" 
+      - name: GROSS_PRICE_LINE_AMOUNT
+        description : "The total price before any discounts for this specific line item"
+ 
+  - name: sche_fact_Project_Activity
+    columns:
+      - name: DIRECT_TIME_ORIGINAL_BUDGET
+        description : "The originally budgeted hours for direct labor activities"
+      - name: INDIRECT_TIME_ORIGINAL_BUDGET
+        description : "The originally budgeted hours for indirect support activities"
+      - name: AREA_ORIGINAL_BUDGET
+        description : "The originally budgeted surface area measure"        
+      - name: QUANTITY_ORIGINAL_BUDGET
+        description : "The originally budgeted count of units or items" 
+      - name: WEIGHT_ORIGINAL_BUDGET
+        description : "The originally budgeted monetary cost for raw materials"
+      - name: MATERIAL_COST_ORIGINAL_BUDGET_AMOUNT
+        description : "The originally budgeted weight measure"
+      - name: FABRICATION_COST_ORIGINAL_BUDGET_AMOUNT
+        description : "The originally budgeted monetary cost for manufacturing or fabrication"
+      - name: LABOR_COST_ORIGINAL_BUDGET_AMOUNT
+        description : "The originally budgeted monetary cost for labor"
+      - name: SOLD_PRICE_ORIGINAL_BUDGET
+        description : "The originally budgeted total selling price"
+  - name: sche_fact_Project_Activity_Budget_Variation 
+    columns:
+      - name: BUDGET_VARIATION_TYPE_CODE
+        description : "The code of the type of revision or reason for the budget change"
+      - name: BUDGET_VARIATION_STATUS_CODE
+        description : "The code of the current status of the budget change request"
+      - name: DIRECT_TIME_BUDGET_VARIATION
+        description : "The change amount in budgeted hours for direct labor activities"
+      - name: INDIRECT_TIME_BUDGET_VARIATION
+        description : "The change amount in budgeted hours for indirect support activities"
+      - name: AREA_BUDGET_VARIATION
+        description : "The change amount in budgeted surface area measure"
+      - name: QUANTITY_BUDGET_VARIATION
+        description : "The change amount in budgeted count of units or items"
+      - name: WEIGHT_BUDGET_VARIATION
+        description : "The change amount in budgeted weight measure"
+      - name: MATERIAL_COST_BUDGET_VARIATION_AMOUNT
+        description : "The change amount in budgeted monetary cost for raw materials"
+      - name: FABRICATION_COST_BUDGET_VARIATION_AMOUNT
+        description : "The change amount in budgeted monetary cost for manufacturing or fabrication"
+      - name:  LABOR_COST_BUDGET_VARIATION_AMOUNT
+        description :  "The change amount in budgeted monetary cost for labor"
+      - name:  SOLD_PRICE_BUDGET_VARIATION
+        description : "The change amount in the total budgeted selling price" 
+
+

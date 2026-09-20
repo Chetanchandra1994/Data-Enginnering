@@ -1,0 +1,53 @@
+{{
+  config(
+    materialized = "view",
+    alias = "cm50_gl_code_combinations",
+    schema='EBS'
+  )
+}}
+
+SELECT 
+DATA:"GCC_CODE_COMBINATION_ID" AS GCC_CODE_COMBINATION_ID
+,DATA:"GCC_LAST_UPDATE_DATE" AS GCC_LAST_UPDATE_DATE
+,DATA:"GCC_LAST_UPDATED_BY" AS GCC_LAST_UPDATED_BY
+,DATA:"GCC_CHART_OF_ACCOUNTS_ID" AS GCC_CHART_OF_ACCOUNTS_ID
+,DATA:"GCC_DETAIL_POSTING_AL_FLAG" AS GCC_DETAIL_POSTING_AL_FLAG
+,DATA:"GCC_DETAIL_BUDGETING_AL_FLAG" AS GCC_DETAIL_BUDGETING_AL_FLAG
+,DATA:"GCC_ACCOUNT_TYPE" AS GCC_ACCOUNT_TYPE
+,DATA:"GCC_ENABLED_FLAG" AS GCC_ENABLED_FLAG
+,DATA:"GCC_SUMMARY_FLAG" AS GCC_SUMMARY_FLAG
+,DATA:"GCC_SEGMENT1" AS GCC_SEGMENT1
+,DATA:"GCC_SEGMENT2" AS GCC_SEGMENT2
+,DATA:"GCC_SEGMENT3" AS GCC_SEGMENT3
+,DATA:"GCC_SEGMENT4" AS GCC_SEGMENT4
+,DATA:"GCC_SEGMENT5" AS GCC_SEGMENT5
+,DATA:"GCC_SEGMENT6" AS GCC_SEGMENT6
+,DATA:"GCC_TEMPLATE_ID" AS GCC_TEMPLATE_ID
+,DATA:"GCC_ALLOCATION_CREATE_FLAG" AS GCC_ALLOCATION_CREATE_FLAG
+,DATA:"GCC_START_DATE_ACTIVE" AS GCC_START_DATE_ACTIVE
+,DATA:"GCC_END_DATE_ACTIVE" AS GCC_END_DATE_ACTIVE
+,DATA:"GCC_PRESERVE_FLAG" AS GCC_PRESERVE_FLAG
+,DATA:"GCC_REFRESH_FLAG" AS GCC_REFRESH_FLAG
+,FILENAME                               AS METADATA_FILENAME 
+,FILE_ROW_NUMBER                        AS METADATA_FILE_ROW_NUMBER
+,FILE_LAST_MODIFIED                     AS METADATA_FILE_LAST_MODIFIED
+,START_SCAN_TIME                        AS METADATA_START_SCAN_TIME
+from {{ source("landing_ebs", "CM50_GL_CODE_COMBINATIONS") }}
+WHERE
+    split(FILENAME, '_') [array_size(split(FILENAME, '_')) - 2] >= (
+        SELECT
+            min_timestamp
+        FROM
+            (
+                SELECT
+                    split(FILENAME, '_') [array_size(split(FILENAME, '_')) - 2] AS min_timestamp,
+                    split(FILENAME, '/') [3] AS type_file
+                FROM
+                    {{ source("landing_ebs", "CM50_GL_CODE_COMBINATIONS") }}
+                WHERE
+                    type_file LIKE 'fullload%' QUALIFY ROW_NUMBER() OVER (
+                        ORDER BY
+                            min_timestamp DESC
+                    ) = 1
+            )
+         )

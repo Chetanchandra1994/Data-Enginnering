@@ -1,0 +1,450 @@
+version: 2
+
+models:
+  - name: sche_dim_Invoice_From_Profile
+    columns:
+      - name: IF_PROFILE_SK
+        tests:
+          - unique
+  - name: sche_dim_Pay_To_Profile
+    columns:
+      - name: PT_PROFILE_SK
+        tests:
+          - unique
+  - name: sche_dim_Supplier
+    columns:
+      - name: SUPPLIER_SK
+        tests:
+          - unique
+  - name: sche_dim_Supplier_Agreement
+    columns:
+      - name: supplier_Agreement_sk
+        tests:
+          - unique
+  - name: sche_dim_Date
+    columns: 
+      - name: DATE_KEY
+        tests:
+          - unique
+        description: "Unique primary key for the date"
+      - name: FULL_DATE
+        description: "The complete date in standard date format."
+      - name: CALENDAR_YEAR
+        description: "The numerical year"
+      - name: CALENDAR_MONTH_NUMBER
+        description: "The numerical month of the calendar year"
+      - name: CALENDAR_MONTH_DAY_NUMBER
+        description: "The day's number within its month"
+      - name: CALENDAR_QUARTER_NUMBER
+        description: "The quarter number of the calendar year"
+      - name: CALENDAR_SEMESTER_NUMBER
+        description: "The semester number of the calendar year"
+      - name: CALENDAR_WEEK_DAY_NUMBER
+        description: "The day's numerical position in the week"
+      - name: CALENDAR_WEEK_NUMBER
+        description: "The sequential week number within the year based on standard ISO-8601 with “Sunday” as the start of the week"
+      - name: CALENDAR_WEEK_START_DATE
+        description: "The date of the week`s designated start day"
+      - name: CALENDAR_MONTH_NAME_FR
+        description: "Full month name in French"
+      - name: CALENDAR_MONTH_NAME_EN
+        description: "Full month name in English"
+      - name: CALENDAR_DAY_NAME_FR
+        description: "Full day of the week name in French"
+      - name: CALENDAR_DAY_NAME_EN
+        description: "Full day of the week name in English"
+      - name: FISCAL_YEAR
+        description: "The numerical year for financial reporting"
+      - name: FISCAL_PERIOD_NUMBER
+        description: "The numerical period of the fiscal year"
+      - name: FISCAL_PERIOD_NAME
+        description: "The descriptive name of the fiscal period"
+      - name: FISCAL_PERIOD_START_DATE
+        description: "The first date of the current fiscal period"
+      - name: FISCAL_PERIOD_END_DATE
+        description: "The last date of the current fiscal period"
+      - name : CANAM_WEEK_NUMBER
+        description: "The sequential week number within the year based on Canam logic"
+      - name : CANAM_WEEK_DAY_NUMBER
+        description: "The day's numerical position in the week based on Canam logic"
+      - name : CANAM_WEEK_START_DATE
+        description: "The date of the week`s designated start day based on Canam logic"  
+  - name: sche_dim_Project_Event
+    columns:
+      - name: PROJECT_EVENT_SK
+        tests:
+          - unique  
+  - name: sche_dim_Event_Type
+    columns:
+      - name: EVENT_TYPE_SK
+        tests:
+          - unique 
+      
+
+  - name: sche_dim_Customer
+    columns:
+      - name: CUSTOMER_SK
+        description: "Unique surrogate key for the customer"
+        tests:
+          - unique 
+      - name: CUSTOMER_CODE
+        description: "The code of the customer"   
+      - name: CUSTOMER_NAME
+        description: "The name of the customer"  
+      - name: CUSTOMER_CLASS_NAME_FR
+        description: "The name of the customer in french"
+      - name: CUSTOMER_CLASS_NAME_EN
+        description: "The name of the customer in english"  
+      - name: BUSINESS_PARTNER_CODE
+        description: "The code of the business partner" 
+      - name: BUSINESS_PARTNER_NAME
+        description: "The name of the business partner" 
+  - name: sche_dim_Pay_By_Profile
+    columns:
+      - name: PB_PROFILE_SK
+        tests:
+          - unique   
+  - name: sche_dim_Project
+    columns:
+      - name: PROJECT_SK
+        description: "Unique surrogate key for the project"
+        tests:
+          - unique 
+      - name: PROJECT_CODE
+        description: "The code of the project"   
+      - name: FINANCIAL_COMPANY_CODE
+        description: "The code of the financial company code" 
+      - name: BUSINESS_UNIT_CODE
+        description: "The code of the business unit linked to the project" 
+      - name: PROJECT_CURRENCY_RATE
+        description: "Currency exchange rate of the project" 
+      - name: PROJECT_CURRENCY_CODE
+        description: "The code of the currency used in the project"   
+      - name: PROJECT_START_DATE
+        description: "The official date when project activities or work began"
+      - name: PROJECT_CLOSE_DATE
+        description: "The official date when project activities or work end"
+      - name: PROJECT_NAME_FR
+        description: "The official name of the project in French"   
+      - name: PROJECT_NAME_EN
+        description: "The official name of the project in English"  
+      - name: PROJECT_SHIPPING_ADDRESS
+        description: "The street address for the job site or delivery location"   
+      - name: PROJECT_SHIPPING_POSTAL_CODE
+        description: "The code of the postal or ZIP code for the project site"         
+      - name: PROJECT_SHIPPING_CITY_CODE
+        description: "The code of the city of the project site"   
+      - name: PROJECT_SHIPPING_STATE_CODE
+        description: "The code of the state or province of the project site"  
+      - name: PROJECT_SHIPPING_COUNTY_CODE
+        description: "The code of the county or regional area of the project site"   
+      - name: PROJECT_STATUS_CODE
+        description: "The status code of the project"  
+      - name: PROJECT_TYPE_CODE
+        description: "The type code of the project"
+      - name: PROJECT_CLASS_CATEGORY_NAME
+      - name: PROJECT_CLASS_NAME
+      - name: PROJECT_PACKAGE_STATUS_CODE
+        description: "The package status code of the project"
+      - name: PROJECT_BUILD_MASTER_STATUS_CODE
+        description: "Indicate if the BuildMaster approach is applied or not" 
+      - name: PROJECT_MANAGER_FULL_NAME
+        description: "Full name of the project manager" 
+      - name: PROJECT_SALESREP_FULL_NAME
+        description: "Full name of the sales representative of the project"                                             
+  - name: sche_dim_Employee
+    columns:
+      - name: EMPLOYEE_SK
+        tests:
+          - unique
+  - name: sche_dim_Payment_To
+    columns:
+      - name: PAYMENT_TO_SK
+        tests:
+          - unique  
+  - name: sche_dim_Item
+    columns:
+      - name: ITEM_SK
+        description : "Unique surrogate key for the item"
+        tests:
+          - unique
+      - name: ITEM_CODE
+        description :  "The code of the item"
+      - name: ACTIVE_STATUS_CODE
+        description :  "Indicates if the item is currently active for sale or use"
+      - name: ITEM_NAME_FR
+        description :  "The official product name in French"
+      - name: ITEM_NAME_EN
+        description :  "The official product name in English"
+      - name: ITEM_SALES_GROUP_CODE
+        description :  "Code representing the item's primary sales or reporting category"
+  - name: sche_dim_Unit_Of_Measure
+    columns:
+      - name: UOM_SK
+        description : "Unique key for the unit of measure"
+        tests:
+          - unique  
+      - name: ORIGIN_UOM_CODE
+        description : "The unit of measure code of the origin application" 
+      - name: UOM_CODE
+        description :  "The code of the unit of measure"
+      - name: UOM_NAME_FR
+        description :  "The name of the unit of measure in french"
+      - name: UOM_NAME_EN
+        description :  "The name of the unit of measure in english"
+      - name: UOM_TYPE_NAME_FR
+        description :  "The name of the unit of measure type in french"
+      - name: UOM_TYPE_NAME_EN
+        description :  "The name of the unit of measure type in english"       
+      - name: UOM_SYSTEM_NAME_FR
+        description :  "The name of the unit of measure system in french"
+      - name: UOM_SYSTEM_NAME_EN
+        description :  "The name of the unit of measure system in english"                    
+  - name: sche_dim_Sales_Quote_Line
+    columns:
+      - name: SALES_QUOTE_LINE_SK
+        description : "Unique surrogate key for the sales quote line" 
+        tests:
+          - unique        
+      - name: SALES_QUOTE_CODE
+        description : "The code of the sales quote"   
+      - name: SALES_QUOTE_ALTERNATIVE_CODE
+        description : "The code of the alternate identifier for the sales quote" 
+      - name: SRC_OFFICE_CODE
+        description : "The code of the sales office department from the source system" 
+      - name: SALES_QUOTE_LINE_CODE
+        description : "The code of the sales quote line" 
+      - name: ORIGIN_APPLICATION_CODE
+        description : "The code of the system where the quote was originally created"    
+      - name: SALES_OFFICE_DEPARTMENT_CODE
+        description : "The code of the sales office department managing the quote"                                  
+  - name: sche_dim_Sales_Quote
+    columns:
+      - name: SALES_QUOTE_SK
+        description: "Unique surrogate key for the sales quote"
+        tests:
+          - unique 
+      - name: SALES_QUOTE_CODE
+        description: "The code of the sales quote" 
+      - name: SALES_QUOTE_ALTERNATIVE_CODE
+        description: "The code of the alternate identifier for the sales quote" 
+      - name: SRC_OFFICE_CODE
+        description: "The code of the sales office department managing the quote from the source system"
+      - name: ORIGIN_APPLICATION_CODE
+        description: "The code of the system where the quote was originally created"
+      - name: SALES_OFFICE_DEPARTMENT_CODE
+        description: "The code of the sales office department managing the quote"
+      - name: SALES_QUOTE_INSCRIPTION_DATE
+        description: "The date the sales quote was officially recorded"
+      - name: SALES_QUOTE_CLOSING_DATE
+        description: "The maximum date the sales quote needs to be sent to the customer"
+      - name: SALES_QUOTE_STATUS_CODE
+        description: "The code of the quote's current progression status"
+      - name: SALES_QUOTE_ACTIVE_STATUS_CODE
+        description: "The code of the quote's current active or inactive status"
+  - name: sche_dim_Sales_Contract
+    columns:
+      - name: SALES_CONTRACT_SK
+        description : "Unique surrogate key for the sales contract"   
+      - name: SALES_CONTRACT_CODE
+        description : "The code of the sales contract" 
+      - name: SRC_OFFICE_CODE
+        description : "The code of the sales office department from the source system" 
+      - name: ORIGIN_APPLICATION_CODE
+        description : "The code of the system where the contract was originally created" 
+      - name: SALES_OFFICE_DEPARTMENT_CODE
+        description : "The code of the sales office department managing the contract" 
+      - name: SALES_CONTRACT_DATE
+        description : "The formal date the sales contract was created" 
+      - name: SALES_CONTRACT_STATUS_CODE
+        description : "The code of the contract's current processing status"
+      - name: SALES_CONTRACT_ACTIVE_STATUS
+        description : "The current active or inactive status of the contract"    
+  - name: sche_dim_Currency
+    columns:
+      - name: CURRENCY_SK
+        description: "Unique surrogate key of the currency"
+        tests:
+          - unique 
+      - name: CURRENCY_CODE
+        description: "The code of the currency"
+      - name: CURRENCY_NAME_FR 
+        description: "The name of the currency in french"
+      - name:  CURRENCY_NAME_EN
+        description:  "The name of the currency in english"
+        
+  - name: sche_dim_Financial_Company
+    columns:
+      - name: FINANCIAL_COMPANY_SK
+        description: "Unique key for the financial company"
+        tests:
+          - unique 
+      - name: FINANCIAL_COMPANY_CODE
+        description: "The code of the financial company"
+      - name: FINANCIAL_COMPANY_NAME_FR 
+        description: "The name of the financial company in french"
+      - name:  FINANCIAL_COMPANY_NAME_EN
+        description:  "The name of the financial company in english"                 
+  - name: sche_dim_Sales_Contract_Line
+    columns:
+      - name: SALES_CONTRACT_LINE_SK
+        description: "Unique surrogate key for the sales contract line item"
+        tests:
+          - unique 
+      - name: SALES_CONTRACT_CODE
+        description: "The code of the sales contract"
+      - name: SRC_OFFICE_CODE
+        description: "The code of the sales office department from the source system"
+      - name: SALES_CONTRACT_LINE_CODE
+        description: "The code of the sales contract line"
+      - name: ORIGIN_APPLICATION_CODE
+        description: "The code of the system where the contract was originally created"
+      - name: SALES_OFFICE_DEPARTMENT_CODE
+        description: "The code of the sales office department managing the contract"
+        
+  - name: sche_dim_Sales_Office
+    columns:
+      - name: SALES_OFFICE_SK
+        description : "Unique key for the sales office department"
+        tests:
+          - unique  
+      - name: ORIGIN_APPLICATION_CODE
+        description : "The system-of-record code for the primary application responsible for generating the source data"
+      - name: ORIGIN_OFFICE_CODE
+        description : "The office code of the origin application"
+      - name: SALES_OFFICE_DEPARTMENT_CODE
+        description : "The code of the sales office department" 
+      - name: SALES_OFFICE_DEPARTMENT_NAME_FR
+        description : "The name of the sales office department in french"
+      - name: SALES_OFFICE_DEPARTMENT_NAME_EN
+        description : "The name of the sales office department in english"
+      - name: SALES_OFFICE_DEPARTMENT_COUNTRY_CODE
+        description : "The code of the country where the sales office is located"
+      - name: SALES_OFFICE_DEPARTMENT_COUNTRY_NAME_FR
+        description : "The name of the country where the sales office is located in french"
+      - name: SALES_OFFICE_DEPARTMENT_COUNTRY_NAME_EN
+        description : "The name of the country where the sales office is located in english"
+      - name: ACTIVE_STATUS_CODE
+        description : "The code of the sales office department active or inactive status"
+
+  - name: sche_dim_Line_Of_Business
+    columns:
+      - name: BUSINESS_UNIT_SK
+        description : "Unique surrogate key for the business unit"
+        tests:
+          - unique  
+      - name: ORIGIN_APPLICATION_CODE
+        description : "The system-of-record code for the primary application responsible for generating the source data"
+      - name: ORIGIN_BUSINESS_UNIT_CODE
+        description : "The line of business code of the origin application" 
+      - name: LINE_OF_BUSINESS_CODE
+        description : "The code of the business unit" 
+      - name: LINE_OF_BUSINESS_NAME_FR
+        description : "The name of the business unit in french"
+      - name: LINE_OF_BUSINESS_NAME_EN
+        description : "The name of the business unit in english"
+      - name: ACTIVE_STATUS_CODE
+        description : "The code of the line of business active or inactive status"
+     
+
+  # - name: sche_dim_Sold_To_Profile
+  #   columns:
+  #     - name: SOLD_TO_PROFILE_SK
+  #       description : "Unique surrogate key for the sold-to profile" 
+  #       tests:
+  #         - unique        
+  #     - name: SOLD_TO_PROFILE_CODE
+  #       description : "The code of the sold-to profile"   
+  #     - name: CUSTOMER_SK
+  #       description : "Unique surrogate key for the customer" 
+  #     - name: CUSTOMER_SOLD_TO_PROFILE_NAME
+  #       description : "The name of the specific profile that made the purchase"
+  - name: sche_dim_Sales_Branch_Office
+    columns:
+      - name: SALES_BRANCH_OFFICE_SK
+        description: "Unique key for the sales branch office department"
+        tests:
+          - unique        
+      - name: ORIGIN_APPLICATION_CODE
+        description: "The system-of-record code for the primary application responsible for generating the source data"
+      - name: ORIGIN_OFFICE_CODE
+        description: "The sales office department code of the origin application"   
+      - name: ORIGIN_BRANCH_OFFICE_CODE
+        description: "The branch office code of the origin application"
+      - name: ORIGIN_EIS_OFFICE_NAME
+        description: "The office name that was manually updated into the EIS dimension for branch office"
+      - name: ORIGIN_BUSINESS_UNIT_CODE
+        description: "The business unit code of the origin application"
+      - name: LINE_OF_BUSINESS_CODE
+        description: "The code of the line of business linked to the sales branch office department"
+      - name: LINE_OF_BUSINESS_NAME_FR
+        description: "The name of the line of business linked to the sales branch office department in french"
+      - name: LINE_OF_BUSINESS_NAME_EN
+        description: "The name of the line of business linked to the sales branch office department in english"
+      - name: SALES_OFFICE_DEPARTMENT_CODE
+        description: "The code of the sales office department"
+      - name: SALES_BRANCH_OFFICE_DEPARTMENT_CODE
+        description: "The code of the sales branch office department"
+      - name: SALES_BRANCH_OFFICE_DEPARTMENT_NAME_FR
+        description: "The name of the sales branch office department in french"
+      - name: SALES_BRANCH_OFFICE_DEPARTMENT_NAME_EN
+        description: "The name of the sales branch office department in english"
+  - name: sche_dim_Project_Activity
+    columns:
+      - name: PROJECT_ACTIVITY_SK
+        description : "Unique surrogate key for the project activity" 
+        tests:
+          - unique
+      - name: PROJECT_ACTIVITY_CODE
+        description : "The code of the project activity"
+      - name: PROJECT_ACTIVITY_TYPE_CODE
+        description : "The type code of the project activity"
+      - name: PROJECT_ACTIVITY_ACTIVE_STATUS_CODE
+        description : "Indicates if the project activity is currently active for use"
+  - name: sche_dim_Quoted_To_Profile
+    columns:
+      - name: QUOTED_TO_PROFILE_SK
+        description : "Unique surrogate key for the quoted-to profile" 
+        tests:
+          - unique
+      - name: QUOTED_TO_PROFILE_CODE
+        description : "The code of the quoted-to profile"
+      - name: CUSTOMER_SK
+        description : "Unique surrogate key for the customer"
+      - name: PROSPECT_SK
+        description : "Unique surrogate key for the prospect"
+  - name: sche_dim_Business_Unit
+    columns: 
+      - name: BUSINESS_UNIT_SK
+        description: "Unique surrogate key for the business unit"
+      - name: BUSINESS_UNIT_CODE
+        description: "The code of the business unit"
+      - name: BUSINESS_UNIT_NAME
+        description: "The name of the business unit"
+      - name: BUSINESS_UNIT_GROUP_NAME_FR
+        description: "The group name in french of the business unit"
+      - name: BUSINESS_UNIT_GROUP_NAME_EN
+        description: "The group name in english of the business unit"
+      - name: BUSINESS_UNIT_ACTIVE_STATUS_CODE
+        description: "The code of the business unit current active or inactive status"
+  - name: sche_dim_Exchange_Rate_Type
+    columns: 
+      - name: EXCHANGE_RATE_TYPE_SK
+        description: "Unique surrogate key for the exchange rate type"
+      - name: EXCHANGE_RATE_TYPE_CODE
+        description: "The code of the exchange rate type"
+      - name: EXCHANGE_RATE_TYPE_NAME_FR
+        description: "The name in french of the exchange rate type"
+      - name: EXCHANGE_RATE_TYPE_NAME_EN
+        description: "The name in english of the exchange rate type"
+  - name: sche_dim_Prospect
+    columns: 
+      - name: PROSPECT_SK
+        description: "Unique surrogate key for the prospect"
+        tests:
+          - unique
+      - name: PROSPECT_CODE
+        description: "The code of the prospect"
+      - name: PROSPECT_NAME
+        description: "The name of the prospect"
+      

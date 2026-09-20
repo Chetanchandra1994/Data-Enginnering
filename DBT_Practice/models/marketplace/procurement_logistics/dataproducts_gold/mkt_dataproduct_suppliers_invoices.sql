@@ -1,0 +1,60 @@
+{{
+  config(
+    full_refresh = true,
+    materialized="dynamic_table",
+    target_lag="1 hour",
+    snowflake_warehouse= var('task_warehouse'),
+    alias = "suppliers_invoices",
+    schema= "dataproducts_gold",
+    post_hook = "ALTER DYNAMIC TABLE {{ this }} SET LOG_LEVEL = ERROR"
+  
+  )
+}}
+
+WITH CODE_NAMES AS (
+    SELECT
+        STANDARD_APPLICATION_VALUE,
+        BUSINESS_APPLICATION_VALUE,
+        STANDARD_DOMAIN_APPLICATION_CODE,
+        STANDARD_APPLICATION_VALUE_NAME_EN,
+        STANDARD_APPLICATION_VALUE_NAME_FR
+    FROM
+        {{ref('gov_referencedata_rdm')}}
+    WHERE
+        Business_Application_Code = 'oracle-ebs'
+        AND Standard_Domain_Application_Code IN ('PaymentMethod', 'PaymentTerm')
+)
+
+SELECT
+    E.SUPPLIER_NUMBER AS SUPPLIER_NUMBER,
+    A.INVOICE_CODE AS INVOICE_CODE,
+    A.INVOICE_DATE AS INVOICE_DATE,
+    A.INVOICE_AMOUNT AS INVOICE_AMOUNT,
+    A.INVOICE_CURRENCY AS INVOICE_CURRENCY,
+    B.IF_NAME AS NAME,
+    B.IF_COUNTRY AS COUNTRY,
+    B.IF_ADMINISTRATIVE_AREA AS ADMINISTRATIVE_AREA,
+    B.IF_LOCALITY AS LOCALITY,
+    B.IF_ROUTE AS ROUTE,
+    B.IF_PO_BOX_NUMBER AS PO_BOX_NUMBER,
+    B.IF_POSTAL_CODE AS POSTAL_CODE,
+    C.STANDARD_APPLICATION_VALUE_NAME_EN AS PAYMENT_TERM_ENGLISH,
+    C.STANDARD_APPLICATION_VALUE_NAME_FR AS PAYMENT_TERM_FRENCH,
+    D.STANDARD_APPLICATION_VALUE_NAME_EN AS PAYMENT_METHOD_ENGLISH,
+    D.STANDARD_APPLICATION_VALUE_NAME_FR AS PAYMENT_METHOD_FRENCH
+FROM
+    {{ ref ('sche_fact_Purchase_Invoice') }} AS A
+LEFT JOIN
+    {{ ref('sche_dim_Supplier') }} AS E
+    ON A.SUPPLIER_SK = E.SUPPLIER_SK
+LEFT JOIN
+    {{ ref('sche_dim_Invoice_From_Profile') }} AS B 
+    ON A.IF_PROFILE_SK = B.IF_PROFILE_SK
+LEFT JOIN
+    CODE_NAMES AS C 
+    ON A.INVOICE_TERM = C.STANDARD_APPLICATION_VALUE
+    AND C.STANDARD_DOMAIN_APPLICATION_CODE = 'PaymentTerm'
+LEFT JOIN
+    CODE_NAMES AS D 
+    ON B.IF_PAYMENT_METHOD_CODE = D.BUSINESS_APPLICATION_VALUE
+    AND D.STANDARD_DOMAIN_APPLICATION_CODE = 'PaymentMethod'

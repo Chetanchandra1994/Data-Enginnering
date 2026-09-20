@@ -1,0 +1,2981 @@
+selectors:
+#### GOVERNANCE ####
+  - name: etl_event_description
+    description: >
+      Description: ETL EVENT DETAIL error code descriptions
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/governance/data_quality/etl_event_description.sql"
+#### AIRFLOW ####
+  - name: airflow_full
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/airflow/prep_dag_run.sql"
+        - method: path  
+          value: "models/normalize/enterprise/airflow/norm_dag_run.sql"          
+        - method: path
+          value: "models/prepare/enterprise/airflow/prep_task_instance.sql"
+        - method: path  
+          value: "models/normalize/enterprise/airflow/norm_task_instance.sql"     
+        - method: path
+          value: "models/prepare/enterprise/airflow/prep_task_fail.sql"
+        - method: path  
+          value: "models/normalize/enterprise/airflow/norm_task_fail.sql" 
+        - method: path
+          value: "models/prepare/enterprise/airflow/prep_job.sql"
+        - method: path  
+          value: "models/normalize/enterprise/airflow/norm_job.sql"   
+        - method: path
+          value: "models/marketplace/enterprise/dataproducts_bronze/mkt_dataproduct_airflow_task_execution.sql"            
+#### Prepare & Normalize source tables - ENTERPRISE ####
+### BigQuery
+    ## RDM
+  - name: rdm
+    description: >
+      Description: BigQuery RDM
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/bigquery/prep_bigquery_rdm.sql"  
+        - method: path
+          value: "models/normalize/enterprise/bigquery/norm_bigquery_rdm.sql"  
+
+### Canam Manual
+  - name: manual_entity_descriptions
+    description: >
+      Description: Canam Manual Descriptions Entity
+      Status: 
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/canam_manual/prep_manual_entity_descriptions.sql"
+        - method: path
+          value: "models/normalize/enterprise/canam_manual/norm_manual_entity_descriptions.sql"   
+  - name: manual_rdm_descriptions
+    description: >
+      Description: Canam Manual Descriptions
+      Status: 
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/canam_manual/prep_manual_rdm_descriptions.sql"
+        - method: path
+          value: "models/normalize/enterprise/canam_manual/norm_manual_rdm_descriptions.sql"     
+  - name: manual_branch_office_business_unit_map
+    description: >
+      Description: Canam Manual Branch Office Business Unit Map
+      Status: 
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/canam_manual/prep_manual_branch_office_business_unit_map.sql"
+        - method: path
+          value: "models/normalize/enterprise/canam_manual/norm_branch_office_business_unit_map.sql"                                       
+  - name: manual_eis_office_name_map
+    description: >
+      Description: Canam Manual EIS OFFICE NAME Map
+      Status: 
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/canam_manual/prep_manual_eis_office_name_map.sql"
+        - method: path
+          value: "models/normalize/enterprise/canam_manual/norm_manual_eis_office_name_map.sql" 
+### Canam Model
+  - name: canam_model_suppliers
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliers.sql"
+        - method: path  
+          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliers.sql"
+  - name: suppliers_InvoiceFromProfiles
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersInvoiceFromProfiles.sql"
+        - method: path  
+          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersInvoiceFromProfiles.sql"
+  - name: suppliers_PayToProfiles
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersPayToProfiles.sql"
+        - method: path  
+          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersPayToProfiles.sql"      
+
+### EBS
+    ## Oracle tables
+  - name: ar_collectors
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_ar_collectors.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cm50_ar_collectors.sql"
+  - name: cm50_ap_checks_all
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_ap_checks_all.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cm50_ap_checks_all.sql"
+  - name: cm50_ap_invoice_payments
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_ap_invoice_payments.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cm50_ap_invoice_payments.sql"
+  - name: cm50_ap_invoices_all
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_ap_invoices_all.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cm50_ap_invoices_all.sql"
+  - name: cm50_ap_invoice_distribution
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_ap_invoice_distribution.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cm50_ap_invoice_distribution.sql"
+  - name: cm50_po_supplier
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_po_supplier.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cm50_po_supplier.sql"
+  - name: cm50_po_supplier_site
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_po_supplier_site.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cm50_po_supplier_site.sql"
+  - name: fnd_flex_value_sets
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_fnd_flex_value_sets.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_fnd_flex_value_sets.sql"
+  - name: fnd_flex_values_tl
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_fnd_flex_values_tl.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_fnd_flex_values_tl.sql"
+  - name: fnd_lookup_values
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_fnd_lookup_values.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_fnd_lookup_values.sql"
+  - name: gl_periods
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_gl_periods.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_gl_periods.sql"
+  - name: gl_translation_rates
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_gl_translation_rates.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_gl_translation_rates.sql"
+  - name: hr_organization_units_v
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_hr_organization_units_v.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_hr_organization_units_v.sql"
+  - name: hz_cust_accounts
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_hz_cust_accounts.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_hz_cust_accounts.sql"
+  - name: hz_cust_acct_sites_all
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_hz_cust_acct_sites_all.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_hz_cust_acct_sites_all.sql"
+  - name: hz_cust_site_uses_all
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_hz_cust_site_uses_all.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_hz_cust_site_uses_all.sql"
+  - name: hz_customer_profiles
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_hz_customer_profiles.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_hz_customer_profiles.sql"
+  - name: hz_locations
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_hz_locations.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_hz_locations.sql"
+  - name: hz_parties
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_hz_parties.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_hz_parties.sql"
+  - name: hz_party_sites
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_hz_party_sites.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_hz_party_sites.sql"
+  - name: pa_periods_all
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_pa_periods_all.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_pa_periods_all.sql"
+  - name: pa_projects_all
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_pa_projects_all.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_pa_projects_all.sql"
+  - name: pa_segment_value_lookup_sets
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_pa_segment_value_lookup_sets.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_pa_segment_value_lookup_sets.sql"
+  - name: pa_segment_value_lookups
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_pa_segment_value_lookups.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_pa_segment_value_lookups.sql"
+  - name: pa_tasks
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_pa_tasks.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_pa_tasks.sql"
+  - name: per_org_structure_elements_v
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_per_org_structure_elements_v.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_per_org_structure_elements_v.sql"
+  - name: wip_discrete_jobs
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_wip_discrete_jobs.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_wip_discrete_jobs.sql"  
+  - name: hr_all_organization_units
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_hr_all_organization_units.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_hr_all_organization_units.sql"  
+  - name: po_vendors
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_po_vendors.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_po_vendors.sql"  
+  - name: cm50_po_headers_all
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_po_headers_all.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cm50_po_headers_all.sql"     
+  - name: wip_entities
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_wip_entities.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_wip_entities.sql"   
+  - name: bom_departments
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_bom_departments.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_bom_departments.sql"
+  - name: cm50_gl_code_combinations
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_gl_code_combinations.sql"
+        - method: path
+          value: "models/normalize/enterprise/ebs/norm_cm50_gl_code_combinations.sql"
+  - name: wip_accounting_classes
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_wip_accounting_classes.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_wip_accounting_classes.sql"
+  - name: bom_resources
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_bom_resources.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_bom_resources.sql"
+  - name: cmg_eam_kpi_product_lines
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cmg_eam_kpi_product_lines.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cmg_eam_kpi_product_lines.sql"           
+  - name: cmg_eam_kpi_areas
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cmg_eam_kpi_areas.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cmg_eam_kpi_areas.sql"
+  - name: mtl_eam_asset_attr_values
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_mtl_eam_asset_attr_values.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_mtl_eam_asset_attr_values.sql"   
+  - name: mtl_serial_numbers
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_mtl_serial_numbers.sql"
+        - method: path
+          value: "models/normalize/enterprise/ebs/norm_mtl_serial_numbers.sql" 
+  - name: mtl_object_genealogy
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_mtl_object_genealogy.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_mtl_object_genealogy.sql"     
+  - name: cmg_eam_kpi_shops
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cmg_eam_kpi_shops.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cmg_eam_kpi_shops.sql"
+  - name: mtl_system_items_b
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_mtl_system_items_b.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_mtl_system_items_b.sql"    
+  - name: eam_work_orders
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_eam_work_orders.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_eam_work_orders.sql"     
+  - name: cst_distribution
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cst_distribution.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cst_distribution.sql"
+  - name: cm50_pa_projects
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_pa_projects.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cm50_pa_projects.sql"
+  - name: pa_expenditure_types
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_pa_expenditure_types.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_pa_expenditure_types.sql"
+  - name: cmg_dw_projects_etl
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cmg_dw_projects_etl.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cmg_dw_projects_etl.sql"
+  - name: cmg_eam_kpi_activity_target
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cmg_eam_kpi_activity_target.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cmg_eam_kpi_activity_target.sql"
+  - name: bom_resource_employees
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_bom_resource_employees.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_bom_resource_employees.sql"
+  - name: cmg_pa_analysis
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cmg_pa_analysis.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cmg_pa_analysis.sql"        
+  - name: cmg_pa_shipped_quantities
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cmg_pa_shipped_quantities.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cmg_pa_shipped_quantities.sql"
+  - name: BI_8727_custom_selector
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_po_lines_all.sql"       
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_po_distributions.sql"  
+        - method: path
+          value: "models/normalize/enterprise/ebs/norm_cm50_po_lines_all.sql"  
+        - method: path
+          value: "models/normalize/enterprise/ebs/norm_cm50_po_distributions.sql"  
+  
+  
+                                 
+
+### GoogleSheet
+    ## Google Sheet tables exported to Google Cloud Storage
+  - name: purchasing_agreement_register
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/googlesheet/prep_purchasing_agreement_register.sql"
+        - method: path  
+          value: "models/normalize/enterprise/googlesheet/norm_purchasing_agreement_register.sql"
+
+### SPM CA
+    ## SPM CA tables
+  - name: marques
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_marques.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_marques.sql"    
+  - name: cmg_sales_group
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_cmg_sales_group.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_cmg_sales_group.sql"
+  - name: ess_line
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_ess_line.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_ess_line.sql"
+  - name: ess_trans
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_ess_trans.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_ess_trans.sql"
+  - name: ess_tranx
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_ess_tranx.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_ess_tranx.sql"
+  - name: in_control
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_in_control.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_in_control.sql"
+  - name: items_whs
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_items_whs.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_items_whs.sql"
+  - name: produit_s
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_produit_s.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_produit_s.sql"
+  - name: proj_seq
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_proj_seq.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_proj_seq.sql"
+  - name: proj_seq_lp
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_proj_seq_lp.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_proj_seq_lp.sql"          
+  - name: projet_e
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_projet_e.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_projet_e.sql"
+  - name: projet_g
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_projet_g.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_projet_g.sql"
+  - name: projet_l
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_projet_l.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_projet_l.sql"
+  - name: projetx_g
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_projetx_g.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_projetx_g.sql"
+  - name: projetx_l
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_projetx_l.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_projetx_l.sql"
+  - name: qc_competitor
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_qc_competitor.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_qc_competitor.sql"
+  - name: qc_people
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_qc_people.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_qc_people.sql"
+  - name: qc_quotation_customer
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_qc_quotation_customer.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_qc_quotation_customer.sql"
+  - name: qc_quotation_product
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_qc_quotation_product.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_qc_quotation_product.sql"
+  - name: qc_quotation
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_qc_quotation.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_qc_quotation.sql"
+  - name: project_event
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_project_event.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_project_event.sql"
+  - name: item
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_item.sql"
+  - name: item_tech
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item_tech.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_item_tech.sql"
+  - name: item_alt
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item_alt.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_item_alt.sql"
+  - name: req_prod
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_req_prod.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_req_prod.sql"
+  - name: item_alt_po
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item_alt_po.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_item_alt_po.sql"
+  - name: item_whs
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item_whs.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_item_whs.sql"
+  - name: item_whs_d
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item_whs_d.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_item_whs_d.sql"
+  - name: heat_no_country
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_heat_no_country.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_heat_no_country.sql" 
+  - name: vendor
+    description: >
+      Description:
+      Status: TEST
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_vendor.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_vendor.sql"      
+  - name: project_event_detail
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_project_event_detail.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_project_event_detail.sql"  
+  - name: product_attribute
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_product_attribute.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_product_attribute.sql"
+  - name: cmaitre_s
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_cmaitre_s.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_cmaitre_s.sql"  
+  - name: pe_job
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_pe_job.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_pe_job.sql"
+  - name: cmg_outbound_databases
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_cmg_outbound_databases.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_cmg_outbound_databases.sql"
+  - name: receipt_line
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_receipt_line.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_receipt_line.sql"      
+  - name: warehouse
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_warehouse.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_warehouse.sql"                                 
+
+### SPM GDM
+  ## SPM GDM tables
+  - name: cmg_task
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_cmg_task.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_cmg_task.sql"
+  - name: customer_market
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_customer_market.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_customer_market.sql"
+  - name: customer_type
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_customer_type.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_customer_type.sql"
+  - name: customer
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_customer.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_customer.sql"
+  - name: data_name
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_data_name.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_data_name.sql"
+  - name: people
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_people.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_people.sql"
+  - name: project
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_project.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_project.sql"
+  - name: qc_branch_office
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_qc_branch_office.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_qc_branch_office.sql"
+  - name: qc_office
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_qc_office.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_qc_office.sql"
+  - name: salesman
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_salesman.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_salesman.sql"
+  - name: uom
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_uom.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_uom.sql"
+  - name: global_item
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_global_item.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_global_item.sql"
+  - name: item_technical_property
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_item_technical_property.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_item_technical_property.sql"
+  - name: technical_category
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_technical_category.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_technical_category.sql"
+  - name: steel_grade
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_steel_grade.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_steel_grade.sql"
+  - name: country
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_country.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_country.sql"        
+  - name: project_event_trans_type
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_project_event_trans_type.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_project_event_trans_type.sql" 
+  - name: department
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_department.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_department.sql" 
+  - name: event
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_event.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_event.sql" 
+  - name: item_category
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_item_category.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_item_category.sql" 
+  - name: item_subcategory
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_item_subcategory.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_item_subcategory.sql" 
+  - name: prodct_machn
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_prodct_machn.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_prodct_machn.sql"
+  - name: working_shift
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_working_shift.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_working_shift.sql"
+  - name: working_shift_detail
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_working_shift_detail.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_working_shift_detail.sql"
+  - name: business_unit
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_business_unit.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_business_unit.sql"
+### SPM GEN
+    ## SPM GEN tables
+  - name: users
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_gen/prep_users.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gen/norm_users.sql"
+### SQL Server
+    ## SQL Server tables
+  - name: Projects
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/CTM/prep_projects.sql"
+        - method: path  
+          value: "models/normalize/enterprise/CTM/norm_projects.sql"
+
+  - name: project_type_task_codes
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/CTM/prep_project_type_task_codes.sql"      
+        - method: path
+          value: "models/normalize/enterprise/CTM/norm_project_type_task_codes.sql"   
+  - name: Tasks
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/CTM/prep_tasks.sql"
+        - method: path  
+          value: "models/normalize/enterprise/CTM/norm_tasks.sql"
+
+  - name: ProjectDivisionProducts
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/CTM/prep_project_division_products.sql"
+        - method: path  
+          value: "models/normalize/enterprise/CTM/norm_project_division_products.sql"  
+  - name: ProjectDivisions
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/CTM/prep_project_divisions.sql"
+        - method: path  
+          value: "models/normalize/enterprise/CTM/norm_project_divisions.sql"              
+     
+#### Prepare & Normalize source tables - CORPORATE  ####       
+  - name: timesheet
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/corporate/timecontrol/prep_timesheet.sql"
+        - method: path
+          value: "models/normalize/corporate/timecontrol/norm_timesheet.sql"
+
+#### Prepare & Normalize source tables - MANUFACTURING  ####       
+  - name: mqtt
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/manufacturing/mqtt/prep_spBv1.sql"
+        - method: path
+          value: "models/normalize/manufacturing/mqtt/norm_spBv1.sql"
+        - method: path
+          value: "models/prepare/manufacturing/mqtt/prep_canam.sql"
+        - method: path
+          value: "models/normalize/manufacturing/mqtt/norm_canam.sql"
+
+#### Schematize & Marketplace tables - ENTERPRISE ####
+### Dimensions GOLD
+  ## invoice_and_payment_daily
+  - name: dim_Supplier_Agreement
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Supplier_Agreement.sql"
+  - name: dim_Supplier
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Supplier.sql"
+        - method: path
+          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliers.sql"
+        - method: path  
+          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliers.sql"
+        - method: path
+          value: "models/prepare/enterprise/canam_manual/prep_manual_rdm_descriptions.sql"
+  - name: dim_Invoice_From_Profile
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Invoice_From_Profile.sql"
+  - name: dim_Pay_To_Profile
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Pay_To_Profile.sql"
+  ## project_event
+  - name: dim_Date
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Date.sql" 
+  - name: dim_Project_Event
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Project_Event.sql" 
+  - name: dim_Project
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Project.sql"
+  - name: dim_Event_Type
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Event_Type.sql"
+  - name: dim_Customer
+    description: >
+      Description:
+      Status: TEST
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Customer.sql" 
+  - name: dim_Pay_By_Profile
+    description: >
+      Description:
+      Status: TEST
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Pay_By_Profile.sql"    
+  - name: dim_Employee
+    description: >
+      Description:
+      Status: TEST
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Employee.sql"
+  - name: dim_Payment_To
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Payment_To.sql" 
+  - name: dim_Item
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Item.sql" 
+  - name: dim_Unit_Of_Measure
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Unit_Of_Measure.sql"
+        - method: path 
+          value: "models/normalize/enterprise/spm_gdm/norm_uom.sql"  
+  - name: dim_Sales_Quote_Line
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Sales_Quote_Line.sql" 
+  - name: dim_Financial_Company
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Financial_Company.sql"      
+  - name: dim_Sales_Quote
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Sales_Quote.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_qc_quotation.sql"
+  - name: dim_Sales_Contract
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Sales_Contract.sql" 
+
+  - name: dim_Sales_Contract_Line
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Sales_Contract_Line.sql"
+  - name: dim_Currency
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Currency.sql"
+  - name: dim_Sales_Office
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Sales_Office.sql"
+
+  - name: sche_dim_Line_Of_Business
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Line_Of_Business.sql"
+
+
+
+  # - name: dim_Sold_To_Profile
+  #   description: >
+  #     Description:
+  #     Status: PROD
+  #   definition:
+  #     union:
+  #       - method: path
+  #         value: "models/schematize/enterprise/dimensions/sche_dim_Sold_To_Profile.sql"
+  - name: dim_Sales_Branch_Office
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Sales_Branch_Office.sql"
+  - name: dim_project_activity
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Project_Activity.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_produit_s.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_ess_line.sql"                   
+  - name: dim_Quoted_To_Profile
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Quoted_To_Profile.sql"
+  - name: dim_Business_Unit
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Business_Unit.sql"
+        # - method: path
+        #   value: "models/normalize/enterprise/spm_gdm/norm_business_unit.sql"
+        # - method: path
+        #   value: "models/prepare/enterprise/spm_gdm/prep_business_unit.sql"
+  - name: dim_Fact_BI_7544
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Customer.sql"
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Sales_Quote.sql"
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Sales_Quote_Line.sql"
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Sales_Contract.sql"
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Sales_Contract_Line.sql"
+  - name: dim_Fact_BI_7754
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Project_Activity.sql"
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Project_Activity_Budget_Variation.sql"
+        - method: path
+          value: "models/marketplace/marketing_sale/dataproducts_gold/mkt_data_product_weekly_sold_quoted_details.sql"
+        - method: path
+          value: "models/marketplace/marketing_sale/dataproducts_gold/mkt_data_product_weekly_project_booking_profit_estimate.sql"
+        - method: path
+          value: "models/marketplace/marketing_sale/dataproducts_gold/mkt_data_product_project_booking.sql"
+  - name: dim_Exchange_Rate_Type
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Exchange_Rate_Type.sql"
+  - name: dim_Prospect
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Prospect.sql"
+
+                
+### Dimensions BRONZE
+  - name: working_shift_calendar
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/bronze/sche_working_shift_calendar.sql"                 
+
+### Facts
+  ##invoice_and_payment_daily
+  - name: fact_Purchase_Invoice
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Purchase_Invoice.sql"
+  - name: fact_Supplier_Payment
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Supplier_Payment.sql"
+  - name: fact_Supplier_Payment_Detail
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Supplier_Payment_Detail.sql"
+  - name: fact_Project_Event_Detail
+    description: >
+      Description:
+      Status: TEST
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Project_Event_Detail.sql"          
+  - name: fact_Project_Exchange_Rate
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Project_Exchange_Rate.sql"
+  - name: fact_Sales_Quote_Line
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Sales_Quote_Line.sql"
+  - name: fact_Sales_Contract
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Sales_Contract.sql"    
+  - name: sche_fact_Sales_Quote
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Sales_Quote.sql"  
+  - name: fact_Sales_Contract_Line
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Sales_Contract_Line.sql" 
+  - name: fact_Project_Activity
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Project_Activity.sql"   
+  - name: fact_Project_Activity_Budget_Variation
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value:  "models/schematize/enterprise/facts/sche_fact_Project_Activity_Budget_Variation.sql"      
+          
+           
+
+### Bridges
+  - name: bridge_Customer
+    description: >
+      Description:
+      Status: TEST
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/bridges/sche_bridge_Customer.sql"
+  - name: bridge_Supplier
+    description: >
+      Description:
+      Status: TEST
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/bridges/sche_bridge_Supplier.sql"          
+
+### Data Products
+  ##Data product without full lineage
+  #GOLD
+  - name: invoice_and_payment_daily
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_gold/mkt_dataproduct_invoice_and_payment_daily.sql"
+  - name: suppliers
+    description: >
+      Description:
+      Status:  PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/enterprise/dataproducts_gold/mkt_dataproduct_suppliers.sql"
+  - name: suppliers_agreements
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+      #DATA PRODUCT
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_gold/mkt_dataproduct_suppliers_agreements.sql"
+  - name: suppliers_payments
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+      #DATA PRODUCT
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_gold/mkt_dataproduct_suppliers_payments.sql"
+  - name: suppliers_invoices
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+      #DATA PRODUCT
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_gold/mkt_dataproduct_suppliers_invoices.sql"
+  - name: supplier_spend_evaluation
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+      #DATA PRODUCT
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_gold/mkt_dataproduct_supplier_spend_evaluation.sql"
+  - name: dataproduct_project_event
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+      #DATA PRODUCT
+        - method: path
+          value: "models/marketplace/project_management/dataproducts_gold/mkt_dataproduct_project_event.sql"  
+  - name: dataproduct_weekly_sold_quoted_details
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+      #DATA PRODUCT
+        - method: path
+          value: "models/marketplace/marketing_sale/dataproducts_gold/mkt_data_product_weekly_sold_quoted_details.sql" 
+
+  - name: dataproduct_weekly_project_booking_profit_estimate
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+      #DATA PRODUCT
+        - method: path
+          value: "models/marketplace/marketing_sale/dataproducts_gold/mkt_data_product_weekly_project_booking_profit_estimate.sql" 
+
+  - name: dataproduct_project_booking
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/marketing_sale/dataproducts_gold/mkt_data_product_project_booking.sql"           
+  - name: dataproduct_currency
+    description: >
+      Description:
+      Status:  PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/enterprise/dataproducts_gold/mkt_dataproduct_currency.sql"
+  - name: dataproduct_calendar
+    description: >
+      Description:
+      Status:  PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/enterprise/dataproducts_gold/mkt_dataproduct_calendar.sql"
+  - name: dataproduct_financial_company
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/enterprise/dataproducts_gold/mkt_dataproduct_financial_company.sql"
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Financial_Company.sql"
+
+  - name: dataproduct_unit_of_measure
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/enterprise/dataproducts_gold/mkt_dataproduct_unit_of_measure.sql"
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Unit_Of_Measure.sql" 
+
+  - name: Business_Unit
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Business_Unit.sql"
+        - method: path
+          value: "models/marketplace/enterprise/dataproducts_gold/mkt_dataproduct_business_unit.sql"         
+
+  - name: dataproduct_customer
+    description: >
+      Description:
+      Status:  PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/enterprise/dataproducts_gold/mkt_dataproduct_customer.sql"    
+
+  - name: dataproduct_exchange_rate
+    description: >
+      Description:
+      Status:  PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/enterprise/dataproducts_gold/mkt_dataproduct_exchange_rate.sql"                      
+  
+  #SILVER
+  #EMPTY
+  #BRONZE        
+  - name: item_length
+    description: >
+      Description:
+      Status:  PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_bronze/mkt_dataproduct_item_length.sql" 
+  - name: steel_receipt_line_details
+    description: >
+      Description:
+      Status:  PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_bronze/mkt_data_product_steel_receipt_line_details.sql"
+  - name: steel_purchase_orders_details
+    description: >
+      Description:
+      Status:  PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_bronze/mkt_data_product_steel_purchase_orders_details.sql"
+  - name: dataproduct_rollformer_substitution_transaction
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/production_quality/dataproducts_bronze/mkt_dataproduct_rollformer_substitution_transaction.sql"
+        - method: path
+          value: "models/marketplace/production_quality/dataproducts_bronze/mkt_dataproduct_rollformer_substitution_transaction_hist.sql"
+  # Human Capital        
+  - name: dataproduct_employee_timesheet_control
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/human_capital/dataproducts_bronze/mkt_dataproduct_employee_timesheet_control.sql"
+
+  - name: dataproduct_employee_timesheet_control_full
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/human_capital/dataproducts_bronze/mkt_dataproduct_employee_timesheet_control.sql"
+        - method: path
+          value: "models/prepare/corporate/timecontrol/prep_timesheet.sql"
+        - method: path
+          value: "models/normalize/corporate/timecontrol/norm_timesheet.sql"
+          
+  # marketing_sale
+  - name: dataproduct_completed_quote_list
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/marketing_sale/dataproducts_bronze/mkt_data_product_completed_quote_list.sql"
+        # Added to recreate dependent dynamic table
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Sales_Quote.sql"
+## Gold Data Product / Project complete definition
+  - name: FULL_invoice_and_payment_daily
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+      #DATA PRODUCT
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_gold/mkt_dataproduct_invoice_and_payment_daily.sql"
+      #DIMENSIONS
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Invoice_From_Profile.sql"
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Pay_To_Profile.sql"
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Supplier.sql"
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Supplier_Agreement.sql"
+      #FACTS
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Purchase_Invoice.sql"
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Supplier_Payment.sql"
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Supplier_Payment_Detail.sql"
+      #NORMALIZE
+        - method: path
+          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersInvoiceFromProfiles.sql"
+        - method: path
+          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersPayToProfiles.sql"
+        - method: path
+          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliers.sql"
+        - method: path
+          value: "models/normalize/enterprise/canam_manual/norm_manual_rdm_descriptions.sql"
+        - method: path
+          value: "models/normalize/enterprise/googlesheet/norm_purchasing_agreement_register.sql"
+        - method: path
+          value: "models/normalize/enterprise/ebs/norm_cm50_ap_invoices_all.sql"
+        - method: path
+          value: "models/normalize/enterprise/ebs/norm_cm50_po_supplier.sql"
+        - method: path
+          value: "models/normalize/enterprise/ebs/norm_cm50_po_supplier_site.sql"
+        - method: path
+          value: "models/normalize/enterprise/ebs/norm_cm50_ap_checks_all.sql"
+        - method: path
+          value: "models/normalize/enterprise/ebs/norm_cm50_ap_invoice_payments.sql"
+        - method: path
+          value: "models/normalize/enterprise/ebs/norm_cm50_ap_invoice_payments.sql"
+        - method: path
+          value: "models/normalize/enterprise/bigquery/norm_bigquery_rdm.sql"   
+      #PREPARE
+        - method: path
+          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersInvoiceFromProfiles.sql"
+        - method: path
+          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersPayToProfiles.sql"
+        - method: path
+          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliers.sql"
+        - method: path
+          value: "models/prepare/enterprise/canam_manual/prep_manual_rdm_descriptions.sql"
+        - method: path
+          value: "models/prepare/enterprise/googlesheet/prep_purchasing_agreement_register.sql"
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_ap_invoices_all.sql"
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_po_supplier.sql"
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_po_supplier_site.sql"
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_ap_checks_all.sql"
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_ap_invoice_payments.sql"
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_ap_invoice_payments.sql" 
+        - method: path
+          value: "models/prepare/enterprise/bigquery/prep_bigquery_rdm.sql"
+
+  - name: FULL_suppliers
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+      #DATA PRODUCT
+        - method: path
+          value: "models/marketplace/enterprise/dataproducts_gold/mkt_dataproduct_suppliers.sql"
+      #DIMENSIONS
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Invoice_From_Profile.sql"
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Pay_To_Profile.sql"
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Supplier.sql"
+      #NORMALIZE
+        - method: path
+          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersInvoiceFromProfiles.sql"
+        - method: path
+          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersPayToProfiles.sql"
+        - method: path
+          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliers.sql"
+        - method: path
+          value: "models/normalize/enterprise/canam_manual/norm_manual_rdm_descriptions.sql" 
+        - method: path
+          value: "models/normalize/enterprise/bigquery/norm_bigquery_rdm.sql"  
+      #PREPARE
+        - method: path
+          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersInvoiceFromProfiles.sql"
+        - method: path
+          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersPayToProfiles.sql"
+        - method: path
+          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliers.sql"
+        - method: path
+          value: "models/prepare/enterprise/canam_manual/prep_manual_rdm_descriptions.sql"
+        - method: path
+          value: "models/prepare/enterprise/bigquery/prep_bigquery_rdm.sql"
+
+  - name: FULL_suppliers_agreements
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+      #DATA PRODUCT
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_gold/mkt_dataproduct_suppliers_agreements.sql"
+      #SCHEMATIZE
+        - method: path        
+          value: "models/schematize/enterprise/dimensions/sche_dim_Supplier_Agreement.sql"
+      #NORMALIZE
+        - method: path
+          value: "models/normalize/enterprise/googlesheet/norm_purchasing_agreement_register.sql"
+      #PREPARE
+        - method: path
+          value: "models/prepare/enterprise/googlesheet/prep_purchasing_agreement_register.sql"
+  - name: FULL_suppliers_payments
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+      #DATA PRODUCT
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_gold/mkt_dataproduct_suppliers_payments.sql"
+      #SCHEMATIZE
+        - method: path        
+          value: "models/schematize/enterprise/facts/sche_fact_Supplier_Payment_Detail.sql"
+        - method: path        
+          value: "models/schematize/enterprise/facts/sche_fact_Supplier_Payment.sql"
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Invoice_From_Profile.sql"
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Pay_To_Profile.sql"
+      #NORMALIZE
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cm50_ap_invoice_payments.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cm50_po_supplier.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cm50_po_supplier_site.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cm50_ap_checks_all.sql"
+        - method: path
+          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersInvoiceFromProfiles.sql"
+        - method: path
+          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersPayToProfiles.sql"
+        - method: path
+          value: "models/normalize/enterprise/canam_model/norm_bigquery_rdm.sql"
+      #PREPARE
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_ap_invoice_payments.sql"
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_po_supplier.sql"
+        - method: path  
+          value: "models/prepare/enterprise/ebs/prep_cm50_po_supplier_site.sql"
+        - method: path  
+          value: "models/prepare/enterprise/ebs/prep_cm50_ap_checks_all.sql"
+        - method: path
+          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersInvoiceFromProfiles.sql"
+        - method: path
+          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersPayToProfiles.sql"
+  - name: FULL_suppliers_invoices
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+      #DATA PRODUCT
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_gold/mkt_dataproduct_suppliers_invoices.sql"
+      #SCHEMATIZE
+        - method: path        
+          value: "models/schematize/enterprise/facts/sche_fact_Purchase_Invoice.sql"
+        - method: path        
+          value: "models/schematize/enterprise/dimensions/sche_dim_Invoice_From_Profile.sql"
+      #NORMALIZE
+        - method: path        
+          value: "models/normalize/enterprise/canam_model/norm_bigquery_rdm.sql"
+        - method: path        
+          value: "models/normalize/enterprise/canam_manual/norm_manual_rdm_descriptions.sql"
+        - method: path
+          value: "models/normalize/enterprise/ebs/norm_cm50_ap_invoices_all.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cm50_po_supplier.sql"
+        - method: path  
+          value: "models/normalize/enterprise/ebs/norm_cm50_po_supplier_site.sql"
+        - method: path
+          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliersInvoiceFromProfiles.sql"
+      #PREPARE
+        - method: path        
+          value: "models/prepare/enterprise/canam_model/prep_bigquery_rdm.sql"
+        - method: path        
+          value: "models/prepare/enterprise/canam_manual/prep_manual_rdm_descriptions.sql"
+        - method: path
+          value: "models/prepare/enterprise/ebs/prep_cm50_ap_invoices_all.sql"
+        - method: path  
+          value: "models/prepare/enterprise/ebs/prep_cm50_po_supplier.sql"
+        - method: path  
+          value: "models/prepare/enterprise/ebs/prep_cm50_po_supplier_site.sql"
+        - method: path
+          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliersInvoiceFromProfiles.sql"
+
+  - name: FULL_project_event
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+      #DATA PRODUCT
+        - method: path
+          value: "models/marketplace/project_management/dataproducts_gold/mkt_dataproduct_project_event.sql" 
+      #DIMENSIONS
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Date.sql"
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Project_Event.sql"
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Project.sql"
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Event_Type.sql" 
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Customer.sql"       
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Employee.sql"   
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Payment_To.sql"                                   
+      #FACTS
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Project_Event_Detail.sql" 
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Project_Exchange_Rate.sql"           
+      #BRIDGES
+        - method: path
+          value: "models/schematize/enterprise/bridges/sche_bridge_Customer.sql"
+        - method: path
+          value: "models/schematize/enterprise/bridges/sche_bridge_Supplier.sql"   
+
+      #NORMALIZE
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_project_event.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_project_event_detail.sql"          
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_proj_seq.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_project_event_trans_type.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_project.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_projet_g.sql"
+        - method: path
+          value: "models/normalize/enterprise/bigquery/norm_bigquery_rdm.sql"  
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_department.sql"       
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_event.sql"     
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_customer.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_vendor.sql"      
+        - method: path
+          value: "models/normalize/enterprise/mdh/norm_employee.sql"    
+        - method: path
+          value: "models/normalize/enterprise/canam_model/norm_canammodel_suppliers.sql"       
+        - method: path
+          value: "models/normalize/enterprise/canam_manual/norm_manual_entity_descriptions.sql"   
+        - method: path
+          value: "models/normalize/enterprise/canam_manual/norm_manual_rdm_descriptions.sql"   
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_people.sql"                                                                      
+      #PREPARE
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_project_event.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_project_event_detail.sql"          
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_proj_seq.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_project_event_trans_type.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_project.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_projet_g.sql"
+        - method: path
+          value: "models/prepare/enterprise/bigquery/prep_bigquery_rdm.sql" 
+        - method: path          
+          value: "models/prepare/enterprise/spm_gdm/prep_department.sql"       
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_event.sql"  
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_customer.sql"  
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_vendor.sql"    
+        - method: path
+          value: "models/prepare/enterprise/mdh/prep_employee.sql"                                  
+        - method: path
+          value: "models/prepare/enterprise/canam_model/prep_canammodel_suppliers.sql"   
+        - method: path
+          value: "models/prepare/enterprise/canam_manual/prep_manual_entity_descriptions.sql"   
+        - method: path
+          value: "models/prepare/enterprise/canam_manual/prep_manual_rdm_descriptions.sql"   
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_people.sql"
+                               
+### Bronze Data Product / Project complete definition
+  - name: FULL_item_length
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+      #DATA PRODUCT
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_bronze/mkt_dataproduct_item_length.sql"
+      #PREPARE
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item_tech.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item_alt.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_req_prod.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item_alt_po.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_global_item.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item_whs.sql" 
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_technical_category.sql" 
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_steel_grade.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item_whs_d.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_heat_no_country.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_country.sql"  
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_uom.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_data_name.sql"
+      #NORMALIZE
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_item.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_item_tech.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_item_alt.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_req_prod.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_item_alt_po.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_global_item.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_item_whs.sql" 
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_technical_category.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_steel_grade.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_item_whs_d.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_heat_no_country.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_country.sql" 
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_uom.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_data_name.sql"
+  - name: FULL_steel_receipt_line_details
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+      #DATA PRODUCT
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_bronze/mkt_data_product_steel_receipt_line_details.sql"
+      #SCHEMATIZE
+        - method: path
+          value:  "models/schematize/enterprise/bridges/sche_bridge_Supplier.sql"   
+        - method: path
+          value:  "models/schematize/enterprise/dimensions/sche_dim_Supplier.sql"   
+      #NORMALIZE
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_receipt_line.sql"   
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_item_subcategory.sql"   
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_item_category.sql"
+        - method: path
+          value:  "models/normalize/enterprise/spm_ca/norm_po.sql"
+        - method: path
+          value:  "models/normalize/enterprise/spm_ca/norm_po_line.sql"    
+        - method: path
+          value:  "models/normalize/enterprise/spm_gdm/norm_country.sql"
+        - method: path
+          value:  "models/normalize/enterprise/spm_ca/norm_item.sql"
+        - method: path
+          value:  "models/normalize/enterprise/spm_gdm/norm_global_item.sql"
+        - method: path
+          value:  "models/normalize/enterprise/spm_gdm/norm_item_subcategory.sql"
+        - method: path
+          value:  "models/normalize/enterprise/spm_gdm/norm_item_category.sql"
+        - method: path
+          value:  "models/normalize/enterprise/spm_gdm/norm_data_name.sql"   
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_warehouse.sql"                         
+      #PREPARE
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_receipt_line.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_item_subcategory.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_item_category.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_ca/prep_po.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_ca/prep_po_line.sql"    
+        - method: path
+          value:  "models/prepare/enterprise/spm_gdm/prep_country.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_ca/prep_item.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_gdm/prep_global_item.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_gdm/prep_item_subcategory.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_gdm/prep_item_category.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_gdm/prep_data_name.sql"
+        - method: path  
+          value: "models/prepare/enterprise/spm_ca/prep_warehouse.sql"     
+
+  - name: FULL_steel_purchase_orders_details
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+      #DATA PRODUCT
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_bronze/mkt_data_product_steel_purchase_orders_details.sql"
+      #SCHEMATIZE
+        - method: path
+          value:  "models/schematize/enterprise/bridges/sche_bridge_Supplier.sql"   
+        - method: path
+          value:  "models/schematize/enterprise/dimensions/sche_dim_Supplier.sql"   
+      #NORMALIZE 
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_item_subcategory.sql"   
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_item_category.sql"
+        - method: path
+          value:  "models/normalize/enterprise/spm_ca/norm_po.sql"
+        - method: path
+          value:  "models/normalize/enterprise/spm_ca/norm_po_line.sql"    
+        - method: path
+          value:  "models/normalize/enterprise/spm_gdm/norm_country.sql"
+        - method: path
+          value:  "models/normalize/enterprise/spm_ca/norm_item.sql"
+        - method: path
+          value:  "models/normalize/enterprise/spm_gdm/norm_global_item.sql"
+        - method: path
+          value:  "models/normalize/enterprise/spm_gdm/norm_item_subcategory.sql"
+        - method: path
+          value:  "models/normalize/enterprise/spm_gdm/norm_item_category.sql"
+        - method: path
+          value:  "models/normalize/enterprise/spm_gdm/norm_data_name.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_warehouse.sql"  
+      #PREPARE
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_item_subcategory.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_item_category.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_ca/prep_po.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_ca/prep_po_line.sql"    
+        - method: path
+          value:  "models/prepare/enterprise/spm_gdm/prep_country.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_ca/prep_item.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_gdm/prep_global_item.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_gdm/prep_item_subcategory.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_gdm/prep_item_category.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_gdm/prep_data_name.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_warehouse.sql"       
+### MDH
+  - name: employee
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/mdh/prep_employee.sql"
+        - method: path  
+          value: "models/normalize/enterprise/mdh/norm_employee.sql"   
+
+### No Model
+  - name: no_model
+    description: >
+      Description:
+      Status: None
+    definition: 
+      union:
+        - method: path
+          value: "models/governance/gov_nomodelforselector.sql"
+
+##DataProducts_Product_Management
+  - name: dataproduct_item
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/product_management/dataproducts_gold/mkt_dataproduct_item.sql"
+
+  - name: Custom_BI_8640
+    definition:
+      union:
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_qc_office.sql"
+        - method: path  
+          value: "models/normalize/enterprise/canam_manual/norm_branch_office_business_unit_map.sql"          
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_qc_branch_office.sql"          
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_qc_quotation.sql"          
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_projet_g.sql"          
+  - name: Custom_BI_8849
+    definition:
+      union:
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_business_unit.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_cmg_task.sql"
+  - name: Custom_BI_8779
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_bronze/mkt_data_product_steel_receipt_line_details.sql"
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_bronze/mkt_data_product_steel_purchase_orders_details.sql"
+        - method: path
+          value: "models/prepare/enterprise/canam_manual/prep_dsa_steel_items_categ_custom.sql"
+        - method: path
+          value: "models/normalize/enterprise/canam_manual/norm_dsa_steel_items_categ_custom.sql"    
+  - name: Custom_BI_8818
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_cmaitre_s.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_cmg_outbound_databases.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_pe_job.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_product_attribute.sql" 
+  - name: Custom_BI_9044
+    definition:
+      union:
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_marques.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_marques.sql"    
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_cmg_sales_group.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_cmg_sales_group.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_ess_line.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_ess_line.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_ess_trans.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_ess_trans.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_ess_tranx.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_ess_tranx.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_in_control.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_in_control.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_items_whs.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_items_whs.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_produit_s.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_produit_s.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_proj_seq.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_proj_seq.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_proj_seq_lp.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_proj_seq_lp.sql"          
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_projet_e.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_projet_e.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_projet_g.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_projet_g.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_projet_l.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_projet_l.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_projetx_g.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_projetx_g.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_projetx_l.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_projetx_l.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_qc_competitor.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_qc_competitor.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_qc_people.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_qc_people.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_qc_quotation_customer.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_qc_quotation_customer.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_qc_quotation_product.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_qc_quotation_product.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_qc_quotation.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_qc_quotation.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_project_event.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_project_event.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_item.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item_tech.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_item_tech.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item_alt.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_item_alt.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_req_prod.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_req_prod.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item_alt_po.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_item_alt_po.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item_whs.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_item_whs.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_item_whs_d.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_item_whs_d.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_heat_no_country.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_heat_no_country.sql" 
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_vendor.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_vendor.sql"      
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_project_event_detail.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_project_event_detail.sql"  
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_product_attribute.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_product_attribute.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_cmaitre_s.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_cmaitre_s.sql"  
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_pe_job.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_pe_job.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_cmg_outbound_databases.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_cmg_outbound_databases.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_receipt_line.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_receipt_line.sql"      
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_warehouse.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_warehouse.sql"                                 
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_cmg_task.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_cmg_task.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_customer_market.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_customer_market.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_customer_type.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_customer_type.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_customer.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_customer.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_data_name.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_data_name.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_people.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_people.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_project.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_project.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_qc_branch_office.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_qc_branch_office.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_qc_office.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_qc_office.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_salesman.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_salesman.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_uom.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_uom.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_global_item.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_global_item.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_item_technical_property.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_item_technical_property.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_technical_category.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_technical_category.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_steel_grade.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_steel_grade.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_country.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_country.sql"        
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_project_event_trans_type.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_project_event_trans_type.sql" 
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_department.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_department.sql" 
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_event.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_event.sql" 
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_item_category.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_item_category.sql" 
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_item_subcategory.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_item_subcategory.sql" 
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_prodct_machn.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_prodct_machn.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_working_shift.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_working_shift.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_working_shift_detail.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_ca/norm_working_shift_detail.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gdm/prep_business_unit.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gdm/norm_business_unit.sql"
+        - method: path
+          value: "models/prepare/enterprise/spm_gen/prep_users.sql"
+        - method: path  
+          value: "models/normalize/enterprise/spm_gen/norm_users.sql"            
+        - method: path
+          value: "models/prepare/enterprise/spm_ca/prep_duty.sql"
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_duty.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_ca/prep_po_line.sql" 
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_po_line.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_ca/prep_po.sql" 
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_po.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_ca/prep_project_event_sales_group.sql" 
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_project_event_sales_group.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_gen/prep_entity_d.sql" 
+        - method: path
+          value: "models/normalize/enterprise/spm_gen/norm_entity_d.sql"
+        - method: path
+          value:  "models/prepare/enterprise/spm_gen/prep_entity.sql" 
+        - method: path
+          value: "models/normalize/enterprise/spm_gen/norm_entity.sql"
+
+  - name: Custom_BI_8888
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/normalize/enterprise/canam_manual/norm_branch_office_business_unit_map.sql"  
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_business_unit.sql"        
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_qc_quotation.sql"  
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_qc_office.sql"  
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_customer.sql" 
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_projet_g.sql"   
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_qc_branch_office.sql"  
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_uom.sql"  
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_cmg_task.sql"  
+  - name: Custom_BI_8888_updated_rdm_values
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/normalize/enterprise/spm_ca/norm_cmg_outbound_databases.sql"  
+        - method: path
+          value: "models/normalize/enterprise/spm_gdm/norm_qc_office.sql" 
+  - name: Custom_BI_7921
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/enterprise/dataproducts_gold/mkt_dataproduct_suppliers.sql"  
+        - method: path
+          value: "models/marketplace/procurement_logistics/dataproducts_gold/mkt_dataproduct_suppliers_invoices.sql"
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Sales_Office.sql"
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Supplier.sql"   
+  - name: Custom_BI_9267
+    description: >
+      Description:
+      Status: PROD
+    definition:
+      union:
+        - method: path
+          value: "models/marketplace/enterprise/dataproducts_gold/mkt_dataproduct_unit_of_measure.sql"  
+        - method: path
+          value: "models/marketplace/marketing_sale/dataproducts_gold/mkt_data_product_weekly_sold_quoted_details.sql"
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Project_Activity.sql"
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Project_Activity_Budget_Variation.sql" 
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Sales_Quote_Line.sql"
+        - method: path
+          value: "models/schematize/enterprise/dimensions/sche_dim_Quoted_To_Profile.sql" 
+        - method: path
+          value: "models/marketplace/marketing_sale/dataproducts_gold/mkt_data_product_project_booking.sql"
+        - method: path
+          value: "models/marketplace/marketing_sale/dataproducts_gold/mkt_data_product_weekly_project_booking_profit_estimate.sql"
+        - method: path
+          value: "models/schematize/enterprise/facts/sche_fact_Sales_Quote.sql"
+        - method: path
+          value: "models/marketplace/marketing_sale/dataproducts_bronze/mkt_data_product_completed_quote_list.sql"
+          

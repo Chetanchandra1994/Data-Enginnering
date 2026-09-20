@@ -1,0 +1,19 @@
+{{
+  config(
+    materialized = "view",
+    alias = "supplier_audit_scores",
+    schema='streamlit'
+  )
+}}
+
+SELECT
+    UPPER(AUDIT_SUPPLIER_CODE::STRING) AS AUDIT_SUPPLIER_CODE,
+    AUDIT_SCORE::FLOAT AS AUDIT_SCORE,
+    AUDIT_EFFECTIVE_START_DATE::DATE AS AUDIT_EFFECTIVE_START_DATE,
+    AUDIT_EFFECTIVE_END_DATE::DATE AS AUDIT_EFFECTIVE_END_DATE,
+    NULLIF(AUDIT_COMMENT::STRING, '') AS AUDIT_COMMENT
+FROM
+    {{(
+        'TEST_ENTERPRISE_STREAMLIT_APP' if target.name == 'test' 
+        else 'PROD_ENTERPRISE_STREAMLIT_APP' if target.name == 'prod'
+    )}}.PROCUREMENT_LOGISTICS.SUPPLIER_AUDIT_SCORES

@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: mkt_data_product_completed_quote_list
+    columns:
+      - name: SALES_OFFICE_DEPARTMENT_CODE
+        description: "Code of the Sales Office Department"
+      - name: SALES_OFFICE_DEPARTMENT_NAME
+        description: "Name of the Sales Office Department"
+      - name: SALES_BRANCH_OFFICE_DEPARTMENT_GROUP_NAME
+        description: "Name of the Sales Office Department"  
+      - name: FINANCIAL_COMPANY_CODE
+        description: "Code of the Financial Company" 
+      - name: BUSINESS_UNIT_CODE
+        description: "Code of the Business Unit" 
+      - name: BUSINESS_UNIT_NAME
+        description: Name of the Business Unit
+      - name: SALES_QUOTE_CODE
+        description: Code of the Sales Quote
+      - name: SALES_QUOTE_ALTERNATIVE_QUOTE_CODE
+        description: "The code of the alternate identifier for the sales quote"
+      - name: SALES_QUOTE_INSCRIPTION_DATE
+        description: "The date the sales quote was officially recorded"
+      - name: SALES_QUOTE_TARGET_DATE
+        description: "The target date for completing the estimation process for the quote"
+      - name: SALES_QUOTE_ESTIMATOR_NAME
+        description: "The name of the person responsible for preparing the cost estimation"
+      - name: SALES_QUOTE_SALES_MAN_NAME
+        description: "The name of the sales representative responsible for the quote"
+      - name: SALES_QUOTE_TASK_CHECK_DATE
+        description: "The latest status update date for the 'CHECK' task associated with the quote"
+      - name: SALES_QUOTE_TASK_DUE_DATE
+        description: "The real due date for the 'CHECK' task associated with the quote"
+      - name: SALES_QUOTE_TASK_ESTIMATED_HOURS
+        description: "Hours estimated for the task associated with the quote"

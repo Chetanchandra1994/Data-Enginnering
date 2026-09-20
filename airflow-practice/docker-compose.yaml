@@ -17,7 +17,7 @@
 ---
 x-airflow-common:
   &airflow-common
-  image: northamerica-northeast1-docker.pkg.dev/prj-n-cdp-ingestion/airflow/custom-airflow:162729
+  image: northamerica-northeast1-docker.pkg.dev/electric-tesla-507710-k2/airflow/custom-airflow:latest
   environment:
     &airflow-common-env
     #AIRFLOW__CORE__EXECUTOR: LocalExecutor

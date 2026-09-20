@@ -1,0 +1,87 @@
+{{
+  config(
+    materialized = "view",
+    alias = "cm50_ap_checks_all",
+    schema='EBS'
+  )
+}}
+
+
+SELECT
+ DATA:ACA_ADDRESS_LINE1                 AS ACA_ADDRESS_LINE1
+,DATA:ACA_ADDRESS_LINE2                 AS ACA_ADDRESS_LINE2
+,DATA:ACA_ADDRESS_LINE3                 AS ACA_ADDRESS_LINE3
+,DATA:ACA_ADDRESS_LINE4                 AS ACA_ADDRESS_LINE4
+,DATA:ACA_AMOUNT                        AS ACA_AMOUNT
+,DATA:ACA_BASE_AMOUNT                   AS ACA_BASE_AMOUNT
+,DATA:ACA_CHECKRUN_ID                   AS ACA_CHECKRUN_ID
+,DATA:ACA_CHECKRUN_NAME                 AS ACA_CHECKRUN_NAME
+,DATA:ACA_CHECK_DATE                    AS ACA_CHECK_DATE
+,DATA:ACA_CHECK_FORMAT_ID               AS ACA_CHECK_FORMAT_ID
+,DATA:ACA_CHECK_ID                      AS ACA_CHECK_ID
+,DATA:ACA_CHECK_NUMBER                  AS ACA_CHECK_NUMBER
+,DATA:ACA_CHECK_STOCK_ID                AS ACA_CHECK_STOCK_ID
+,DATA:ACA_CHECK_VOUCHER_NUM             AS ACA_CHECK_VOUCHER_NUM
+,DATA:ACA_CITY                          AS ACA_CITY
+,DATA:ACA_CLEARED_AMOUNT                AS ACA_CLEARED_AMOUNT
+,DATA:ACA_CLEARED_DATE                  AS ACA_CLEARED_DATE
+,DATA:ACA_CMG_150_CHARACTERS            AS ACA_CMG_150_CHARACTERS
+,DATA:ACA_COUNTRY                       AS ACA_COUNTRY
+,DATA:ACA_COUNTY                        AS ACA_COUNTY
+,DATA:ACA_CREATED_BY                    AS ACA_CREATED_BY
+,DATA:ACA_CREATION_DATE                 AS ACA_CREATION_DATE
+,DATA:ACA_CURRENCY_CODE                 AS ACA_CURRENCY_CODE
+,DATA:ACA_EXCHANGE_DATE                 AS ACA_EXCHANGE_DATE
+,DATA:ACA_EXCHANGE_RATE                 AS ACA_EXCHANGE_RATE
+,DATA:ACA_EXCHANGE_RATE_TYPE            AS ACA_EXCHANGE_RATE_TYPE
+,DATA:ACA_LAST_UPDATED_BY               AS ACA_LAST_UPDATED_BY
+,DATA:ACA_LAST_UPDATE_DATE              AS ACA_LAST_UPDATE_DATE
+,DATA:ACA_LAST_UPDATE_LOGIN             AS ACA_LAST_UPDATE_LOGIN
+,DATA:ACA_MATURITY_EXCHANGE_DATE        AS ACA_MATURITY_EXCHANGE_DATE
+,DATA:ACA_MATURITY_EXCHANGE_RATE        AS ACA_MATURITY_EXCHANGE_RATE
+,DATA:ACA_MATURITY_EX_RATE_TYPE         AS ACA_MATURITY_EX_RATE_TYPE
+,DATA:ACA_ORG_ID                        AS ACA_ORG_ID
+,DATA:ACA_PAYMENT_METHOD_LOOKUP_CODE    AS ACA_PAYMENT_METHOD_LOOKUP_CODE
+,DATA:ACA_PAYMENT_TYPE_FLAG             AS ACA_PAYMENT_TYPE_FLAG
+,DATA:ACA_POSITIVE_PAY_STATUS_CODE      AS ACA_POSITIVE_PAY_STATUS_CODE
+,DATA:ACA_PROVINCE                      AS ACA_PROVINCE
+,DATA:ACA_RELEASED_AT                   AS ACA_RELEASED_AT
+,DATA:ACA_RELEASED_BY                   AS ACA_RELEASED_BY
+,DATA:ACA_RELEASED_DATE                 AS ACA_RELEASED_DATE
+,DATA:ACA_REQUEST_ID                    AS ACA_REQUEST_ID
+,DATA:ACA_STATE                         AS ACA_STATE
+,DATA:ACA_STATUS_LOOKUP_CODE            AS ACA_STATUS_LOOKUP_CODE
+,DATA:ACA_STOPPED_AT                    AS ACA_STOPPED_AT
+,DATA:ACA_STOPPED_BY                    AS ACA_STOPPED_BY
+,DATA:ACA_STOPPED_DATE                  AS ACA_STOPPED_DATE
+,DATA:ACA_VENDOR_ID                     AS ACA_VENDOR_ID
+,DATA:ACA_VENDOR_NAME                   AS ACA_VENDOR_NAME
+,DATA:ACA_VENDOR_SITE_CODE              AS ACA_VENDOR_SITE_CODE
+,DATA:ACA_VENDOR_SITE_ID                AS ACA_VENDOR_SITE_ID
+,DATA:ACA_VOID_DATE                     AS ACA_VOID_DATE
+,DATA:ACA_ZIP                           AS ACA_ZIP
+,DATA:ACA_BANK_ACCOUNT_NAME             AS ACA_BANK_ACCOUNT_NAME
+,DATA:ACA_BANK_ACCOUNT_NUM              AS ACA_BANK_ACCOUNT_NUM
+,FILENAME                               AS METADATA_FILENAME 
+,FILE_ROW_NUMBER                        AS METADATA_FILE_ROW_NUMBER
+,FILE_LAST_MODIFIED                     AS METADATA_FILE_LAST_MODIFIED
+,START_SCAN_TIME                        AS METADATA_START_SCAN_TIME
+from {{ source("landing_ebs", "CM50_AP_CHECKS_ALL") }}
+WHERE
+    split(FILENAME, '_') [array_size(split(FILENAME, '_')) - 2] >= (
+        SELECT
+            min_timestamp
+        FROM
+            (
+                SELECT
+                    split(FILENAME, '_') [array_size(split(FILENAME, '_')) - 2] AS min_timestamp,
+                    split(FILENAME, '/') [3] AS type_file
+                FROM
+                    {{ source("landing_ebs", "CM50_AP_CHECKS_ALL") }}
+                WHERE
+                    type_file LIKE 'fullload%' QUALIFY ROW_NUMBER() OVER (
+                        ORDER BY
+                            min_timestamp DESC
+                    ) = 1
+            )
+         )

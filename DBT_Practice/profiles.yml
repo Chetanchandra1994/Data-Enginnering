@@ -1,0 +1,51 @@
+dbt-enterprise-project:
+  target: test ##Default target
+  outputs:
+    local:
+      type: snowflake
+      threads: 8
+      account: "as95259.ca-central-1.aws"
+      user: "{{ env_var('DBT_SNOWFLAKE_USER') }}"
+      
+      authenticator: externalbrowser      
+      role: "TEST_ENTERPRISE_DATA_DEVELOPER"
+      database: "SANDBOX_ENTERPRISE_PREPARE"
+      warehouse: "TEST_ENTERPRISE_DATA_DEVELOPER_WH"
+      schema: "PUBLIC"
+  
+    test:
+      type: snowflake
+      threads: 8
+      account: "{{ env_var('TEST_DBT_SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('TEST_DBT_SNOWFLAKE_USER') }}"
+      role: "{{ env_var('TEST_DBT_SNOWFLAKE_ROLE') }}"
+      database: "{{ env_var('TEST_DBT_SNOWFLAKE_DATABASE') }}"
+      warehouse: "{{ env_var('TEST_DBT_SNOWFLAKE_WAREHOUSE') }}"
+      schema: "{{ env_var('TEST_DBT_SNOWFLAKE_SCHEMA') }}"
+      private_key_path: "{{ env_var('DBT_SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      client_session_keep_alive: False
+
+    preprod:
+      type: snowflake
+      threads: 8
+      account: "{{ env_var('PREPROD_DBT_SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('PREPROD_DBT_SNOWFLAKE_USER') }}"
+      role: "{{ env_var('PREPROD_DBT_SNOWFLAKE_ROLE') }}"
+      database: "{{ env_var('PREPROD_DBT_SNOWFLAKE_DATABASE') }}"
+      warehouse: "{{ env_var('PREPROD_DBT_SNOWFLAKE_WAREHOUSE') }}"
+      schema: "{{ env_var('PREPROD_DBT_SNOWFLAKE_SCHEMA') }}"
+      private_key_path: "{{ env_var('DBT_SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      client_session_keep_alive: False
+
+    prod:
+      type: snowflake
+      threads: 8
+      account: "{{ env_var('PROD_DBT_SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('PROD_DBT_SNOWFLAKE_USER') }}"
+      role: "{{ env_var('PROD_DBT_SNOWFLAKE_ROLE') }}"
+      database: "{{ env_var('PROD_DBT_SNOWFLAKE_DATABASE') }}"
+      warehouse: "{{ env_var('PROD_DBT_SNOWFLAKE_WAREHOUSE') }}"
+      schema: "{{ env_var('PROD_DBT_SNOWFLAKE_SCHEMA') }}"
+      private_key_path: "{{ env_var('DBT_SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      client_session_keep_alive: False
+

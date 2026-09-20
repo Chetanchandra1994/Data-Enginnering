@@ -1,0 +1,281 @@
+
+
+models:
+  - name: mkt_data_product_weekly_sold_quoted_details
+    columns:
+      - name: CALENDAR_WEEK_BEGIN_DATE
+        description: "The start date of the week for the activity"
+      - name: CALENDAR_WEEK_NUMBER
+        description: "Calendar week number (1-53)"  
+      - name: CALENDAR_MONTH_NUMBER
+        description: "Calendar month number (1-12)" 
+      - name: CALENDAR_MONTH_NAME_EN
+        description: "Calendar month name (English)" 
+      - name: CALENDAR_YEAR
+        description: Calendar year
+      - name: FISCAL_PERIOD_NUMBER
+        description: Fiscal period number
+      - name: FISCAL_PERIOD_NAME
+        description: "Fiscal period name"
+      - name: FISCAL_YEAR
+        description: "Fiscal year"
+      - name: BUSINESS_UNIT_CODE
+        description: "Code for the Business Unit"
+      - name: BUSINESS_UNIT_NAME
+        description: "Name of the Business Unit"
+      - name: SALES_OFFICE_DEPARTMENT_CODE
+        description: "Code of the Sales Office Department, converted to UPPERCASE and TRIMMED"
+      - name: SALES_OFFICE_DEPARTMENT_NAME
+        description: "Name of the Sales Office Department, converted to UPPERCASE and TRIMMED"
+      - name: SALES_BRANCH_OFFICE_DEPARTMENT_GROUP_NAME
+        description: "Name of the Sales Office Department, converted to UPPERCASE and TRIMMED"
+      - name: SALES_OFFICE_DEPARTMENT_COUNTRY_CODE
+        description: "Country code of the Sales Office"
+      - name: ORIGINAL_CURRENCY_CODE
+        description: "Original currency code of the project and quote line"
+      - name: SOLD_QUOTED_FLAG
+        description: "Identifier for the type of activity"
+      - name: BUDGET_VARIATION_TYPE_NAME
+        description: "Description of the budget variation type"
+      - name: PROJECT_CODE
+        description: "Code of the Project"
+      - name: PROJECT_NAME
+        description: "Name of the Project"
+      - name: PROJECT_CITY_CODE 
+        description: "Shipping city code of the Project"
+      - name: SALES_QUOTE_CODE
+        description: "Code of the Sales Quote"
+      - name: SALES_QUOTE_CITY_CODE
+        description: "Shipping city code of the Sales Quote"
+      - name: CUSTOMER_NAME
+        description: "Name of the Customer"
+      - name: ITEM_SALES_GROUP_CODE
+        description: "Code for the Item Sales Group"
+      - name: ITEM_NAME_GROUP 
+        description: "Descriptive grouping of the item/product"
+      - name: SALES_WEIGHT_LB
+        description: "Total Project Weight (in Pounds)"
+      - name: SALES_WEIGHT_T
+        description: "Total Project Weight (in Tons)"
+      - name: SALES_AREA_SF
+        description: "Total Project Area (in Square Feet)"
+      - name: SALES_AMOUNT_CAD
+        description: "Total Project Sales Amount (in CAD)"
+      - name: QUOTE_WEIGHT_LB
+        description: "Net change in Quote Weight (in Pounds)"
+      - name: QUOTE_WEIGHT_T
+        description: "Net change in Quote Weight (in Tons)"
+      - name: QUOTE_AREA_SF
+        description: "Net change in Quote Area (in Square Feet)"
+      - name: QUOTE_AMOUNT_CAD 
+        description: "Net change in Quote Amount (in CAD)"
+      - name: SALES_BRANCH_OFFICE_DEPARTMENT_GROUP_NAME_ORDER_DISPLAY
+        description: "Numerical field for ordering Sales Office departments for display (1=ATLANTIC, 2=QUEBEC, etc.)"
+      - name: ITEM_NAME_GROUP_ORDER_DISPLAY
+        description: "Numerical field for ordering Item Name Groups for display"
+      - name: BUSINESS_PARTNER_CUSTOMER_NAME
+        description: "Name of the Business Partner of the Customer"
+  - name: mkt_data_product_weekly_project_booking_profit_estimate
+    columns:
+      - name: CALENDAR_WEEK_BEGIN_DATE
+        description: "The start date of the week for the activity"
+      - name: CALENDAR_WEEK_NUMBER
+        description: "Calendar week number (1-53)"
+      - name: CALENDAR_MONTH_NUMBER
+        description: "Calendar month number (1-12)"
+      - name: CALENDAR_MONTH_NAME_EN
+        description: "Calendar month name (English)"
+      - name: CALENDAR_YEAR
+        description: "Calendar year"
+      - name: FISCAL_PERIOD_NUMBER
+        description: "Fiscal period number"
+      - name: FISCAL_PERIOD_NAME
+        description: "Fiscal period name"
+      - name: FISCAL_YEAR
+        description: "Fiscal year"
+      - name: BUSINESS_UNIT_CODE
+        description: "Code for the Business Unit"
+      - name: BUSINESS_UNIT_NAME_FR
+        description: "Name of the Business Unit in french"
+      - name: BUSINESS_UNIT_NAME_EN
+        description: "Name of the Business Unit english"
+      - name: SALES_OFFICE_DEPARTMENT_CODE
+        description: "Code of the Sales Office Department, converted to UPPERCASE and TRIMMED"
+      - name: SALES_OFFICE_DEPARTMENT_NAME
+        description: "Name of the Sales Office Department, converted to UPPERCASE and TRIMMED"
+      - name: SALES_OFFICE_DEPARTMENT_COUNTRY_CODE
+        description: "Country code of the Sales Office"
+      - name: SALES_BRANCH_OFFICE_DEPARTMENT_CODE
+        description: "Code of the branch of the Sales Office"
+      - name: SALES_BRANCH_OFFICE_DEPARTMENT_NAME
+        description: "Name of the branch of the Sales Office"
+      - name: ORIGINAL_CURRENCY_CODE
+        description: "Original currency code of the project and quote line"
+      - name: BUDGET_VARIATION_TYPE_NAME
+        description: "Description of the budget variation type"
+      - name: PROJECT_CODE
+        description: "Code of the Project"
+      - name: PROJECT_NAME
+        description: "Name of the Project"
+      - name: PROJECT_START_DATE
+        description: "Start Date of the Project"
+      - name: PROJECT_STATUS_CODE
+        description: "Status code of the project"
+      - name: PROJECT_TYPE_CODE
+        description: "Type code of the project"
+      - name: PROJECT_PACKAGE_STATUS_CODE
+        description: "Package status code of the project"
+      - name: PROJECT_CITY_CODE
+        description: "Shipping city code of the Project"
+      - name: PROJECT_STATE_CODE
+        description: "Shipping state code of the Project"
+      - name: PROJECT_COUNTRY_CODE
+        description: "Shipping country code of the Project"
+      - name: CUSTOMER_NAME
+        description: "Name of the Customer"
+      - name: CUSTOMER_CLASS_CODE
+        description: "Code of the Customer Class"
+      - name: ITEM_SALES_GROUP_CODE
+        description: "Code for the Item Sales Group"
+      - name: ITEM_NAME_GROUP
+        description: "Descriptive grouping of the item/product"
+      - name: DIRECT_TIME_HR
+        description: "Total Direct Time in hours"
+      - name: INDIRECT_TIME_HR
+        description: "Total Indirect Time in hours"
+      - name: SALES_WEIGHT_LB
+        description: "Total Project Weight (in Pounds)"
+      - name: SALES_WEIGHT_T
+        description: "Total Project Weight (in Tons)"
+      - name: SALES_AREA_SF
+        description: "Total Project Area (in Square Feet)"
+      - name: SALES_AMOUNT_CAD
+        description: "Total Project Sales Amount (in CAD)"
+      - name: MATERIAL_COST_AMOUNT_CAD
+        description: "Material cost amount (in CAD)"
+      - name: FABRICATION_COST_AMOUNT_CAD
+        description: "Fabrication cost amount (in CAD)"
+      - name: LABOR_COST_AMOUNT_CAD
+        description: "Labor cost amount (in CAD)"
+      - name: SALES_PROFIT_ESTIMATE_AMOUNT_CAD
+        description: "Sales profit estimate amount (in CAD)"
+      - name: BUSINESS_PARTNER_CUSTOMER_NAME
+        description: "Name of the Business Partner of the Customer"
+      - name:  SALES_BRANCH_OFFICE_DEPARTMENT_GROUP_NAME 
+        description: "Name of the Sales Office Department, converted to UPPERCASE and TRIMMED"
+  - name: mkt_data_product_project_booking
+    columns:
+      - name: SALES_DATE
+        description: "The date of the activity/event"
+      - name: SALES_CALENDAR_WEEK_BEGIN_DATE
+        description: The start date of the week for the activity       
+      - name: SALES_CALENDAR_WEEK_NUMBER
+        description: Calendar week number (1-53)                
+      - name: SALES_CALENDAR_MONTH_NUMBER
+        description: Calendar month number (1-12)
+      - name: SALES_CALENDAR_MONTH_NAME_EN
+        description: Calendar month name (English)
+      - name: SALES_CALENDAR_YEAR
+        description: Calendar year                        
+      - name: SALES_FISCAL_PERIOD_NUMBER
+        description: Fiscal period number        
+      - name: SALES_FISCAL_PERIOD_NAME
+        description: Fiscal period name                
+      - name: SALES_FISCAL_YEAR
+        description: Fiscal year 
+      - name: BUSINESS_UNIT_CODE
+        description: Code for the Business Unit 
+      - name: BUSINESS_UNIT_NAME
+        description: Name of the Business Unit
+      - name: SALES_OFFICE_DEPARTMENT_CODE
+        description: Code of the Sales Office Department, converted to UPPERCASE and TRIMMED       
+      - name: SALES_OFFICE_DEPARTMENT_NAME
+        description: Name of the Sales Office Department, converted to UPPERCASE and TRIMMED 
+      - name: SALES_BRANCH_OFFICE_DEPARTMENT_GROUP_NAME
+        description: "Name of the Sales Office Department, converted to UPPERCASE and TRIMMED"                
+      - name: SALES_OFFICE_DEPARTMENT_COUNTRY_CODE
+        description: Country code of the Sales Office
+      - name: SALES_BRANCH_OFFICE_DEPARTMENT_CODE
+        description: Code of the branch of the Sales Office
+      - name: SALES_BRANCH_OFFICE_DEPARTMENT_NAME
+        description: Name of the branch of the Sales Office
+      - name: ORIGINAL_CURRENCY_CODE
+        description: Original currency code of the project and quote line       
+      - name: BUDGET_VARIATION_TYPE_NAME
+        description: Description of the budget variation type                
+      - name: PROJECT_CODE
+        description: Code of the Project
+      - name: PROJECT_NAME
+        description: Name of the Project
+      - name: PROJECT_START_DATE
+        description: Start Date of the Project                       
+      - name: PROJECT_CLOSE_DATE
+        description: Close Date of the Project        
+      - name: PROJECT_STATUS_CODE
+        description: Status code of the project
+      - name: PROJECT_TYPE_CODE
+        description: Type code of the project                       
+      - name: PROJECT_CLASS_CATEGORY_NAME
+        description: Class Category name of the project        
+      - name: PROJECT_CLASS_NAME
+        description: Class name of the project
+      - name: PROJECT_PACKAGE_STATUS_CODE
+        description: Package status code of the project                       
+      - name: PROJECT_BUILD_MASTER_STATUS_CODE
+        description: Indicate if the BuildMaster approach is applied or not        
+      - name: PROJECT_MANAGER_FULL_NAME
+        description: Full name of the project manager
+      - name: PROJECT_SALESREP_FULL_NAME
+        description: Full name of the sales representative of the project                        
+      - name: PROJECT_CITY_CODE
+        description: Shipping city code of the Project         
+      - name: PROJECT_STATE_CODE
+        description: Shipping state code of the Project 
+      - name: PROJECT_COUNTRY_CODE
+        description: Shipping country code of the Project                       
+      - name: PROJECT_CURRENCY_RATE
+        description: Currency exchange rate of the project         
+      - name: CUSTOMER_CODE
+        description: Code of the Customer
+      - name: CUSTOMER_NAME
+        description: Name of the Customer                        
+      - name: CUSTOMER_CLASS_CODE
+        description: Code of the Customer Class        
+      - name: ITEM_SALES_GROUP_CODE
+        description: Code for the Item Sales Group
+      - name: ITEM_NAME_GROUP
+        description: Descriptive grouping of the item/product                       
+      - name: DIRECT_TIME_HR
+        description: Total Direct Time in hours         
+      - name: INDIRECT_TIME_HR
+        description: Total Indirect Time in hours
+      - name: SALES_WEIGHT_LB
+        description: Total Project Weight (in Pounds)                       
+      - name: SALES_WEIGHT_T
+        description: Total Project Weight (in Tons)        
+      - name: SALES_AREA_SF
+        description: Total Project Area (in Square Feet) 
+      - name: SALES_AMOUNT_CAD
+        description: Total Project Sales Amount (in CAD)
+      - name: MATERIAL_COST_AMOUNT_CAD
+        description: Material cost amount (in CAD)
+      - name: FABRICATION_COST_AMOUNT_CAD
+        description: Fabrication cost amount (in CAD)      
+      - name: LABOR_COST_AMOUNT_CAD
+        description: Labor cost amount (in CAD)  
+      - name: SALES_PROFIT_ESTIMATE_AMOUNT_CAD
+        description: Sales profit estimate amount (in CAD)
+      - name: SALES_AMOUNT_USD
+        description: Total Project Sales Amount (in USD)
+      - name: MATERIAL_COST_AMOUNT_USD
+        description: Material cost amount (in USD)
+      - name: FABRICATION_COST_AMOUNT_USD
+        description: Fabrication cost amount (in USD)  
+      - name: LABOR_COST_AMOUNT_USD
+        description: Labor cost amount (in USD)
+      - name: SALES_PROFIT_ESTIMATE_AMOUNT_USD
+        description: Sales profit estimate amount (in USD)
+      - name: BUSINESS_PARTNER_CUSTOMER_CODE
+        description: "Code of the Business Partner of the Customer"      
+      - name: BUSINESS_PARTNER_CUSTOMER_NAME
+        description: "Name of the Business Partner of the Customer"                                                                    

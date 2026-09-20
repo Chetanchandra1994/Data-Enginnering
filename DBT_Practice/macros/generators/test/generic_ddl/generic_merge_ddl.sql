@@ -1,0 +1,48 @@
+{#
+This generate the first part of the TASK for the MERGE statement
+#}
+
+{% macro generate_merge_part_one(task_name,schedule,warehouse,etl_event_detail_table) %}
+    {% set create_merge_ddl_part_one %}
+CREATE OR REPLACE TASK {{task_name}}
+    SCHEDULE = '{{ schedule }}'
+    WAREHOUSE = '{{ warehouse }}'
+    AS    
+MERGE INTO {{etl_event_detail_table}} T USING (
+    {% endset %}
+    {{ return(create_merge_ddl_part_one) }}
+{% endmacro %}
+
+{#
+This generate the second part of the TASK for the MERGE statement
+#}
+
+{% macro generate_merge_part_two(warehouse,schedule,values,table,key,full_table_name,dim_date_table_name) %}
+    {% set create_merge_ddl_part_two %}
+) S 
+ON T.ETL_EVENT_DETAIL_SK = S.ETL_EVENT_DETAIL_SK
+
+WHEN MATCHED AND S.ETL_EVENT_STATUS = 'ACTIVE' AND T.EFFECTIVE_END_TIMESTAMP IS NULL THEN
+    UPDATE SET 
+        T.EVENT_DATE_KEY = S.EVENT_DATE_KEY,
+        T.EVENT_TIMESTAMP = S.EVENT_TIMESTAMP,
+        T.ETL_EVENT_STATUS = S.ETL_EVENT_STATUS
+WHEN MATCHED AND S.ETL_EVENT_STATUS = 'ACTIVE' AND T.EFFECTIVE_END_TIMESTAMP IS NOT NULL THEN
+    UPDATE SET 
+        T.EVENT_DATE_KEY = S.EVENT_DATE_KEY,
+        T.EVENT_TIMESTAMP = S.EVENT_TIMESTAMP,
+        T.ETL_EVENT_STATUS = S.ETL_EVENT_STATUS,
+        T.EFFECTIVE_START_TIMESTAMP = S.EFFECTIVE_START_TIMESTAMP,
+        T.EFFECTIVE_END_TIMESTAMP = NULL
+WHEN MATCHED AND S.ETL_EVENT_STATUS = 'INACTIVE' THEN
+    UPDATE SET 
+        T.EVENT_DATE_KEY = S.EVENT_DATE_KEY,
+        T.EVENT_TIMESTAMP = S.EVENT_TIMESTAMP,
+        T.ETL_EVENT_STATUS = S.ETL_EVENT_STATUS,
+        T.EFFECTIVE_END_TIMESTAMP = S.EFFECTIVE_END_TIMESTAMP
+WHEN NOT MATCHED THEN
+    INSERT (ETL_EVENT_DETAIL_SK,ETL_EVENT_KEY,EVENT_DATE_KEY,ETL_EVENT_DESCRIPTION_CODE,EVENT_TIMESTAMP,TABLE_KEY,FIELD_KEY,RECORD_SK_KEY,RECORD_SK,RECORD_CONTENT,ETL_EVENT_STATUS,EFFECTIVE_START_TIMESTAMP,EFFECTIVE_END_TIMESTAMP)
+    VALUES (S.ETL_EVENT_DETAIL_SK,S.ETL_EVENT_KEY,S.EVENT_DATE_KEY,S.ETL_EVENT_DESCRIPTION_CODE,S.EVENT_TIMESTAMP,S.TABLE_KEY,S.FIELD_KEY,S.RECORD_SK_KEY,S.RECORD_SK,S.RECORD_CONTENT,S.ETL_EVENT_STATUS,S.EFFECTIVE_START_TIMESTAMP,S.EFFECTIVE_END_TIMESTAMP);
+    {% endset %}
+    {{ return(create_merge_ddl_part_two) }}
+{% endmacro %}

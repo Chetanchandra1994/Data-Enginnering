@@ -1,0 +1,17 @@
+{{
+  config(
+    materialized = "view",
+    alias = "cmaitre_s",
+    schema='spm_ca'
+  )
+}}
+
+SELECT 
+UPPER(ENTITY_CODE::string) AS ENTITY_CODE
+,NO_CONTR::INTEGER AS NO_CONTR
+,UPPER(NOM_CONTR::string) AS NOM_CONTR
+,NO_USINE::INTEGER AS NO_USINE
+,REGR_USINE::INTEGER AS REGR_USINE
+,IPAAS_UPDATED_DATE::DATE AS IPAAS_UPDATED_DATE
+from {{ref('prep_cmaitre_s')}}
+QUALIFY ROW_NUMBER() OVER (PARTITION BY TABLE_SK ORDER BY QUALIFY_TIMESTAMP DESC) = 1

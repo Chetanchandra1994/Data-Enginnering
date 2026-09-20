@@ -1,0 +1,69 @@
+{{
+  config(
+    materialized = "view",
+    alias = "cst_distribution",
+    schema='EBS'
+  )
+}}
+
+SELECT
+TRANSACTION_ID::number AS TRANSACTION_ID
+,ORGANIZATION_ID::number AS ORGANIZATION_ID
+,WIP_ENTITY_ID::number AS WIP_ENTITY_ID
+,UPPER(NULLIF(TRIM(WIP_ENTITY_NAME::string),'')) AS WIP_ENTITY_NAME
+,PRIMARY_ITEM_ID::number AS PRIMARY_ITEM_ID
+--,LINE_ID::number AS LINE_ID                                                       --contains only null
+--,LINE_CODE::string AS LINE_CODE                                                   --contains only null
+,ACCT_PERIOD_ID::number AS ACCT_PERIOD_ID
+,NULLIF(TRIM(TRANSACTION_TYPE_NAME::string),'') AS TRANSACTION_TYPE_NAME
+,TO_TIMESTAMP_NTZ(TRANSACTION_DATE::string) AS TRANSACTION_DATE
+,TRANSACTION_QUANTITY::number AS TRANSACTION_QUANTITY
+,UPPER(NULLIF(TRIM(TRANSACTION_UOM::string),'')) AS TRANSACTION_UOM
+,PRIMARY_QUANTITY::number AS PRIMARY_QUANTITY
+,UPPER(NULLIF(TRIM(PRIMARY_UOM::string),'')) AS PRIMARY_UOM
+,OPERATION_SEQ_NUM::number AS OPERATION_SEQ_NUM
+,UPPER(NULLIF(TRIM(CURRENCY_CODE::string),'')) AS CURRENCY_CODE
+,TO_TIMESTAMP_NTZ(CURRENCY_CONVERSION_DATE::string) AS CURRENCY_CONVERSION_DATE
+,NULLIF(TRIM(CURRENCY_CONVERSION_TYPE::string),'') AS CURRENCY_CONVERSION_TYPE
+,CURRENCY_CONVERSION_RATE::number AS CURRENCY_CONVERSION_RATE
+,UPPER(NULLIF(TRIM(DEPARTMENT_CODE::string),'')) AS DEPARTMENT_CODE
+,INITCAP(NULLIF(TRIM(DEPARTMENT_DESCRIPTION::string),'')) AS DEPARTMENT_DESCRIPTION
+,UPPER(NULLIF(TRIM(REASON_NAME::string),'')) AS REASON_NAME
+,UPPER(NULLIF(TRIM(REFERENCE::string),'')) AS REFERENCE
+,INVENTORY_ITEM_ID::number AS INVENTORY_ITEM_ID
+--,REVISION::string AS REVISION                                                     --contains only null
+,UPPER(NULLIF(TRIM(SUBINVENTORY_CODE::string),'')) AS SUBINVENTORY_CODE
+,RESOURCE_SEQ_NUM::number AS RESOURCE_SEQ_NUM
+,REFERENCE_ACCOUNT::number AS REFERENCE_ACCOUNT
+,UPPER(NULLIF(TRIM(RESOURCE_CODE::string),'')) AS RESOURCE_CODE
+--,REPETITIVE_SCHEDULE_ID::number AS REPETITIVE_SCHEDULE_ID                         --contains only null
+,UPPER(NULLIF(TRIM(LINE_TYPE_NAME::string),'')) AS LINE_TYPE_NAME
+,TRANSACTION_VALUE::number AS TRANSACTION_VALUE
+,BASE_TRANSACTION_VALUE::number AS BASE_TRANSACTION_VALUE
+,CONTRA_SET_ID::number AS CONTRA_SET_ID
+--,BASIS::string AS BASIS                                                           -- contains 'Item' for all records
+,NULLIF(TRIM(COST_ELEMENT::string),'') AS COST_ELEMENT
+--,ACTIVITY::string AS ACTIVITY                                                     --contains only null
+,RATE_OR_AMOUNT::number AS RATE_OR_AMOUNT
+,GL_BATCH_ID::number AS GL_BATCH_ID
+--,OVERHEAD_BASIS_FACTOR::number AS OVERHEAD_BASIS_FACTOR                           --contains -1 for all records
+--,BASIS_RESOURCE_ID::number AS BASIS_RESOURCE_ID                                   --contains -1 for all records
+--,TRANSACTION_SOURCE::string AS TRANSACTION_SOURCE                                 --contains only null
+,TO_NUMBER(UNIT_COST,38,2) AS UNIT_COST
+--,ROW_ID::string AS ROW_ID
+,TO_TIMESTAMP_NTZ(LAST_UPDATE_DATE::string) AS LAST_UPDATE_DATE
+,LAST_UPDATED_BY::number AS LAST_UPDATED_BY
+,TO_TIMESTAMP_NTZ(CREATION_DATE::string) AS CREATION_DATE
+,CREATED_BY::number AS CREATED_BY
+,LAST_UPDATE_LOGIN::number AS LAST_UPDATE_LOGIN
+,REQUEST_ID::number AS REQUEST_ID
+--,PROGRAM_APPLICATION_ID::number AS PROGRAM_APPLICATION_ID                         --contains 702 for all records
+,PROGRAM_ID::number AS PROGRAM_ID
+,TO_TIMESTAMP_NTZ(PROGRAM_UPDATE_DATE::string) AS PROGRAM_UPDATE_DATE
+,NULLIF(TRIM(ASSET_NUMBER::string),'') AS ASSET_NUMBER
+,ASSET_GROUP_ID::number AS ASSET_GROUP_ID
+--,REBUILD_ITEM_ID::number AS REBUILD_ITEM_ID                                       --contains only null
+--,REBUILD_SERIAL_NUMBER::string AS REBUILD_SERIAL_NUMBER                           --contains only null
+FROM {{ref('prep_cst_distribution')}}
+QUALIFY ROW_NUMBER() OVER (PARTITION BY Transaction_ID,WIP_ENTITY_ID,Transaction_Type_Name,Reference_Account,line_type_name,contra_set_id,cost_element 
+ORDER BY TO_TIMESTAMP_NTZ(LAST_UPDATE_DATE) DESC) = 1
