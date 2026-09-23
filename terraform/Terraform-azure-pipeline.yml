@@ -145,7 +145,7 @@ stages:
                   chmod +x /tmp/terraform-install/terraform
                   echo "##vso[task.prependpath]/tmp/terraform-install"
 
-                  terraform version
+                  /tmp/terraform-install/terraform version
 
                 displayName: 'Install Terraform'
 
