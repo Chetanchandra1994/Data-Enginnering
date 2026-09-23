@@ -18,3 +18,10 @@ dim_product:
     stage_subdir: ""
     file_format: json_ff
     table: DIM_PRODUCT
+    
+dim_employee:
+  pipe_dim_employee:
+    stage: stage_dim_employee
+    stage_subdir: ""
+    file_format: json_ff
+    table: DIM_EMPLOYEE

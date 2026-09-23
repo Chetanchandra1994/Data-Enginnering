@@ -15,3 +15,9 @@ dim_product:
   tables:
     - name: DIM_PRODUCT
       landing_type: variant
+
+dim_employee:
+  database: ADVWORKS
+  tables:
+    - name: DIM_EMPLOYEE
+      landing_type: variant

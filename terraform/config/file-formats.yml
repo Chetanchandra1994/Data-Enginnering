@@ -9,3 +9,7 @@ dim_customer:
 dim_product:
   json_ff:
     type: JSON
+  
+dim_employee:
+  json_ff:
+    type: JSON
