@@ -1,0 +1,658 @@
+# backup 
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - "*"
+
+variables:
+  - group: test-dbt
+  - group: prod-dbt
+  - group: preprod-dbt
+  - group: oicd-okta-dbt-test
+  - group: oicd-okta-dbt-prod
+  - name: python_version
+    value: '3.10'
+  - name: REGISTRY_URL_TEST
+    value: 'northamerica-northeast1-docker.pkg.dev'
+  - name: IMAGE_PATH_TEST
+    value: 'electric-tesla-507710-k2/dbt/dbt-docs'
+  - name: REGISTRY_URL_PROD
+    value: 'northamerica-northeast1-docker.pkg.dev'
+  - name: IMAGE_PATH_PROD
+    value: 'electric-tesla-507710-k2/dbt/dbt-docs'
+
+stages:
+  - stage: dbt_ci_stage
+    displayName: 'DBT CI Stage'
+    condition: eq(variables['Build.Reason'], 'PullRequest')
+    jobs:
+      - job: dbt_ci
+        displayName: 'DBT CI Pipeline'
+        variables:
+          DBT_SNOWFLAKE_ACCOUNT: $(TEST_DBT_SNOWFLAKE_ACCOUNT)
+          DBT_SNOWFLAKE_USER: $(TEST_DBT_SNOWFLAKE_USER)
+          DBT_SNOWFLAKE_ROLE: $(TEST_DBT_SNOWFLAKE_ROLE)
+          DBT_SNOWFLAKE_WAREHOUSE: $(TEST_DBT_SNOWFLAKE_WAREHOUSE)
+          DBT_SNOWFLAKE_DATABASE: $(TEST_DBT_SNOWFLAKE_DATABASE)
+          DBT_SNOWFLAKE_SCHEMA: $(TEST_DBT_SNOWFLAKE_SCHEMA)
+          DBT_PROFILES_DIR: $(Build.SourcesDirectory)
+
+        steps:
+          - checkout: self
+            persistCredentials: true
+          
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.10'
+            displayName: 'Use Python 3.10'
+
+          - script: |
+              python3.10 --version
+              python3.10 -m pip install --upgrade pip
+            displayName: 'Upgrade pip'
+
+          - script: |
+              python3.10 -m venv dbt-env
+              echo "##vso[task.setvariable variable=VIRTUAL_ENV_PATH]$(System.DefaultWorkingDirectory)/dbt-env"
+            displayName: 'Create Python Virtual Environment'
+
+          - script: |
+              chmod 600 $(snowflake_private_key.secureFilePath)
+              echo "##vso[task.setvariable variable=DBT_SNOWFLAKE_PRIVATE_KEY_PATH]$(snowflake_private_key.secureFilePath)"
+              echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_USER]$(TEST_DBT_SNOWFLAKE_USER)"
+              echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_ROLE]$(TEST_DBT_SNOWFLAKE_ROLE)"
+              echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_WAREHOUSE]$(TEST_DBT_SNOWFLAKE_WAREHOUSE)"
+              echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_ACCOUNT]$(TEST_DBT_SNOWFLAKE_ACCOUNT)"
+              echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_DATABASE]$(TEST_DBT_SNOWFLAKE_DATABASE)"
+              echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_SCHEMA]$(TEST_DBT_SNOWFLAKE_SCHEMA)"              
+            displayName: 'Set DBT environment variables'
+
+          - script: |
+              source $(VIRTUAL_ENV_PATH)/bin/activate 
+              python3.10 -m pip install --upgrade pip
+              python3.10 -m pip install dbt-core dbt-snowflake
+            displayName: 'Install DBT'
+
+          - task: DownloadSecureFile@1
+            name: snowflake_private_key
+            inputs:
+              secureFile: 'dev_dbt.p8'
+            displayName: 'Download private key secure file'
+
+          - script: |
+              python3.10 -m pip install --upgrade pip
+              if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+            displayName: 'Install Python Dependencies'
+
+          - script: |
+              source $(VIRTUAL_ENV_PATH)/bin/activate 
+              dbt deps
+            displayName: 'Pull in dbt Dependencies'
+
+          - script: |
+              source $(VIRTUAL_ENV_PATH)/bin/activate 
+              dbt debug
+            displayName: 'Test dbt Snowflake Connection'
+
+          - script: |
+              PR_TITLE=$(curl -s -H "Authorization: Bearer $(System.AccessToken)" \
+                "https://dev.azure.com/chetanchandra81/CHETAN_PROJECT/_apis/git/repositories/$(Build.Repository.Name)/pullRequests/$(System.PullRequest.PullRequestId)?api-version=7.0" \
+                | jq -r '.title')
+
+              echo "PR Title: $PR_TITLE"
+
+              # 1. Extract values
+              val_select=$(echo "$PR_TITLE" | grep -oP '(?<=dbt_select: )\S+' || echo "")
+              val_selector=$(echo "$PR_TITLE" | grep -oP '(?<=dbt_selector: )\S+' || echo "")
+
+              # 2. Determine Flag and Value
+              if [[ -n "$val_select" ]]; then
+                echo "##vso[task.setvariable variable=DBT_ACTION]--select"
+                echo "##vso[task.setvariable variable=DBT_VALUE]$(echo "$val_select" | xargs)"
+                echo "Selected Mode: Raw Selection (--select)"
+              elif [[ -n "$val_selector" ]]; then
+                echo "##vso[task.setvariable variable=DBT_ACTION]--selector"
+                echo "##vso[task.setvariable variable=DBT_VALUE]$(echo "$val_selector" | xargs)"
+                echo "Selected Mode: YAML Selector (--selector)"
+              else
+                echo "No dbt_select or dbt_selector found."
+                echo "##vso[task.setvariable variable=DBT_ACTION]--select"
+                echo "##vso[task.setvariable variable=DBT_VALUE]"
+              fi
+            displayName: 'Dynamic DBT Flag Construction'
+
+          - script: |
+              source $(VIRTUAL_ENV_PATH)/bin/activate 
+              echo "Running dbt compile --target test $(DBT_ACTION) $(DBT_VALUE)"
+              dbt compile --target test $(DBT_ACTION) $(DBT_VALUE)
+            displayName: 'Test dbt Models'
+
+          - script: |
+              source $(VIRTUAL_ENV_PATH)/bin/activate 
+              echo "Running dbt ls --target test $(DBT_ACTION) $(DBT_VALUE)"
+              dbt ls --target test $(DBT_ACTION) $(DBT_VALUE)
+            displayName: 'Listing selected models'
+
+  - stage: test_dbt_deploy 
+    displayName: 'DBT Test Deploy Stage'
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+    jobs:
+      - job: test_dbt_deploy
+        displayName: 'DBT Test Deploy Stage'
+        variables:
+          DBT_SNOWFLAKE_ACCOUNT: $(TEST_DBT_SNOWFLAKE_ACCOUNT)
+          DBT_SNOWFLAKE_USER: $(TEST_DBT_SNOWFLAKE_USER)
+          DBT_SNOWFLAKE_ROLE: $(TEST_DBT_SNOWFLAKE_ROLE)
+          DBT_SNOWFLAKE_WAREHOUSE: $(TEST_DBT_SNOWFLAKE_WAREHOUSE)
+          DBT_SNOWFLAKE_DATABASE: $(TEST_DBT_SNOWFLAKE_DATABASE)
+          DBT_SNOWFLAKE_SCHEMA: $(TEST_DBT_SNOWFLAKE_SCHEMA)
+          DBT_PROFILES_DIR: $(Build.SourcesDirectory)
+
+        steps:
+          - checkout: self
+            persistCredentials: true
+
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.10'
+            displayName: 'Use Python 3.10'
+
+          - script: |
+              python3.10 --version
+              python3.10 -m pip install --upgrade pip
+            displayName: 'Upgrade pip'
+
+          - script: |
+              python3.10 -m venv dbt-env
+              echo "##vso[task.setvariable variable=VIRTUAL_ENV_PATH]$(System.DefaultWorkingDirectory)/dbt-env"
+            displayName: 'Create Python Virtual Environment'
+
+          - script: |
+              chmod 600 $(snowflake_private_key.secureFilePath)
+              echo $(TEST_DBT_SNOWFLAKE_ACCOUNT)
+              echo "##vso[task.setvariable variable=DBT_SNOWFLAKE_PRIVATE_KEY_PATH]$(snowflake_private_key.secureFilePath)"
+              echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_USER]$(TEST_DBT_SNOWFLAKE_USER)"
+              echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_ROLE]$(TEST_DBT_SNOWFLAKE_ROLE)"
+              echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_WAREHOUSE]$(TEST_DBT_SNOWFLAKE_WAREHOUSE)"
+              echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_ACCOUNT]$(TEST_DBT_SNOWFLAKE_ACCOUNT)"
+              echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_DATABASE]$(TEST_DBT_SNOWFLAKE_DATABASE)"
+              echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_SCHEMA]$(TEST_DBT_SNOWFLAKE_SCHEMA)"              
+            displayName: 'Set DBT environment variables'
+
+          - script: |
+              source $(VIRTUAL_ENV_PATH)/bin/activate 
+              python3.10 -m pip install --upgrade pip
+              python3.10 -m pip install dbt-core dbt-snowflake
+            displayName: 'Install DBT'
+
+          - script: |
+              source $(VIRTUAL_ENV_PATH)/bin/activate 
+              dbt --version
+            displayName: 'Verify DBT Installation'
+
+          - task: DownloadSecureFile@1
+            name: snowflake_private_key
+            inputs:
+              secureFile: 'dev_dbt.p8'
+            displayName: 'Download private key secure file'
+
+          - script: |
+              python3.10 -m pip install --upgrade pip
+              if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+            displayName: 'Install Python Dependencies'
+
+          - script: |
+              source $(VIRTUAL_ENV_PATH)/bin/activate 
+              dbt deps
+            displayName: 'Pull in dbt Dependencies'
+
+          - script: |
+              source $(VIRTUAL_ENV_PATH)/bin/activate 
+              dbt debug
+            displayName: 'Test dbt Snowflake Connection'
+          
+          - script: |
+              PR_TITLE=$(curl -s -H "Authorization: Bearer $(System.AccessToken)" \
+                "https://dev.azure.com/chetanchandra81/CHETAN_PROJECT/_apis/build/builds/$(Build.BuildId)?api-version=7.0" \
+                | jq -r '.triggerInfo["ci.message"]')
+
+              echo "PR Title: $PR_TITLE"
+
+              # 1. Extract values
+              val_select=$(echo "$PR_TITLE" | grep -oP '(?<=dbt_select: )\S+' || echo "")
+              val_selector=$(echo "$PR_TITLE" | grep -oP '(?<=dbt_selector: )\S+' || echo "")
+
+              # 2. Determine Flag and Value
+              if [[ -n "$val_select" ]]; then
+                echo "##vso[task.setvariable variable=DBT_ACTION]--select"
+                echo "##vso[task.setvariable variable=DBT_VALUE]$(echo "$val_select" | xargs)"
+                echo "Selected Mode: Raw Selection (--select)"
+              elif [[ -n "$val_selector" ]]; then
+                echo "##vso[task.setvariable variable=DBT_ACTION]--selector"
+                echo "##vso[task.setvariable variable=DBT_VALUE]$(echo "$val_selector" | xargs)"
+                echo "Selected Mode: YAML Selector (--selector)"
+              else
+                echo "No dbt_select or dbt_selector found."
+                echo "##vso[task.setvariable variable=DBT_ACTION]--select" # Default to empty select
+                echo "##vso[task.setvariable variable=DBT_VALUE]"
+              fi
+            displayName: 'Dynamic DBT Flag Construction'
+
+          - script: |
+              source $(VIRTUAL_ENV_PATH)/bin/activate 
+              echo "Running dbt seed --target test $(DBT_ACTION) $(DBT_VALUE)"
+              dbt seed --target test $(DBT_ACTION) $(DBT_VALUE)
+            displayName: 'Seed Data'
+
+          - script: |
+              source $(VIRTUAL_ENV_PATH)/bin/activate 
+              echo "Running dbt ls --target test $(DBT_ACTION) $(DBT_VALUE)"
+              dbt ls --target test $(DBT_ACTION) $(DBT_VALUE)
+            displayName: 'Listing selected models'
+
+          - script: |
+              source $(VIRTUAL_ENV_PATH)/bin/activate 
+              echo "Running dbt run --target test $(DBT_ACTION) $(DBT_VALUE)"
+              dbt run --target test $(DBT_ACTION) $(DBT_VALUE)
+            displayName: 'Run dbt Models'
+
+          - script: |
+              source $(VIRTUAL_ENV_PATH)/bin/activate
+              dbt run-operation --target test run_all_custom_operations
+            displayName: 'Deploy Custom Operations'
+
+          - script: |
+              source $(VIRTUAL_ENV_PATH)/bin/activate 
+              echo "Running dbt test --target test $(DBT_ACTION) $(DBT_VALUE)"
+              dbt test --target test $(DBT_ACTION) $(DBT_VALUE)
+            displayName: 'Test dbt Models'
+
+          - task: DownloadSecureFile@1
+            name: google_application_credentials_test
+            inputs:
+              secureFile: 'practice-dbt-gcp-service-account.json'
+            displayName: 'Download GCP JSON Key'
+            
+          - script: |
+              chmod 600 $(google_application_credentials_test.secureFilePath)
+              echo "##vso[task.setvariable variable=GOOGLE_APPLICATION_CREDENTIALS]$(google_application_credentials_test.secureFilePath)"
+            displayName: 'Set Secret Variable for GCP DBT Doc deployment' 
+
+          - script: |
+              echo "Installing Google Cloud SDK..."
+              curl -sSL https://sdk.cloud.google.com | bash
+              gcloud auth activate-service-account --key-file=$(google_application_credentials_test.secureFilePath)
+            displayName: 'Install gcloud SDK and authenticate'  
+
+          - script: |
+              cat $(google_application_credentials_test.secureFilePath) | docker login -u _json_key --password-stdin https://$(REGISTRY_URL_TEST)
+            displayName: 'Login to Test Registry'
+          
+          - script: |
+              source $(VIRTUAL_ENV_PATH)/bin/activate 
+
+              dbt docs generate --target test
+            displayName: 'Generate documentation'
+
+          - script: |
+              FULL_IMAGE_NAME="$(REGISTRY_URL_TEST)/$(IMAGE_PATH_TEST)"
+              docker build -t $FULL_IMAGE_NAME:latest \
+                           -t $FULL_IMAGE_NAME:$(Build.BuildId) \
+                           -f DockerFile .
+              docker push $FULL_IMAGE_NAME:latest
+              docker push $FULL_IMAGE_NAME:$(Build.BuildId)
+            displayName: 'Build and Push to Test'    
+
+          - script: |
+              source $(VIRTUAL_ENV_PATH)/bin/activate
+
+              FULL_IMAGE_NAME="$(REGISTRY_URL_TEST)/$(IMAGE_PATH_TEST)"
+
+              gcloud run deploy dbt \
+              --image $FULL_IMAGE_NAME:$(Build.BuildId) \
+              --region us-central1 \
+              --project electric-tesla-507710-k2 \
+              --service-account "dbt-cloudrun@electric-tesla-507710-k2.iam.gserviceaccount.com" \
+              --platform managed \
+              --memory 128Mi \
+              --cpu 0.5 \
+              --concurrency 1 \
+              --max-instances 3 \
+              --no-cpu-boost \
+              --allow-unauthenticated \
+              --no-invoker-iam-check \
+              --set-env-vars OAUTH_CLIENT_ID="$(OKTA_CLIENT_ID_TEST)",OAUTH_CLIENT_SECRET="$(OKTA_CLIENT_SECRET_TEST)",SECRET_KEY="$(FLASK_SECRET_KEY_TEST)",SERVER_METADATA_URL="$(SERVER_METADATA_URL_TEST)"
+            displayName: 'Deploy documentation to Google Cloud Run Service in Test'     
+  - stage: preprod_dbt_deploy 
+    displayName: 'DBT PreProd Deploy Stage'
+    dependsOn: [test_dbt_deploy]
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+    jobs:
+      - deployment: preprod_dbt_deploy
+        displayName: 'DBT PreProd Deploy Stage'
+        environment: 'PreProd - DBT'
+        variables:
+          DBT_SNOWFLAKE_ACCOUNT: $(PREPROD_DBT_SNOWFLAKE_ACCOUNT)
+          DBT_SNOWFLAKE_USER: $(PREPROD_DBT_SNOWFLAKE_USER)
+          DBT_SNOWFLAKE_ROLE: $(PREPROD_DBT_SNOWFLAKE_ROLE)
+          DBT_SNOWFLAKE_WAREHOUSE: $(PREPROD_DBT_SNOWFLAKE_WAREHOUSE)
+          DBT_SNOWFLAKE_DATABASE: $(PREPROD_DBT_SNOWFLAKE_DATABASE)
+          DBT_SNOWFLAKE_SCHEMA: $(PREPROD_DBT_SNOWFLAKE_SCHEMA)
+          DBT_PROFILES_DIR: $(Build.SourcesDirectory)
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                  persistCredentials: true
+                
+                - task: UsePythonVersion@0
+                  inputs:
+                    versionSpec: '3.10'
+                  displayName: 'Use Python 3.10'
+
+                - script: |
+                    python3.10 --version
+                    python3.10 -m pip install --upgrade pip
+                  displayName: 'Upgrade pip'
+
+                - script: |
+                    python3.10 -m venv dbt-env
+                    echo "##vso[task.setvariable variable=VIRTUAL_ENV_PATH]$(System.DefaultWorkingDirectory)/dbt-env"
+                  displayName: 'Create Python Virtual Environment'
+
+                - script: |
+                    chmod 600 $(snowflake_private_key.secureFilePath)
+                    echo $(PREPROD_DBT_SNOWFLAKE_ACCOUNT)
+                    echo $(PREPROD_DBT_SNOWFLAKE_USER)
+                    echo "##vso[task.setvariable variable=DBT_SNOWFLAKE_PRIVATE_KEY_PATH]$(snowflake_private_key.secureFilePath)"
+                    echo "##vso[task.setvariable variable=PREPROD_DBT_SNOWFLAKE_USER]$(PREPROD_DBT_SNOWFLAKE_USER)"
+                    echo "##vso[task.setvariable variable=PREPROD_DBT_SNOWFLAKE_ROLE]$(PREPROD_DBT_SNOWFLAKE_ROLE)"
+                    echo "##vso[task.setvariable variable=PREPROD_DBT_SNOWFLAKE_WAREHOUSE]$(PREPROD_DBT_SNOWFLAKE_WAREHOUSE)"
+                    echo "##vso[task.setvariable variable=PREPROD_DBT_SNOWFLAKE_ACCOUNT]$(PREPROD_DBT_SNOWFLAKE_ACCOUNT)"
+                    echo "##vso[task.setvariable variable=PREPROD_DBT_SNOWFLAKE_DATABASE]$(PREPROD_DBT_SNOWFLAKE_DATABASE)"
+                    echo "##vso[task.setvariable variable=PREPROD_DBT_SNOWFLAKE_SCHEMA]$(PREPROD_DBT_SNOWFLAKE_SCHEMA)"              
+                  displayName: 'Set DBT environment variables'
+
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate 
+                    python3.10 -m pip install --upgrade pip
+                    python3.10 -m pip install dbt-core dbt-snowflake
+                  displayName: 'Install DBT'
+
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate 
+                    dbt --version
+                  displayName: 'Verify DBT Installation'
+
+                - task: DownloadSecureFile@1
+                  name: snowflake_private_key
+                  inputs:
+                    secureFile: 'preprod_dbt.p8'
+                  displayName: 'Download private key secure file'
+
+                - script: |
+                    python3.10 -m pip install --upgrade pip
+                    if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+                  displayName: 'Install Python Dependencies'
+
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate 
+                    dbt deps
+                  displayName: 'Pull in dbt Dependencies'
+
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate 
+                    dbt debug --target preprod
+                  displayName: 'Prod dbt Snowflake Connection'
+                
+                - script: |
+                    PR_TITLE=$(curl -s -H "Authorization: Bearer $(System.AccessToken)" \
+                      "https://dev.azure.com/chetanchandra81/CHETAN_PROJECT/_apis/build/builds/$(Build.BuildId)?api-version=7.0" \
+                      | jq -r '.triggerInfo["ci.message"]')
+
+                    echo "PR Title: $PR_TITLE"
+
+                    # 1. Extract values
+                    val_select=$(echo "$PR_TITLE" | grep -oP '(?<=dbt_select: )\S+' || echo "")
+                    val_selector=$(echo "$PR_TITLE" | grep -oP '(?<=dbt_selector: )\S+' || echo "")
+
+                    # 2. Determine Flag and Value
+                    if [[ -n "$val_select" ]]; then
+                      echo "##vso[task.setvariable variable=DBT_ACTION]--select"
+                      echo "##vso[task.setvariable variable=DBT_VALUE]$(echo "$val_select" | xargs)"
+                      echo "Selected Mode: Raw Selection (--select)"
+                    elif [[ -n "$val_selector" ]]; then
+                      echo "##vso[task.setvariable variable=DBT_ACTION]--selector"
+                      echo "##vso[task.setvariable variable=DBT_VALUE]$(echo "$val_selector" | xargs)"
+                      echo "Selected Mode: YAML Selector (--selector)"
+                    else
+                      echo "No dbt_select or dbt_selector found."
+                      echo "##vso[task.setvariable variable=DBT_ACTION]--select" # Default to empty select
+                      echo "##vso[task.setvariable variable=DBT_VALUE]"
+                    fi
+                  displayName: 'Dynamic DBT Flag Construction'
+
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate 
+                    echo "Running dbt seed --target preprod $(DBT_ACTION) $(DBT_VALUE)"
+                    dbt seed --target preprod $(DBT_ACTION) $(DBT_VALUE)
+                  displayName: 'Seed Data'
+
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate 
+                    echo "Running dbt ls --target preprod $(DBT_ACTION) $(DBT_VALUE)"
+                    dbt ls --target preprod $(DBT_ACTION) $(DBT_VALUE)
+                  displayName: 'Listing selected models'
+
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate 
+                    echo "Running dbt run --target preprod $(DBT_ACTION) $(DBT_VALUE)"
+                    dbt run --target preprod $(DBT_ACTION) $(DBT_VALUE)
+                  displayName: 'Run dbt Models'
+                # Unsuported because of how macros are made right now. See https://enterprisegroupinc.atlassian.net/browse/BI-9266
+                #- script: |
+                #    source $(VIRTUAL_ENV_PATH)/bin/activate
+                #    dbt run-operation --target preprod run_all_custom_operations
+                #  displayName: 'Deploy Custom Operations'
+
+  - stage: prod_dbt_deploy 
+    displayName: 'DBT Prod Deploy Stage'
+    dependsOn: [preprod_dbt_deploy]
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+    jobs:
+      - deployment: prod_dbt_deploy
+        displayName: 'DBT Prod Deploy Stage'
+        environment: 'Prod - DBT'
+        variables:
+          DBT_SNOWFLAKE_ACCOUNT: $(PROD_DBT_SNOWFLAKE_ACCOUNT)
+          DBT_SNOWFLAKE_USER: $(PROD_DBT_SNOWFLAKE_USER)
+          DBT_SNOWFLAKE_ROLE: $(PROD_DBT_SNOWFLAKE_ROLE)
+          DBT_SNOWFLAKE_WAREHOUSE: $(PROD_DBT_SNOWFLAKE_WAREHOUSE)
+          DBT_SNOWFLAKE_DATABASE: $(PROD_DBT_SNOWFLAKE_DATABASE)
+          DBT_SNOWFLAKE_SCHEMA: $(PROD_DBT_SNOWFLAKE_SCHEMA)
+          DBT_PROFILES_DIR: $(Build.SourcesDirectory)
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                  persistCredentials: true
+                
+                - task: UsePythonVersion@0
+                  inputs:
+                    versionSpec: '3.10'
+                  displayName: 'Use Python 3.10'
+
+                - script: |
+                    python3.10 --version
+                    python3.10 -m pip install --upgrade pip
+                  displayName: 'Upgrade pip'
+
+                - script: |
+                    python3.10 -m venv dbt-env
+                    echo "##vso[task.setvariable variable=VIRTUAL_ENV_PATH]$(System.DefaultWorkingDirectory)/dbt-env"
+                  displayName: 'Create Python Virtual Environment'
+
+                - script: |
+                    chmod 600 $(snowflake_private_key.secureFilePath)
+                    echo $(PROD_DBT_SNOWFLAKE_ACCOUNT)
+                    echo $(PROD_DBT_SNOWFLAKE_USER)
+                    echo "##vso[task.setvariable variable=DBT_SNOWFLAKE_PRIVATE_KEY_PATH]$(snowflake_private_key.secureFilePath)"
+                    echo "##vso[task.setvariable variable=PROD_DBT_SNOWFLAKE_USER]$(PROD_DBT_SNOWFLAKE_USER)"
+                    echo "##vso[task.setvariable variable=PROD_DBT_SNOWFLAKE_ROLE]$(PROD_DBT_SNOWFLAKE_ROLE)"
+                    echo "##vso[task.setvariable variable=PROD_DBT_SNOWFLAKE_WAREHOUSE]$(PROD_DBT_SNOWFLAKE_WAREHOUSE)"
+                    echo "##vso[task.setvariable variable=PROD_DBT_SNOWFLAKE_ACCOUNT]$(PROD_DBT_SNOWFLAKE_ACCOUNT)"
+                    echo "##vso[task.setvariable variable=PROD_DBT_SNOWFLAKE_DATABASE]$(PROD_DBT_SNOWFLAKE_DATABASE)"
+                    echo "##vso[task.setvariable variable=PROD_DBT_SNOWFLAKE_SCHEMA]$(PROD_DBT_SNOWFLAKE_SCHEMA)"              
+                  displayName: 'Set DBT environment variables'
+
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate 
+                    python3.10 -m pip install --upgrade pip
+                    python3.10 -m pip install dbt-core dbt-snowflake
+                  displayName: 'Install DBT'
+
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate 
+                    dbt --version
+                  displayName: 'Verify DBT Installation'
+
+                - task: DownloadSecureFile@1
+                  name: snowflake_private_key
+                  inputs:
+                    secureFile: 'prod_dbt.p8'
+                  displayName: 'Download private key secure file'
+
+                - script: |
+                    python3.10 -m pip install --upgrade pip
+                    if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+                  displayName: 'Install Python Dependencies'
+
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate 
+                    dbt deps
+                  displayName: 'Pull in dbt Dependencies'
+
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate 
+                    dbt debug --target prod
+                  displayName: 'Prod dbt Snowflake Connection'
+                
+                - script: |
+                    PR_TITLE=$(curl -s -H "Authorization: Bearer $(System.AccessToken)" \
+                      "https://dev.azure.com/chetanchandra81/CHETAN_PROJECT/_apis/build/builds/$(Build.BuildId)?api-version=7.0" \
+                      | jq -r '.triggerInfo["ci.message"]')
+
+                    echo "PR Title: $PR_TITLE"
+
+                    # 1. Extract values
+                    val_select=$(echo "$PR_TITLE" | grep -oP '(?<=dbt_select: )\S+' || echo "")
+                    val_selector=$(echo "$PR_TITLE" | grep -oP '(?<=dbt_selector: )\S+' || echo "")
+
+                    # 2. Determine Flag and Value
+                    if [[ -n "$val_select" ]]; then
+                      echo "##vso[task.setvariable variable=DBT_ACTION]--select"
+                      echo "##vso[task.setvariable variable=DBT_VALUE]$(echo "$val_select" | xargs)"
+                      echo "Selected Mode: Raw Selection (--select)"
+                    elif [[ -n "$val_selector" ]]; then
+                      echo "##vso[task.setvariable variable=DBT_ACTION]--selector"
+                      echo "##vso[task.setvariable variable=DBT_VALUE]$(echo "$val_selector" | xargs)"
+                      echo "Selected Mode: YAML Selector (--selector)"
+                    else
+                      echo "No dbt_select or dbt_selector found."
+                      echo "##vso[task.setvariable variable=DBT_ACTION]--select" # Default to empty select
+                      echo "##vso[task.setvariable variable=DBT_VALUE]"
+                    fi
+                  displayName: 'Dynamic DBT Flag Construction'
+
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate 
+                    echo "Running dbt seed --target prod $(DBT_ACTION) $(DBT_VALUE)"
+                    dbt seed --target prod $(DBT_ACTION) $(DBT_VALUE)
+                  displayName: 'Seed Data'
+
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate 
+                    echo "Running dbt ls --target prod $(DBT_ACTION) $(DBT_VALUE)"
+                    dbt ls --target prod $(DBT_ACTION) $(DBT_VALUE)
+                  displayName: 'Listing selected models'
+
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate 
+                    echo "Running dbt run --target prod $(DBT_ACTION) $(DBT_VALUE)"
+                    dbt run --target prod $(DBT_ACTION) $(DBT_VALUE)
+                  displayName: 'Run dbt Models'
+                
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate
+                    dbt run-operation --target prod run_all_custom_operations
+                  displayName: 'Deploy Custom Operations'
+
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate 
+                    echo "Running dbt test --target prod $(DBT_ACTION) $(DBT_VALUE)"
+                    dbt test --target prod $(DBT_ACTION) $(DBT_VALUE)
+                  displayName: 'Test dbt Models'
+
+                - task: DownloadSecureFile@1
+                  name: google_application_credentials_prod
+                  inputs:
+                    secureFile: 'practice-dbt-gcp-service-account.json'
+                  displayName: 'Download GCP JSON Key'
+                  
+                - script: |
+                    chmod 600 $(google_application_credentials_prod.secureFilePath)
+                    echo "##vso[task.setvariable variable=GOOGLE_APPLICATION_CREDENTIALS]$(google_application_credentials_prod.secureFilePath)"
+                  displayName: 'Set Secret Variable for GCP DBT Doc deployment' 
+
+                - script: |
+                    echo "Installing Google Cloud SDK..."
+                    curl -sSL https://sdk.cloud.google.com | bash
+                    gcloud auth activate-service-account --key-file=$(google_application_credentials_prod.secureFilePath)
+                  displayName: 'Install gcloud SDK and authenticate'  
+
+                - script: |
+                    cat $(google_application_credentials_prod.secureFilePath) | docker login -u _json_key --password-stdin https://$(REGISTRY_URL_PROD)
+                  displayName: 'Login to Prod Registry'
+                
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate 
+
+                    dbt docs generate --target prod
+                  displayName: 'Generate documentation'
+
+                - script: |
+                    FULL_IMAGE_NAME="$(REGISTRY_URL_PROD)/$(IMAGE_PATH_PROD)"
+                    docker build -t $FULL_IMAGE_NAME:latest \
+                                -t $FULL_IMAGE_NAME:$(Build.BuildId) \
+                                -f DockerFile .
+                    docker push $FULL_IMAGE_NAME:latest
+                    docker push $FULL_IMAGE_NAME:$(Build.BuildId)
+                  displayName: 'Build and Push to PROD'    
+
+                - script: |
+                    source $(VIRTUAL_ENV_PATH)/bin/activate
+
+                    FULL_IMAGE_NAME="$(REGISTRY_URL_PROD)/$(IMAGE_PATH_PROD)"
+
+                    gcloud run deploy dbt \
+                    --image $FULL_IMAGE_NAME:$(Build.BuildId) \
+                    --region us-central1 \
+                    --project electric-tesla-507710-k2 \
+                    --service-account "dbt-cloudrun@electric-tesla-507710-k2.iam.gserviceaccount.com" \
+                    --platform managed \
+                    --memory 128Mi \
+                    --cpu 0.5 \
+                    --concurrency 1 \
+                    --max-instances 3 \
+                    --no-cpu-boost \
+                    --allow-unauthenticated \
+                    --no-invoker-iam-check \
+                    --set-env-vars OAUTH_CLIENT_ID="$(OKTA_CLIENT_ID_PROD)",OAUTH_CLIENT_SECRET="$(OKTA_CLIENT_SECRET_PROD)",SECRET_KEY="$(FLASK_SECRET_KEY_PROD)",SERVER_METADATA_URL="$(SERVER_METADATA_URL_PROD)"
+                  displayName: 'Deploy documentation to Google Cloud Run Service in Prod'    
