@@ -9,3 +9,7 @@ dim_customer:
 dim_product:
   stage_dim_product:
     gcs_path: gcs://advworks-dev-ingestion/dim_product/
+
+dim_employee:
+  stage_dim_employee:
+    gcs_path: gcs://advworks-dev-ingestion/dim_employee/
