@@ -94,6 +94,110 @@ stages:
 
         - checkout: self
 
-        - template: terraform/templates/terraform-plan.yml
+        - template: templates/terraform-plan.yml
           parameters:
-            environment: dev
+            environment: Terraform - Dev
+
+# ============================================================
+# 3. TERRAFORM APPLY - DEV
+# ============================================================
+
+- stage: TerraformApplyDev
+  displayName: '3. Terraform Apply - DEV'
+
+  dependsOn: TerraformPlanDev
+  condition: succeeded()
+
+  jobs:
+
+    - deployment: TerraformApplyDev
+      displayName: 'Terraform Apply DEV'
+
+      environment: 'Terraform - Dev'
+
+      strategy:
+        runOnce:
+          deploy:
+
+            steps:
+
+              - checkout: self
+
+              # ------------------------------------------------
+              # Download the exact Terraform plan generated
+              # by TerraformPlanDev
+              # ------------------------------------------------
+
+              - download: current
+                artifact: terraform-plan-dev
+
+              # ------------------------------------------------
+              # Install Terraform
+              # ------------------------------------------------
+
+              - script: |
+                  set -e
+
+                  curl -fsSL https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip -o /tmp/terraform.zip
+                  rm -rf /tmp/terraform-install
+                  mkdir -p /tmp/terraform-install
+                  unzip -o /tmp/terraform.zip -d /tmp/terraform-install
+                  chmod +x /tmp/terraform-install/terraform
+                  echo "##vso[task.prependpath]/tmp/terraform-install"
+
+                  terraform version
+
+                displayName: 'Install Terraform'
+
+              # ------------------------------------------------
+              # Authenticate to Google Cloud using WIF
+              # ------------------------------------------------
+
+              - template: templates/google-wif-auth.yml
+
+              # ------------------------------------------------
+              # Download Snowflake Private Key
+              # ------------------------------------------------
+
+              - task: DownloadSecureFile@1
+                name: snowflakeKey
+                displayName: 'Download Snowflake Private Key'
+
+                inputs:
+                  secureFile: 'snowflake_tf_key.p8'
+
+              # ------------------------------------------------
+              # Terraform Init
+              # ------------------------------------------------
+
+              - script: |
+                  set -e
+
+                  cd terraform
+
+                  terraform init -reconfigure
+
+                displayName: 'Terraform Init - DEV'
+
+                env:
+                  TF_VAR_snowflake_private_key_path: $(snowflakeKey.secureFilePath)
+                  TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
+
+              # ------------------------------------------------
+              # Terraform Apply
+              # ------------------------------------------------
+
+              - script: |
+                  set -e
+
+                  cd terraform
+
+                  terraform apply \
+                    -input=false \
+                    "$(Pipeline.Workspace)/terraform-plan-dev/dev.tfplan"
+
+                displayName: 'Terraform Apply - DEV'
+
+                env:
+                  TF_VAR_snowflake_private_key_path: $(snowflakeKey.secureFilePath)
+                  TF_VAR_snowflake_private_key_passphrase: $(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
