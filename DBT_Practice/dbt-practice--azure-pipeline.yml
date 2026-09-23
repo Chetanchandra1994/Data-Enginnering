@@ -83,6 +83,9 @@ stages:
       DBT_SNOWFLAKE_DATABASE: $(TEST_DBT_SNOWFLAKE_DATABASE)
       DBT_SNOWFLAKE_SCHEMA: $(TEST_DBT_SNOWFLAKE_SCHEMA)
       DBT_PROFILES_DIR: $(Build.SourcesDirectory)/DBT_Practice
+
+      # FIX:
+      # Passphrase comes from the TEST variable group.
       DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: $(TEST_DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
     steps:
@@ -122,11 +125,18 @@ stages:
       displayName: 'Create Python Virtual Environment'
 
     # ================================================================
-    # ORIGINAL CODE — KEPT
+    # FIX
+    # Download the Snowflake private key BEFORE using secureFilePath.
     # ================================================================
-    #
-    # This sets the private-key path after the secure file is downloaded.
-    #
+
+    - task: DownloadSecureFile@1
+      name: snowflake_private_key
+      inputs:
+        secureFile: 'dev_dbt.p8'
+      displayName: 'Download private key secure file'
+
+    # ================================================================
+    # ORIGINAL CODE — KEPT
     # ================================================================
 
     - script: |
@@ -141,33 +151,20 @@ stages:
       displayName: 'Set DBT environment variables'
 
     # ================================================================
-    # ORIGINAL CODE — KEPT
+    # FIX
+    # Do NOT separately install unconstrained dbt-core/dbt-snowflake.
+    #
+    # requirements.txt controls the exact versions:
+    # dbt-core==1.12.3
+    # dbt-snowflake==1.12.1
     # ================================================================
 
     - script: |
         source $(VIRTUAL_ENV_PATH)/bin/activate
-        python3.10 -m pip install --upgrade pip
-        python3.10 -m pip install dbt-core dbt-snowflake
-      displayName: 'Install DBT'
-
-    # ================================================================
-    # ORIGINAL CODE — KEPT
-    # ================================================================
-
-    - task: DownloadSecureFile@1
-      name: snowflake_private_key
-      inputs:
-        secureFile: 'dev_dbt.p8'
-      displayName: 'Download private key secure file'
-
-    # ================================================================
-    # ORIGINAL CODE — KEPT
-    # ================================================================
-
-    - script: |
-        python3.10 -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+        dbt --version
+      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
       displayName: 'Install Python Dependencies'
 
     # ================================================================
@@ -178,7 +175,6 @@ stages:
         source $(VIRTUAL_ENV_PATH)/bin/activate
         dbt --version
         dbt deps
-      # THIS below line IS THE ADDED CODE  
       workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
       displayName: 'Pull in dbt Dependencies'
 
@@ -190,7 +186,7 @@ stages:
         source $(VIRTUAL_ENV_PATH)/bin/activate
         dbt --version
         dbt debug --target test
-      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
+      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
       displayName: 'Test dbt Snowflake Connection'
       env:
         DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: $(DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
@@ -223,33 +219,57 @@ stages:
           echo "Selected Mode: YAML Selector (--selector)"
         else
           echo "No dbt_select or dbt_selector found."
-          echo "##vso[task.setvariable variable=DBT_ACTION]--select"
+          echo "##vso[task.setvariable variable=DBT_ACTION]"
           echo "##vso[task.setvariable variable=DBT_VALUE]"
+          echo "No selector supplied. dbt compile will run against the full project."
         fi
       displayName: 'Dynamic DBT Flag Construction'
 
     # ================================================================
-    # ORIGINAL CODE — KEPT
-    # CI ONLY COMPILES — DOES NOT CREATE TABLES
+    # FIX
+    #
+    # If DBT_ACTION is empty, do NOT execute:
+    #
+    # dbt compile --target test --select
+    #
+    # Instead compile the complete project.
+    #
+    # If a selector exists, preserve the original Canam logic.
     # ================================================================
 
     - script: |
         source $(VIRTUAL_ENV_PATH)/bin/activate
-        echo "Running dbt compile --target test $(DBT_ACTION) $(DBT_VALUE)"
-        dbt compile --target test $(DBT_ACTION) $(DBT_VALUE)
-      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
+
+        if [[ -n "$(DBT_ACTION)" && -n "$(DBT_VALUE)" ]]; then
+          echo "Running dbt compile --target test $(DBT_ACTION) $(DBT_VALUE)"
+          dbt compile --target test $(DBT_ACTION) "$(DBT_VALUE)"
+        else
+          echo "No dbt selector supplied."
+          echo "Running dbt compile --target test"
+          dbt compile --target test
+        fi
+      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
       displayName: 'Test dbt Models'
       env:
         DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: $(DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
     # ================================================================
-    # ORIGINAL CODE — KEPT
+    # FIX
+    #
+    # Same protection for dbt ls.
     # ================================================================
 
     - script: |
         source $(VIRTUAL_ENV_PATH)/bin/activate
-        echo "Running dbt ls --target test $(DBT_ACTION) $(DBT_VALUE)"
-        dbt ls --target test $(DBT_ACTION) $(DBT_VALUE)
+
+        if [[ -n "$(DBT_ACTION)" && -n "$(DBT_VALUE)" ]]; then
+          echo "Running dbt ls --target test $(DBT_ACTION) $(DBT_VALUE)"
+          dbt ls --target test $(DBT_ACTION) "$(DBT_VALUE)"
+        else
+          echo "No dbt selector supplied."
+          echo "Running dbt ls --target test"
+          dbt ls --target test
+        fi
       workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
       displayName: 'Listing selected models'
       env:
@@ -285,6 +305,9 @@ stages:
       DBT_SNOWFLAKE_SCHEMA: $(TEST_DBT_SNOWFLAKE_SCHEMA)
       DBT_PROFILES_DIR: $(Build.SourcesDirectory)/DBT_Practice
 
+      # FIX
+      DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: $(TEST_DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
+
     steps:
 
     # ================================================================
@@ -294,27 +317,15 @@ stages:
     - checkout: self
       persistCredentials: true
 
-    # ================================================================
-    # ORIGINAL CODE — KEPT
-    # ================================================================
-
     - task: UsePythonVersion@0
       inputs:
         versionSpec: '3.10'
       displayName: 'Use Python 3.10'
 
-    # ================================================================
-    # ORIGINAL CODE — KEPT
-    # ================================================================
-
     - script: |
         python3.10 --version
         python3.10 -m pip install --upgrade pip
       displayName: 'Upgrade pip'
-
-    # ================================================================
-    # ORIGINAL CODE — KEPT
-    # ================================================================
 
     - script: |
         python3.10 -m venv dbt-env
@@ -322,9 +333,8 @@ stages:
       displayName: 'Create Python Virtual Environment'
 
     # ================================================================
-    # ORIGINAL CODE — KEPT
-    # ================================================================
-    # Download the Snowflake private key before using secureFilePath.
+    # FIX
+    # Download secure file before using secureFilePath.
     # ================================================================
 
     - task: DownloadSecureFile@1
@@ -350,14 +360,14 @@ stages:
 
     # ================================================================
     # FIX
-    # Do NOT separately install unconstrained dbt-core/dbt-snowflake.
-    # requirements.txt controls the exact versions.
+    # requirements.txt controls dbt versions.
     # ================================================================
 
     - script: |
         source $(VIRTUAL_ENV_PATH)/bin/activate
         python -m pip install --upgrade pip
         python -m pip install -r requirements.txt
+        dbt --version
       workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
       displayName: 'Install Python Dependencies'
 
@@ -369,7 +379,7 @@ stages:
         source $(VIRTUAL_ENV_PATH)/bin/activate
         dbt --version
         dbt deps
-      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
+      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
       displayName: 'Pull in dbt Dependencies'
 
     # ================================================================
@@ -378,9 +388,11 @@ stages:
 
     - script: |
         source $(VIRTUAL_ENV_PATH)/bin/activate
-        dbt debug
-      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
+        dbt debug --target test
+      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
       displayName: 'Test dbt Snowflake Connection'
+      env:
+        DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: $(DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
     # ================================================================
     # ORIGINAL CODE — KEPT
@@ -408,8 +420,9 @@ stages:
           echo "Selected Mode: YAML Selector (--selector)"
         else
           echo "No dbt_select or dbt_selector found."
-          echo "##vso[task.setvariable variable=DBT_ACTION]--select"
+          echo "##vso[task.setvariable variable=DBT_ACTION]"
           echo "##vso[task.setvariable variable=DBT_VALUE]"
+          echo "No selector supplied. dbt ls will run against the full project."
         fi
       displayName: 'Dynamic DBT Flag Construction'
 
@@ -427,16 +440,24 @@ stages:
     #   displayName: 'Seed Data'
 
     # ================================================================
-    # ORIGINAL CODE — KEPT
-    # This is read-only from the dbt model-selection perspective.
+    # FIX
     # ================================================================
 
     - script: |
         source $(VIRTUAL_ENV_PATH)/bin/activate
-        echo "Running dbt ls --target test $(DBT_ACTION) $(DBT_VALUE)"
-        dbt ls --target test $(DBT_ACTION) $(DBT_VALUE)
+
+        if [[ -n "$(DBT_ACTION)" && -n "$(DBT_VALUE)" ]]; then
+          echo "Running dbt ls --target test $(DBT_ACTION) $(DBT_VALUE)"
+          dbt ls --target test $(DBT_ACTION) "$(DBT_VALUE)"
+        else
+          echo "No dbt selector supplied."
+          echo "Running dbt ls --target test"
+          dbt ls --target test
+        fi
       workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
       displayName: 'Listing selected models'
+      env:
+        DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: $(DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
     # ================================================================
     # ORIGINAL CODE — COMMENTED OUT FOR INITIAL PIPELINE VALIDATION
@@ -568,6 +589,9 @@ stages:
       DBT_SNOWFLAKE_SCHEMA: $(PREPROD_DBT_SNOWFLAKE_SCHEMA)
       DBT_PROFILES_DIR: $(Build.SourcesDirectory)/DBT_Practice
 
+      # FIX
+      DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: $(PREPROD_DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
+
     strategy:
       runOnce:
         deploy:
@@ -580,10 +604,6 @@ stages:
 
           - checkout: self
             persistCredentials: true
-
-          # ============================================================
-          # ORIGINAL CODE — KEPT
-          # ============================================================
 
           - task: UsePythonVersion@0
             inputs:
@@ -601,6 +621,17 @@ stages:
             displayName: 'Create Python Virtual Environment'
 
           # ============================================================
+          # FIX
+          # Download secure file before using secureFilePath.
+          # ============================================================
+
+          - task: DownloadSecureFile@1
+            name: snowflake_private_key
+            inputs:
+              secureFile: 'preprod_dbt.p8'
+            displayName: 'Download private key secure file'
+
+          # ============================================================
           # ORIGINAL CODE — KEPT
           # ============================================================
 
@@ -615,37 +646,24 @@ stages:
               echo "##vso[task.setvariable variable=PREPROD_DBT_SNOWFLAKE_SCHEMA]$(PREPROD_DBT_SNOWFLAKE_SCHEMA)"
             displayName: 'Set DBT environment variables'
 
-          - script: |
-              source $(VIRTUAL_ENV_PATH)/bin/activate
-              python3.10 -m pip install --upgrade pip
-              python3.10 -m pip install dbt-core dbt-snowflake
-            displayName: 'Install DBT'
+          # ============================================================
+          # FIX
+          # requirements.txt controls dbt versions.
+          # ============================================================
 
           - script: |
               source $(VIRTUAL_ENV_PATH)/bin/activate
+              python -m pip install --upgrade pip
+              python -m pip install -r requirements.txt
               dbt --version
-            displayName: 'Verify DBT Installation'
-
-          # ============================================================
-          # ORIGINAL CODE — KEPT
-          # ============================================================
-
-          - task: DownloadSecureFile@1
-            name: snowflake_private_key
-            inputs:
-              secureFile: 'preprod_dbt.p8'
-            displayName: 'Download private key secure file'
-
-          - script: |
-              python3.10 -m pip install --upgrade pip
-              if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+            workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
             displayName: 'Install Python Dependencies'
 
           - script: |
               source $(VIRTUAL_ENV_PATH)/bin/activate
               dbt --version
               dbt deps
-            workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
+            workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
             displayName: 'Pull in dbt Dependencies'
 
           # ============================================================
@@ -657,6 +675,8 @@ stages:
               dbt debug --target preprod
             workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
             displayName: 'PreProd dbt Snowflake Connection'
+            env:
+              DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: $(DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
           # ============================================================
           # ORIGINAL CODE — KEPT
@@ -682,8 +702,9 @@ stages:
                 echo "Selected Mode: YAML Selector (--selector)"
               else
                 echo "No dbt_select or dbt_selector found."
-                echo "##vso[task.setvariable variable=DBT_ACTION]--select"
+                echo "##vso[task.setvariable variable=DBT_ACTION]"
                 echo "##vso[task.setvariable variable=DBT_VALUE]"
+                echo "No selector supplied. dbt ls will run against the full project."
               fi
             displayName: 'Dynamic DBT Flag Construction'
 
@@ -698,15 +719,24 @@ stages:
           #   displayName: 'Seed Data'
 
           # ============================================================
-          # ORIGINAL CODE — KEPT
+          # FIX
           # ============================================================
 
           - script: |
               source $(VIRTUAL_ENV_PATH)/bin/activate
-              echo "Running dbt ls --target preprod $(DBT_ACTION) $(DBT_VALUE)"
-              dbt ls --target preprod $(DBT_ACTION) $(DBT_VALUE)
+
+              if [[ -n "$(DBT_ACTION)" && -n "$(DBT_VALUE)" ]]; then
+                echo "Running dbt ls --target preprod $(DBT_ACTION) $(DBT_VALUE)"
+                dbt ls --target preprod $(DBT_ACTION) "$(DBT_VALUE)"
+              else
+                echo "No dbt selector supplied."
+                echo "Running dbt ls --target preprod"
+                dbt ls --target preprod
+              fi
             workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
             displayName: 'Listing selected models'
+            env:
+              DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: $(DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
           # ============================================================
           # ORIGINAL CODE — COMMENTED OUT FOR INITIAL VALIDATION
@@ -764,6 +794,9 @@ stages:
       DBT_SNOWFLAKE_SCHEMA: $(PROD_DBT_SNOWFLAKE_SCHEMA)
       DBT_PROFILES_DIR: $(Build.SourcesDirectory)/DBT_Practice
 
+      # FIX
+      DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: $(PROD_DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
+
     strategy:
       runOnce:
         deploy:
@@ -793,6 +826,17 @@ stages:
             displayName: 'Create Python Virtual Environment'
 
           # ============================================================
+          # FIX
+          # Download secure file before using secureFilePath.
+          # ============================================================
+
+          - task: DownloadSecureFile@1
+            name: snowflake_private_key
+            inputs:
+              secureFile: 'prod_dbt.p8'
+            displayName: 'Download private key secure file'
+
+          # ============================================================
           # ORIGINAL CODE — KEPT
           # ============================================================
 
@@ -807,37 +851,24 @@ stages:
               echo "##vso[task.setvariable variable=PROD_DBT_SNOWFLAKE_SCHEMA]$(PROD_DBT_SNOWFLAKE_SCHEMA)"
             displayName: 'Set DBT environment variables'
 
-          - script: |
-              source $(VIRTUAL_ENV_PATH)/bin/activate
-              python3.10 -m pip install --upgrade pip
-              python3.10 -m pip install dbt-core dbt-snowflake
-            displayName: 'Install DBT'
+          # ============================================================
+          # FIX
+          # requirements.txt controls dbt versions.
+          # ============================================================
 
           - script: |
               source $(VIRTUAL_ENV_PATH)/bin/activate
+              python -m pip install --upgrade pip
+              python -m pip install -r requirements.txt
               dbt --version
-            displayName: 'Verify DBT Installation'
-
-          # ============================================================
-          # ORIGINAL CODE — KEPT
-          # ============================================================
-
-          - task: DownloadSecureFile@1
-            name: snowflake_private_key
-            inputs:
-              secureFile: 'prod_dbt.p8'
-            displayName: 'Download private key secure file'
-
-          - script: |
-              python3.10 -m pip install --upgrade pip
-              if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+            workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
             displayName: 'Install Python Dependencies'
 
           - script: |
               source $(VIRTUAL_ENV_PATH)/bin/activate
               dbt --version
               dbt deps
-            workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
+            workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
             displayName: 'Pull in dbt Dependencies'
 
           # ============================================================
@@ -849,6 +880,8 @@ stages:
               dbt debug --target prod
             workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
             displayName: 'Prod dbt Snowflake Connection'
+            env:
+              DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: $(DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
           # ============================================================
           # ORIGINAL CODE — KEPT
@@ -874,8 +907,9 @@ stages:
                 echo "Selected Mode: YAML Selector (--selector)"
               else
                 echo "No dbt_select or dbt_selector found."
-                echo "##vso[task.setvariable variable=DBT_ACTION]--select"
+                echo "##vso[task.setvariable variable=DBT_ACTION]"
                 echo "##vso[task.setvariable variable=DBT_VALUE]"
+                echo "No selector supplied. dbt ls will run against the full project."
               fi
             displayName: 'Dynamic DBT Flag Construction'
 
@@ -886,108 +920,4 @@ stages:
           # - script: |
           #     source $(VIRTUAL_ENV_PATH)/bin/activate
           #     echo "Running dbt seed --target prod $(DBT_ACTION) $(DBT_VALUE)"
-          #     dbt seed --target prod $(DBT_ACTION) $(DBT_VALUE)
-          #   displayName: 'Seed Data'
-
-          # ============================================================
-          # ORIGINAL CODE — KEPT
-          # ============================================================
-
-          - script: |
-              source $(VIRTUAL_ENV_PATH)/bin/activate
-              echo "Running dbt ls --target prod $(DBT_ACTION) $(DBT_VALUE)"
-              dbt ls --target prod $(DBT_ACTION) $(DBT_VALUE)
-            workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
-            displayName: 'Listing selected models'
-
-          # ============================================================
-          # ORIGINAL CODE — COMMENTED OUT FOR INITIAL VALIDATION
-          # ============================================================
-
-          # - script: |
-          #     source $(VIRTUAL_ENV_PATH)/bin/activate
-          #     echo "Running dbt run --target prod $(DBT_ACTION) $(DBT_VALUE)"
-          #     dbt run --target prod $(DBT_ACTION) $(DBT_VALUE)
-          #   displayName: 'Run dbt Models'
-
-          # ============================================================
-          # ORIGINAL CODE — COMMENTED OUT
-          # ============================================================
-
-          # - script: |
-          #     source $(VIRTUAL_ENV_PATH)/bin/activate
-          #     dbt run-operation --target prod run_all_custom_operations
-          #   displayName: 'Deploy Custom Operations'
-
-          # ============================================================
-          # ORIGINAL CODE — COMMENTED OUT FOR INITIAL VALIDATION
-          # ============================================================
-
-          # - script: |
-          #     source $(VIRTUAL_ENV_PATH)/bin/activate
-          #     echo "Running dbt test --target prod $(DBT_ACTION) $(DBT_VALUE)"
-          #     dbt test --target prod $(DBT_ACTION) $(DBT_VALUE)
-          #   workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
-          #   displayName: 'Test dbt Models'
-
-
-          # ============================================================
-          # ORIGINAL CODE — COMMENTED OUT
-          # NOT NEEDED — GCP / DBT DOCS / OKTA / CLOUD RUN
-          # ============================================================
-
-          # - task: DownloadSecureFile@1
-          #   name: google_application_credentials_prod
-          #   inputs:
-          #     secureFile: 'practice-dbt-gcp-service-account.json'
-          #   displayName: 'Download GCP JSON Key'
-
-          # - script: |
-          #     chmod 600 $(google_application_credentials_prod.secureFilePath)
-          #     echo "##vso[task.setvariable variable=GOOGLE_APPLICATION_CREDENTIALS]$(google_application_credentials_prod.secureFilePath)"
-          #   displayName: 'Set Secret Variable for GCP DBT Doc deployment'
-
-          # - script: |
-          #     echo "Installing Google Cloud SDK..."
-          #     curl -sSL https://sdk.cloud.google.com | bash
-          #     gcloud auth activate-service-account --key-file=$(google_application_credentials_prod.secureFilePath)
-          #   displayName: 'Install gcloud SDK and authenticate'
-
-          # - script: |
-          #     cat $(google_application_credentials_prod.secureFilePath) | docker login -u _json_key --password-stdin https://$(REGISTRY_URL_PROD)
-          #   displayName: 'Login to Prod Registry'
-
-          # - script: |
-          #     source $(VIRTUAL_ENV_PATH)/bin/activate
-          #     dbt docs generate --target prod
-          #   displayName: 'Generate documentation'
-
-          # - script: |
-          #     FULL_IMAGE_NAME="$(REGISTRY_URL_PROD)/$(IMAGE_PATH_PROD)"
-          #     docker build -t $FULL_IMAGE_NAME:latest \
-          #                  -t $FULL_IMAGE_NAME:$(Build.BuildId) \
-          #                  -f DockerFile .
-          #     docker push $FULL_IMAGE_NAME:latest
-          #     docker push $FULL_IMAGE_NAME:$(Build.BuildId)
-          #   displayName: 'Build and Push to PROD'
-
-          # - script: |
-          #     source $(VIRTUAL_ENV_PATH)/bin/activate
-          #
-          #     FULL_IMAGE_NAME="$(REGISTRY_URL_PROD)/$(IMAGE_PATH_PROD)"
-          #
-          #     gcloud run deploy dbt \
-          #       --image $FULL_IMAGE_NAME:$(Build.BuildId) \
-          #       --region us-central1 \
-          #       --project electric-tesla-507710-k2 \
-          #       --service-account "dbt-cloudrun@electric-tesla-507710-k2.iam.gserviceaccount.com" \
-          #       --platform managed \
-          #       --memory 128Mi \
-          #       --cpu 0.5 \
-          #       --concurrency 1 \
-          #       --max-instances 3 \
-          #       --no-cpu-boost \
-          #       --allow-unauthenticated \
-          #       --no-invoker-iam-check \
-          #       --set-env-vars OAUTH_CLIENT_ID="$(OKTA_CLIENT_ID_PROD)",OAUTH_CLIENT_SECRET="$(OKTA_CLIENT_SECRET_PROD)",SECRET_KEY="$(FLASK_SECRET_KEY_PROD)",SERVER_METADATA_URL="$(SERVER_METADATA_URL_PROD)"
-          #   displayName: 'Deploy documentation to Google Cloud Run Service in Prod'
+          #     dbt seed --target prod $(DBT_ACTION) $_
