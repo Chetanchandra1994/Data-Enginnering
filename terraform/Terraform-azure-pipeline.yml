@@ -96,7 +96,7 @@ stages:
 
         - template: templates/terraform-plan.yml
           parameters:
-            environment: Terraform - Dev
+            environment: dev
 
 # ============================================================
 # 3. TERRAFORM APPLY - DEV
