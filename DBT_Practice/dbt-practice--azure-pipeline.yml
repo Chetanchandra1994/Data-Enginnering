@@ -166,6 +166,7 @@ stages:
     - script: |
         python3.10 -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
       displayName: 'Install Python Dependencies'
 
     # ================================================================
@@ -185,6 +186,7 @@ stages:
     - script: |
         source $(VIRTUAL_ENV_PATH)/bin/activate
         dbt debug
+      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
       displayName: 'Test dbt Snowflake Connection'
 
     # ================================================================
@@ -229,6 +231,7 @@ stages:
         source $(VIRTUAL_ENV_PATH)/bin/activate
         echo "Running dbt compile --target test $(DBT_ACTION) $(DBT_VALUE)"
         dbt compile --target test $(DBT_ACTION) $(DBT_VALUE)
+      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
       displayName: 'Test dbt Models'
 
     # ================================================================
@@ -239,6 +242,7 @@ stages:
         source $(VIRTUAL_ENV_PATH)/bin/activate
         echo "Running dbt ls --target test $(DBT_ACTION) $(DBT_VALUE)"
         dbt ls --target test $(DBT_ACTION) $(DBT_VALUE)
+      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
       displayName: 'Listing selected models'
 
 
@@ -377,6 +381,7 @@ stages:
     - script: |
         source $(VIRTUAL_ENV_PATH)/bin/activate
         dbt debug
+      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
       displayName: 'Test dbt Snowflake Connection'
 
     # ================================================================
@@ -432,6 +437,7 @@ stages:
         source $(VIRTUAL_ENV_PATH)/bin/activate
         echo "Running dbt ls --target test $(DBT_ACTION) $(DBT_VALUE)"
         dbt ls --target test $(DBT_ACTION) $(DBT_VALUE)
+      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
       displayName: 'Listing selected models'
 
     # ================================================================
@@ -464,6 +470,7 @@ stages:
     #     source $(VIRTUAL_ENV_PATH)/bin/activate
     #     echo "Running dbt test --target test $(DBT_ACTION) $(DBT_VALUE)"
     #     dbt test --target test $(DBT_ACTION) $(DBT_VALUE)
+    #   workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
     #   displayName: 'Test dbt Models'
 
 
@@ -649,6 +656,7 @@ stages:
           - script: |
               source $(VIRTUAL_ENV_PATH)/bin/activate
               dbt debug --target preprod
+            workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
             displayName: 'PreProd dbt Snowflake Connection'
 
           # ============================================================
@@ -698,6 +706,7 @@ stages:
               source $(VIRTUAL_ENV_PATH)/bin/activate
               echo "Running dbt ls --target preprod $(DBT_ACTION) $(DBT_VALUE)"
               dbt ls --target preprod $(DBT_ACTION) $(DBT_VALUE)
+            workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
             displayName: 'Listing selected models'
 
           # ============================================================
@@ -838,6 +847,7 @@ stages:
           - script: |
               source $(VIRTUAL_ENV_PATH)/bin/activate
               dbt debug --target prod
+            workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
             displayName: 'Prod dbt Snowflake Connection'
 
           # ============================================================
@@ -887,6 +897,7 @@ stages:
               source $(VIRTUAL_ENV_PATH)/bin/activate
               echo "Running dbt ls --target prod $(DBT_ACTION) $(DBT_VALUE)"
               dbt ls --target prod $(DBT_ACTION) $(DBT_VALUE)
+            workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
             displayName: 'Listing selected models'
 
           # ============================================================
@@ -916,6 +927,7 @@ stages:
           #     source $(VIRTUAL_ENV_PATH)/bin/activate
           #     echo "Running dbt test --target prod $(DBT_ACTION) $(DBT_VALUE)"
           #     dbt test --target prod $(DBT_ACTION) $(DBT_VALUE)
+          #   workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
           #   displayName: 'Test dbt Models'
 
 
