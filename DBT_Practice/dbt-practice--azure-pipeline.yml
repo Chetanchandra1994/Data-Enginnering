@@ -83,6 +83,7 @@ stages:
       DBT_SNOWFLAKE_DATABASE: $(TEST_DBT_SNOWFLAKE_DATABASE)
       DBT_SNOWFLAKE_SCHEMA: $(TEST_DBT_SNOWFLAKE_SCHEMA)
       DBT_PROFILES_DIR: $(Build.SourcesDirectory)/DBT_Practice
+      DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: $(TEST_DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
     steps:
 
@@ -174,6 +175,8 @@ stages:
     # ================================================================
 
     - script: |
+        source $(VIRTUAL_ENV_PATH)/bin/activate
+        dbt --version
         dbt deps
       # THIS below line IS THE ADDED CODE  
       workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
@@ -185,9 +188,12 @@ stages:
 
     - script: |
         source $(VIRTUAL_ENV_PATH)/bin/activate
-        dbt debug
+        dbt --version
+        dbt debug --target test
       workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
       displayName: 'Test dbt Snowflake Connection'
+      env:
+        DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: $(DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
     # ================================================================
     # ORIGINAL CODE — KEPT
@@ -233,6 +239,8 @@ stages:
         dbt compile --target test $(DBT_ACTION) $(DBT_VALUE)
       workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
       displayName: 'Test dbt Models'
+      env:
+        DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: $(DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
     # ================================================================
     # ORIGINAL CODE — KEPT
@@ -244,6 +252,8 @@ stages:
         dbt ls --target test $(DBT_ACTION) $(DBT_VALUE)
       workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
       displayName: 'Listing selected models'
+      env:
+        DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: $(DBT_SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
 
 
 # =====================================================================
@@ -314,39 +324,7 @@ stages:
     # ================================================================
     # ORIGINAL CODE — KEPT
     # ================================================================
-
-    - script: |
-        chmod 600 $(snowflake_private_key.secureFilePath)
-        echo "##vso[task.setvariable variable=DBT_SNOWFLAKE_PRIVATE_KEY_PATH]$(snowflake_private_key.secureFilePath)"
-        echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_USER]$(TEST_DBT_SNOWFLAKE_USER)"
-        echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_ROLE]$(TEST_DBT_SNOWFLAKE_ROLE)"
-        echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_WAREHOUSE]$(TEST_DBT_SNOWFLAKE_WAREHOUSE)"
-        echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_ACCOUNT]$(TEST_DBT_SNOWFLAKE_ACCOUNT)"
-        echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_DATABASE]$(TEST_DBT_SNOWFLAKE_DATABASE)"
-        echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_SCHEMA]$(TEST_DBT_SNOWFLAKE_SCHEMA)"
-      displayName: 'Set DBT environment variables'
-
-    # ================================================================
-    # ORIGINAL CODE — KEPT
-    # ================================================================
-
-    - script: |
-        source $(VIRTUAL_ENV_PATH)/bin/activate
-        python3.10 -m pip install --upgrade pip
-        python3.10 -m pip install dbt-core dbt-snowflake
-      displayName: 'Install DBT'
-
-    # ================================================================
-    # ORIGINAL CODE — KEPT
-    # ================================================================
-
-    - script: |
-        source $(VIRTUAL_ENV_PATH)/bin/activate
-        dbt --version
-      displayName: 'Verify DBT Installation'
-
-    # ================================================================
-    # ORIGINAL CODE — KEPT
+    # Download the Snowflake private key before using secureFilePath.
     # ================================================================
 
     - task: DownloadSecureFile@1
@@ -360,8 +338,27 @@ stages:
     # ================================================================
 
     - script: |
-        python3.10 -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        chmod 600 $(snowflake_private_key.secureFilePath)
+        echo "##vso[task.setvariable variable=DBT_SNOWFLAKE_PRIVATE_KEY_PATH]$(snowflake_private_key.secureFilePath)"
+        echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_USER]$(TEST_DBT_SNOWFLAKE_USER)"
+        echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_ROLE]$(TEST_DBT_SNOWFLAKE_ROLE)"
+        echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_WAREHOUSE]$(TEST_DBT_SNOWFLAKE_WAREHOUSE)"
+        echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_ACCOUNT]$(TEST_DBT_SNOWFLAKE_ACCOUNT)"
+        echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_DATABASE]$(TEST_DBT_SNOWFLAKE_DATABASE)"
+        echo "##vso[task.setvariable variable=TEST_DBT_SNOWFLAKE_SCHEMA]$(TEST_DBT_SNOWFLAKE_SCHEMA)"
+      displayName: 'Set DBT environment variables'
+
+    # ================================================================
+    # FIX
+    # Do NOT separately install unconstrained dbt-core/dbt-snowflake.
+    # requirements.txt controls the exact versions.
+    # ================================================================
+
+    - script: |
+        source $(VIRTUAL_ENV_PATH)/bin/activate
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
       displayName: 'Install Python Dependencies'
 
     # ================================================================
@@ -370,6 +367,7 @@ stages:
 
     - script: |
         source $(VIRTUAL_ENV_PATH)/bin/activate
+        dbt --version
         dbt deps
       workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
       displayName: 'Pull in dbt Dependencies'
@@ -645,6 +643,7 @@ stages:
 
           - script: |
               source $(VIRTUAL_ENV_PATH)/bin/activate
+              dbt --version
               dbt deps
             workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
             displayName: 'Pull in dbt Dependencies'
@@ -836,6 +835,7 @@ stages:
 
           - script: |
               source $(VIRTUAL_ENV_PATH)/bin/activate
+              dbt --version
               dbt deps
             workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
             displayName: 'Pull in dbt Dependencies'
