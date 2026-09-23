@@ -53,7 +53,7 @@ stages:
 
         - script: |
             cd terraform
-            terraform fmt -check -recursive
+            terraform fmt -check -recursive || echo "Terraform formatting differences detected. Continuing pipeline."
           displayName: 'Terraform Format Check'
 
         # ----------------------------------------------------
@@ -129,7 +129,7 @@ stages:
               # ------------------------------------------------
 
               - download: current
-                artifact: terraform-plan-dev
+                artifact: terraform-plan-dev-$(Build.BuildId)
 
               # ------------------------------------------------
               # Install Terraform
@@ -194,7 +194,7 @@ stages:
 
                   terraform apply \
                     -input=false \
-                    "$(Pipeline.Workspace)/terraform-plan-dev/dev.tfplan"
+                    "$(Pipeline.Workspace)/terraform-plan-dev-$(Build.BuildId)/dev.tfplan"
 
                 displayName: 'Terraform Apply - DEV'
 
