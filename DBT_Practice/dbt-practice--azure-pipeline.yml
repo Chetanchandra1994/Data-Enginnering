@@ -82,7 +82,7 @@ stages:
       DBT_SNOWFLAKE_WAREHOUSE: $(TEST_DBT_SNOWFLAKE_WAREHOUSE)
       DBT_SNOWFLAKE_DATABASE: $(TEST_DBT_SNOWFLAKE_DATABASE)
       DBT_SNOWFLAKE_SCHEMA: $(TEST_DBT_SNOWFLAKE_SCHEMA)
-      DBT_PROFILES_DIR: $(Build.SourcesDirectory)
+      DBT_PROFILES_DIR: $(Build.SourcesDirectory)/DBT_Practice
 
     steps:
 
@@ -173,8 +173,9 @@ stages:
     # ================================================================
 
     - script: |
-        source $(VIRTUAL_ENV_PATH)/bin/activate
         dbt deps
+      # THIS below line IS THE ADDED CODE  
+      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'
       displayName: 'Pull in dbt Dependencies'
 
     # ================================================================
@@ -268,7 +269,7 @@ stages:
       DBT_SNOWFLAKE_WAREHOUSE: $(TEST_DBT_SNOWFLAKE_WAREHOUSE)
       DBT_SNOWFLAKE_DATABASE: $(TEST_DBT_SNOWFLAKE_DATABASE)
       DBT_SNOWFLAKE_SCHEMA: $(TEST_DBT_SNOWFLAKE_SCHEMA)
-      DBT_PROFILES_DIR: $(Build.SourcesDirectory)
+      DBT_PROFILES_DIR: $(Build.SourcesDirectory)/DBT_Practice
 
     steps:
 
@@ -366,6 +367,7 @@ stages:
     - script: |
         source $(VIRTUAL_ENV_PATH)/bin/activate
         dbt deps
+      workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
       displayName: 'Pull in dbt Dependencies'
 
     # ================================================================
@@ -559,7 +561,7 @@ stages:
       DBT_SNOWFLAKE_WAREHOUSE: $(PREPROD_DBT_SNOWFLAKE_WAREHOUSE)
       DBT_SNOWFLAKE_DATABASE: $(PREPROD_DBT_SNOWFLAKE_DATABASE)
       DBT_SNOWFLAKE_SCHEMA: $(PREPROD_DBT_SNOWFLAKE_SCHEMA)
-      DBT_PROFILES_DIR: $(Build.SourcesDirectory)
+      DBT_PROFILES_DIR: $(Build.SourcesDirectory)/DBT_Practice
 
     strategy:
       runOnce:
@@ -637,6 +639,7 @@ stages:
           - script: |
               source $(VIRTUAL_ENV_PATH)/bin/activate
               dbt deps
+            workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
             displayName: 'Pull in dbt Dependencies'
 
           # ============================================================
@@ -751,7 +754,7 @@ stages:
       DBT_SNOWFLAKE_WAREHOUSE: $(PROD_DBT_SNOWFLAKE_WAREHOUSE)
       DBT_SNOWFLAKE_DATABASE: $(PROD_DBT_SNOWFLAKE_DATABASE)
       DBT_SNOWFLAKE_SCHEMA: $(PROD_DBT_SNOWFLAKE_SCHEMA)
-      DBT_PROFILES_DIR: $(Build.SourcesDirectory)
+      DBT_PROFILES_DIR: $(Build.SourcesDirectory)/DBT_Practice
 
     strategy:
       runOnce:
@@ -825,6 +828,7 @@ stages:
           - script: |
               source $(VIRTUAL_ENV_PATH)/bin/activate
               dbt deps
+            workingDirectory: '$(Build.SourcesDirectory)/DBT_Practice'  
             displayName: 'Pull in dbt Dependencies'
 
           # ============================================================
