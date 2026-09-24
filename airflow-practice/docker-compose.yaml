@@ -39,7 +39,7 @@ x-airflow-common:
     AIRFLOW__LOGGING__LOGGING_CONFIG_CLASS: 'log_config.LOGGING_CONFIG'
     PYTHONWARNINGS: "ignore:Number field should not be instantiated,ignore:invalid escape sequence"
   volumes:
-    - ./dags:/opt/airflow/dags
+    - ./DAGS:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
     - ./plugins:/opt/airflow/plugins
     - ./config:/opt/airflow/config

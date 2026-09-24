@@ -8,5 +8,6 @@ TABLES_CONFIG_7_AM = [
     "ProjectDivisions",
     "ProjectDivisionProducts",
     "ProjectTypeTaskCodes",
-    "Tasks"
+    #"Tasks",
+    "Testing"
 ]
