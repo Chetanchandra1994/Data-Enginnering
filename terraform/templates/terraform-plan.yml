@@ -83,9 +83,15 @@ steps:
   # Publish Plan
   # ----------------------------------------------------------
 
+  - script: |
+      echo "Build ID: $(Build.BuildId)"
+      echo "Artifact name: terraform-plan-${{ parameters.environment }}-$(Build.BuildId)"
+      echo "Plan file:"
+      ls -lh "$(Build.ArtifactStagingDirectory)/${{ parameters.environment }}.tfplan"
+    displayName: 'Verify Terraform Plan Artifact'
+
   - task: PublishPipelineArtifact@1
     displayName: 'Publish Terraform Plan'
-
     inputs:
       targetPath: '$(Build.ArtifactStagingDirectory)/${{ parameters.environment }}.tfplan'
-      artifact: 'terraform-plan-${{ parameters.environment }}'
+      artifact: 'terraform-plan-${{ parameters.environment }}-$(Build.BuildId)'
