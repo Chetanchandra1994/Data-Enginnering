@@ -11,7 +11,7 @@ from connectors.cloud.target.bigquery_target_connector import BigQueryTargetConn
 local_tz = pendulum.timezone("America/Toronto")
 
 @dag(
-    dag_id='infor.fullload.project_impact',
+    dag_id='infor.fullload.project_impact_rename',
     start_date=datetime(2025, 1, 1, tzinfo=local_tz),
     schedule=None,
     catchup=False,
