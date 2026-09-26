@@ -1,0 +1,4547 @@
+# DATA ENGINEERING INTERVIEW MASTER BIBLE — V2
+
+## End-to-End Data Engineering, Cloud, CI/CD, dbt, Airflow, Snowflake, Terraform and System Design
+
+---
+
+# PART 0 — HOW TO USE THIS BIBLE
+
+The objective is not to memorize definitions.
+
+For every concept, be able to answer at five levels:
+
+1. **What is it?**
+2. **Why is it needed?**
+3. **How does it work?**
+4. **How did I implement/use it?**
+5. **What happens when it fails?**
+
+For senior-level interviews, add:
+
+6. **What are the trade-offs?**
+7. **How would you scale it?**
+8. **How would you secure it?**
+9. **How would you monitor it?**
+10. **How would you make it idempotent and production-safe?**
+
+---
+
+# PART 1 — MY PROJECT
+
+## 1.1 60-SECOND INTRODUCTION
+
+I built an end-to-end cloud data engineering platform using AdventureWorks as the source system.
+
+The source data originates in SQL Server. I use Python to extract and batch the data, serialize it into files and land it in Google Cloud Storage.
+
+The ingestion layer moves the data into Snowflake, where I maintain separate logical layers for LANDING, PREPARE, NORMALIZE, SCHEMATIZE and MARKETPLACE.
+
+dbt manages SQL transformations, dependencies, testing and dimensional modeling.
+
+Airflow provides orchestration and controlled DAG deployment.
+
+Terraform manages infrastructure as code, including Snowflake and cloud resources.
+
+Azure DevOps provides CI/CD automation, while GitHub is used for source control.
+
+For authentication between Azure DevOps and Google Cloud, I implemented Workload Identity Federation rather than storing long-lived service-account JSON keys.
+
+The pipeline also includes GCS, Pub/Sub, Snowpipe, IAM, environment isolation, automated validation, approvals, data-quality checks and deployment controls.
+
+The important part is that I validated the pipeline end to end rather than only creating individual components.
+
+---
+
+# 2 — COMPLETE ARCHITECTURE
+
+```text
+                         SOURCE SYSTEMS
+                              │
+              ┌───────────────┼────────────────┐
+              │               │                │
+          SQL Server        Oracle            APIs
+              │
+              ▼
+        Python Extraction
+              │
+       ┌──────┴──────┐
+       │             │
+   Full Load     Incremental / CDC
+       │             │
+       └──────┬──────┘
+              │
+              ▼
+       Google Cloud Storage
+              │
+       ┌──────┴─────────┐
+       │                │
+    Batch Files       Events
+       │                │
+       │             Pub/Sub
+       │                │
+       └────────┬───────┘
+                ▼
+          Snowflake Ingestion
+          COPY / Snowpipe
+                │
+                ▼
+             LANDING
+                │
+                ▼
+             PREPARE
+                │
+                ▼
+            NORMALIZE
+                │
+                ▼
+            SCHEMATIZE
+                │
+         ┌──────┴──────┐
+         │             │
+      FACTS        DIMENSIONS
+         │             │
+         └──────┬──────┘
+                ▼
+           MARKETPLACE
+                │
+                ▼
+        BI / Data Products
+                │
+         Tableau / Power BI
+```
+
+Supporting platform:
+
+```text
+GitHub
+  │
+  ▼
+Azure DevOps
+  │
+  ├── Python validation
+  ├── dbt validation
+  ├── Terraform validation
+  ├── Terraform plan
+  ├── Approval
+  └── Terraform apply
+          │
+          ▼
+      GCP / Snowflake
+
+Security:
+
+Azure OIDC
+   ↓
+Workload Identity Federation
+   ↓
+GCP IAM
+   ↓
+Temporary credentials
+```
+
+---
+
+# 3 — THE MOST IMPORTANT CONCEPT: DATA FLOW
+
+An interviewer may ask:
+
+> "Explain what happens to data from source to dashboard."
+
+A strong answer:
+
+```text
+Source
+ ↓
+Extract
+ ↓
+Serialize
+ ↓
+Land
+ ↓
+Validate
+ ↓
+Ingest
+ ↓
+Store
+ ↓
+Transform
+ ↓
+Model
+ ↓
+Test
+ ↓
+Publish
+ ↓
+Consume
+```
+
+At every stage I ask:
+
+```text
+What is the input?
+What is the output?
+What is the contract?
+How do I know it succeeded?
+How do I retry it?
+How do I prevent duplicates?
+How do I monitor it?
+Who is allowed to access it?
+```
+
+That mindset is more important than memorizing individual tools.
+
+---
+
+# PART 2 — SOURCE SYSTEMS
+
+# 4. SOURCE SYSTEM TYPES
+
+## Q1. What types of source systems can a data engineer integrate?
+
+Common sources:
+
+* OLTP databases
+* APIs
+* SaaS applications
+* CSV/JSON/XML files
+* message queues
+* event streams
+* application logs
+* ERP systems
+* CRM systems
+* cloud databases
+* legacy systems
+
+---
+
+## Q2. OLTP vs OLAP?
+
+OLTP is optimized for transactional workloads.
+
+Examples:
+
+* order creation
+* payment
+* customer update
+
+Characteristics:
+
+* frequent writes
+* short transactions
+* normalized schemas
+* high concurrency
+
+OLAP is optimized for analytics.
+
+Characteristics:
+
+* large scans
+* aggregations
+* historical analysis
+* dimensional models
+* analytical queries
+
+---
+
+## Q3. Why shouldn't I run heavy analytical queries directly against OLTP?
+
+Because analytical workloads can:
+
+* consume CPU
+* consume memory
+* cause locking/contention
+* increase query latency
+* affect application performance
+
+A common architecture is:
+
+```text
+OLTP
+ ↓
+Extraction
+ ↓
+Data Platform
+ ↓
+Warehouse
+ ↓
+Analytics
+```
+
+---
+
+# PART 3 — EXTRACTION
+
+# 5. FULL LOAD
+
+## Q4. What is a full load?
+
+A full load extracts the complete source dataset.
+
+```text
+Source
+ ↓
+Extract all rows
+ ↓
+Landing
+ ↓
+Target
+```
+
+Advantages:
+
+* simple
+* easy to understand
+* easy initial load
+
+Disadvantages:
+
+* expensive at scale
+* slower
+* unnecessary repeated processing
+
+---
+
+# 6. INCREMENTAL LOAD
+
+## Q5. What is incremental extraction?
+
+Extract only records that changed since the previous successful run.
+
+Example:
+
+```sql
+SELECT *
+FROM Customer
+WHERE LastModifiedDate > :watermark;
+```
+
+Architecture:
+
+```text
+Previous watermark
+       ↓
+Source query
+       ↓
+Changed records
+       ↓
+Landing
+       ↓
+Target
+       ↓
+New watermark
+```
+
+---
+
+# 7. WATERMARKS
+
+## Q6. What is a watermark?
+
+A watermark represents the latest successfully processed source position.
+
+Examples:
+
+```text
+last_modified_timestamp
+identity value
+sequence number
+LSN
+SCN
+event offset
+```
+
+Example:
+
+```text
+Previous watermark:
+2026-09-25 10:00:00
+
+Extract:
+WHERE modified_at > '2026-09-25 10:00:00'
+```
+
+After successful processing:
+
+```text
+New watermark:
+2026-09-26 10:00:00
+```
+
+Important:
+
+The watermark should normally advance **only after successful processing**.
+
+---
+
+# 8. CDC
+
+## Q7. What is CDC?
+
+CDC means Change Data Capture.
+
+It identifies source changes such as:
+
+```text
+INSERT
+UPDATE
+DELETE
+```
+
+Instead of repeatedly extracting the entire table, the pipeline consumes changes.
+
+---
+
+## Q8. CDC vs incremental timestamp extraction?
+
+Timestamp approach:
+
+```text
+WHERE updated_at > watermark
+```
+
+CDC:
+
+```text
+Database change
+ ↓
+CDC mechanism
+ ↓
+Change event
+ ↓
+Pipeline
+```
+
+Timestamp extraction may miss changes when:
+
+* timestamps are unreliable
+* deletes aren't represented
+* records are updated without changing the timestamp
+
+CDC can capture inserts, updates and deletes depending on the implementation.
+
+---
+
+## Q9. What CDC technologies might you encounter?
+
+Examples:
+
+* SQL Server CDC
+* SQL Server Change Tracking
+* transaction logs
+* Oracle redo logs
+* Debezium
+* Kafka Connect
+* database-native replication
+* cloud CDC services
+
+---
+
+# 9. CDC INTERVIEW SCENARIO
+
+## Q10. A record is inserted and updated five times before your pipeline runs. Do you need all five versions?
+
+Depends on the business requirement.
+
+If the warehouse only needs the latest state:
+
+```text
+A
+ ↓
+B
+ ↓
+C
+ ↓
+D
+ ↓
+E
+```
+
+may be collapsed to:
+
+```text
+E
+```
+
+If audit/history is required, all changes may need to be retained.
+
+Therefore CDC design depends on:
+
+* business requirement
+* audit requirements
+* warehouse model
+* event ordering
+* retention
+
+---
+
+# PART 4 — EXTRACTION ENGINEERING
+
+# 10. BATCHING
+
+## Q11. Why batch extraction?
+
+Instead of:
+
+```python
+rows = cursor.fetchall()
+```
+
+for millions of records, process chunks.
+
+```python
+while True:
+    rows = cursor.fetchmany(batch_size)
+
+    if not rows:
+        break
+
+    process(rows)
+```
+
+Benefits:
+
+* lower memory usage
+* easier retry
+* predictable file sizes
+* scalable processing
+
+---
+
+# 11. PAGINATION
+
+For APIs:
+
+```text
+GET /customers?page=1
+GET /customers?page=2
+GET /customers?page=3
+```
+
+or cursor-based:
+
+```text
+response
+ ↓
+next_cursor
+ ↓
+next request
+```
+
+Cursor pagination is usually safer for changing datasets because page numbers can shift when records are inserted.
+
+---
+
+# 12. SERIALIZATION
+
+## Q12. What is serialization?
+
+Serialization converts in-memory objects into a transferable/storable representation.
+
+Examples:
+
+```text
+Python object
+ ↓
+JSON
+```
+
+or:
+
+```text
+DataFrame
+ ↓
+Parquet
+```
+
+---
+
+# 13. JSON vs JSONL vs CSV vs PARQUET
+
+| Format  | Strength                  |
+| ------- | ------------------------- |
+| CSV     | Simple/interoperable      |
+| JSON    | Nested/semi-structured    |
+| JSONL   | Streaming/record-oriented |
+| Parquet | Columnar/analytical       |
+| Avro    | Schema + row-oriented     |
+| ORC     | Columnar analytical       |
+
+For analytical workloads, columnar formats such as Parquet are often more storage/query efficient.
+
+---
+
+# 14. DATA TYPES DURING SERIALIZATION
+
+A common problem:
+
+```python
+json.dumps({
+    "amount": Decimal("100.50"),
+    "created": datetime.now()
+})
+```
+
+may fail because Decimal/datetime aren't directly JSON serializable.
+
+A quick fallback:
+
+```python
+json.dumps(record, default=str)
+```
+
+But production pipelines should define explicit type conversion because blindly converting everything to strings can cause downstream type-quality problems.
+
+---
+
+# PART 5 — RAW STORAGE
+
+# 15. WHY OBJECT STORAGE?
+
+Object storage provides:
+
+* high durability
+* scalability
+* low-cost storage
+* separation of storage and compute
+* decoupling between producers and consumers
+* replay capability
+
+Architecture:
+
+```text
+Source
+ ↓
+Object Storage
+ ↓
+Multiple consumers
+```
+
+This is powerful because the raw data can be replayed without hitting the source system again.
+
+---
+
+# 16. RAW DATA PRINCIPLE
+
+Raw data should generally be:
+
+* minimally transformed
+* traceable to source
+* replayable
+* immutable where appropriate
+* accompanied by metadata
+
+Useful metadata:
+
+```text
+source_system
+source_table
+load_timestamp
+batch_id
+file_name
+ingestion_timestamp
+schema_version
+```
+
+---
+
+# 17. FILE NAMING
+
+Example:
+
+```text
+customer/
+year=2026/
+month=09/
+day=26/
+customer_20260926_120000.jsonl
+```
+
+Benefits:
+
+* organization
+* partition pruning
+* troubleshooting
+* replay
+* lifecycle management
+
+---
+
+# 18. PARTITIONING
+
+Partitioning divides data into logical subsets.
+
+Example:
+
+```text
+sales/
+year=2026/
+month=09/
+day=26/
+```
+
+Instead of scanning everything:
+
+```text
+1 TB
+```
+
+the query may only need:
+
+```text
+day=26
+```
+
+---
+
+# PART 6 — WAREHOUSE INGESTION
+
+# 19. COPY VS SNOWPIPE
+
+`COPY INTO` is commonly used for explicit/batch file loading.
+
+Snowpipe is designed for continuous/automated file ingestion.
+
+Conceptually:
+
+```text
+GCS
+ ↓
+File
+ ↓
+Event
+ ↓
+Snowpipe
+ ↓
+Snowflake
+```
+
+---
+
+# 20. EVENT-DRIVEN INGESTION
+
+Example:
+
+```text
+File arrives
+ ↓
+GCS notification
+ ↓
+Pub/Sub
+ ↓
+Snowpipe
+ ↓
+Snowflake
+```
+
+Advantages:
+
+* lower latency
+* less polling
+* event-driven processing
+* scalable ingestion
+
+---
+
+# 21. AT-LEAST-ONCE DELIVERY
+
+Many distributed systems provide at-least-once delivery.
+
+That means a message may be delivered more than once.
+
+Therefore:
+
+```text
+Message
+ ↓
+Consumer
+ ↓
+Processing
+```
+
+must be designed for duplicate handling.
+
+This is why idempotency matters.
+
+---
+
+# PART 7 — DATA WAREHOUSE
+
+# 22. SNOWFLAKE ARCHITECTURE
+
+Snowflake separates:
+
+```text
+Storage
+   +
+Compute
+   +
+Cloud Services
+```
+
+Virtual warehouses provide compute independently from storage.
+
+---
+
+# 23. WHY MULTIPLE WAREHOUSES?
+
+Example:
+
+```text
+ETL_WH_DEV
+ETL_WH_TEST
+ETL_WH_PROD
+```
+
+Benefits:
+
+* workload isolation
+* environment separation
+* cost control
+* independent sizing
+* reduced resource contention
+
+---
+
+# 24. AUTO-SUSPEND / AUTO-RESUME
+
+Auto-suspend stops compute after inactivity.
+
+Auto-resume starts it when work arrives.
+
+This is useful for cost management.
+
+---
+
+# 25. DATABASE LAYERS
+
+My project uses:
+
+```text
+LANDING
+   ↓
+PREPARE
+   ↓
+NORMALIZE
+   ↓
+SCHEMATIZE
+   ↓
+MARKETPLACE
+```
+
+### LANDING
+
+Raw representation.
+
+### PREPARE
+
+Type conversion and basic preparation.
+
+### NORMALIZE
+
+Cleaning and standardization.
+
+### SCHEMATIZE
+
+Business/data model.
+
+### MARKETPLACE
+
+Consumer-facing data products.
+
+---
+
+# PART 8 — DATA MODELING
+
+# 26. GRAIN
+
+## Q26. What is grain?
+
+Grain defines exactly what one row represents.
+
+Example:
+
+```text
+One row = one sales order line
+```
+
+This must be defined before designing the fact table.
+
+A large percentage of dimensional-modeling problems come from unclear grain.
+
+---
+
+# 27. FACT TABLE
+
+A fact represents a measurable business event.
+
+Example:
+
+```text
+FactInternetSales
+```
+
+Possible measures:
+
+```text
+SalesAmount
+TaxAmount
+Freight
+OrderQuantity
+ProductCost
+```
+
+---
+
+# 28. DIMENSION TABLE
+
+Dimensions provide descriptive context.
+
+Examples:
+
+```text
+DimCustomer
+DimProduct
+DimDate
+DimEmployee
+```
+
+---
+
+# 29. STAR SCHEMA
+
+```text
+              DimCustomer
+                   │
+                   │
+DimDate ───── FactSales ───── DimProduct
+                   │
+                   │
+              DimPromotion
+```
+
+Advantages:
+
+* simple queries
+* understandable to analysts
+* fewer joins
+* strong BI usability
+
+---
+
+# 30. SURROGATE KEYS
+
+A surrogate key is a warehouse-generated identifier.
+
+Example:
+
+```text
+CustomerKey = 10001
+```
+
+while source business key may be:
+
+```text
+CustomerID = CUST-98421
+```
+
+Benefits:
+
+* source independence
+* SCD support
+* stable warehouse identifiers
+* multiple source systems can be integrated
+
+---
+
+# 31. NATURAL KEY
+
+A natural key comes from the business/source system.
+
+Examples:
+
+```text
+CustomerNumber
+ProductCode
+EmployeeNumber
+```
+
+---
+
+# PART 9 — SCD
+
+# 32. SCD TYPE 0
+
+Never change the original value.
+
+---
+
+# 33. SCD TYPE 1
+
+Overwrite.
+
+```text
+Toronto
+   ↓
+Montreal
+```
+
+Only Montreal remains.
+
+---
+
+# 34. SCD TYPE 2
+
+Preserve history.
+
+```text
+Customer 100
+
+Toronto
+2024-01-01 → 2025-01-10
+is_current = false
+
+Montreal
+2025-01-11 → NULL
+is_current = true
+```
+
+Typical columns:
+
+```text
+effective_from
+effective_to
+is_current
+```
+
+---
+
+# 35. SCD TYPE 2 IMPLEMENTATION
+
+Conceptually:
+
+```sql
+MERGE INTO dim_customer target
+USING staging_customer source
+ON target.customer_id = source.customer_id
+AND target.is_current = TRUE
+
+WHEN MATCHED
+AND target.city <> source.city
+THEN UPDATE SET
+    target.is_current = FALSE,
+    target.effective_to = CURRENT_TIMESTAMP;
+```
+
+Then insert the new version.
+
+In practice, implementation must also handle:
+
+* duplicate source records
+* same-day changes
+* late-arriving data
+* deletes
+* null comparison
+* transaction boundaries
+
+---
+
+# PART 10 — DBT
+
+# 36. WHY DBT?
+
+dbt treats SQL transformation as software.
+
+Benefits:
+
+* Git
+* modularity
+* dependency management
+* testing
+* documentation
+* lineage
+* CI/CD
+* reusable macros
+
+---
+
+# 37. DBT MODEL
+
+A model is a SQL transformation managed by dbt.
+
+Example:
+
+```sql
+SELECT
+    RAW_DATA:"CustomerKey"::NUMBER AS CUSTOMER_KEY,
+    RAW_DATA:"FirstName"::VARCHAR AS FIRST_NAME
+FROM {{ source('landing', 'customer') }}
+```
+
+---
+
+# 38. REF()
+
+```sql
+SELECT *
+FROM {{ ref('dim_customer_prepare') }}
+```
+
+`ref()` tells dbt:
+
+```text
+model A
+ ↓
+model B
+```
+
+dbt builds the dependency graph automatically.
+
+---
+
+# 39. SOURCE()
+
+```sql
+{{ source('landing', 'customer') }}
+```
+
+Sources represent external/raw data entering dbt.
+
+Sources can also provide:
+
+* documentation
+* freshness checks
+* lineage
+
+---
+
+# 40. DBT DAG
+
+```text
+source
+  ↓
+prepare
+  ↓
+normalize
+  ↓
+dimension/fact
+  ↓
+marketplace
+```
+
+dbt determines execution order based on dependencies.
+
+---
+
+# 41. DBT MATERIALIZATIONS
+
+Important materializations:
+
+```text
+view
+table
+incremental
+ephemeral
+snapshot
+```
+
+### View
+
+Stores SQL definition.
+
+### Table
+
+Physically materializes results.
+
+### Incremental
+
+Processes only new/changed data according to model logic.
+
+### Ephemeral
+
+Used as an intermediate CTE-like model and isn't directly materialized.
+
+### Snapshot
+
+Tracks historical changes to records.
+
+---
+
+# 42. DBT INCREMENTAL MODEL
+
+Example:
+
+```sql
+{{ config(
+    materialized='incremental',
+    unique_key='CUSTOMER_KEY'
+) }}
+
+SELECT *
+FROM {{ ref('customer_prepare') }}
+
+{% if is_incremental() %}
+
+WHERE LOAD_TIMESTAMP >
+      (SELECT MAX(LOAD_TIMESTAMP)
+       FROM {{ this }})
+
+{% endif %}
+```
+
+Important interview discussion:
+
+`is_incremental()` does not magically make a model incremental.
+
+The engineer must define correct incremental filtering and merge behavior.
+
+---
+
+# 43. DBT SNAPSHOT
+
+Snapshots are designed to preserve historical changes.
+
+Conceptually:
+
+```text
+Current source
+     │
+     ▼
+Snapshot
+     │
+     ├── DBT_SCD_ID
+     ├── DBT_UPDATED_AT
+     ├── DBT_VALID_FROM
+     └── DBT_VALID_TO
+```
+
+These metadata columns are generated by dbt's snapshot mechanism.
+
+---
+
+# 44. DBT TESTS
+
+Common tests:
+
+```text
+unique
+not_null
+relationships
+accepted_values
+```
+
+Example:
+
+```yaml
+columns:
+  - name: CUSTOMER_KEY
+    tests:
+      - not_null
+      - unique
+```
+
+---
+
+# 45. CUSTOM DBT TEST
+
+A custom test can validate a business rule.
+
+Example:
+
+```sql
+SELECT *
+FROM {{ ref('fact_sales') }}
+WHERE SALES_AMOUNT < 0
+```
+
+The test should return violating rows.
+
+Zero rows means the test passes.
+
+---
+
+# 46. DBT MACROS
+
+Macros are reusable Jinja functions.
+
+Example:
+
+```sql
+{% macro cents_to_dollars(column_name) %}
+
+    {{ column_name }} / 100.0
+
+{% endmacro %}
+```
+
+Usage:
+
+```sql
+SELECT
+    {{ cents_to_dollars('amount_cents') }}
+FROM payments
+```
+
+Macros reduce repeated SQL logic.
+
+---
+
+# 47. DBT PACKAGES
+
+Packages allow reusable community/project functionality.
+
+Examples may provide:
+
+* date utilities
+* audit helpers
+* testing
+* surrogate-key utilities
+
+---
+
+# 48. DBT HOOKS
+
+Hooks execute SQL or logic at specific lifecycle points.
+
+Examples:
+
+* pre-hook
+* post-hook
+
+Use cases:
+
+* audit logging
+* grants
+* cleanup
+* session configuration
+
+---
+
+# 49. DBT SEEDS
+
+Seeds are version-controlled CSV files loaded into the warehouse.
+
+Good for:
+
+* small lookup/reference data
+* mappings
+* static business classifications
+
+Not ideal for:
+
+* huge datasets
+* frequently changing operational data
+
+---
+
+# 50. DBT EXPOSURES
+
+Exposures document downstream consumers.
+
+For example:
+
+```text
+MARKETPLACE model
+       ↓
+Tableau Dashboard
+```
+
+This improves lineage and impact analysis.
+
+---
+
+# PART 11 — DATA QUALITY
+
+# 51. DATA QUALITY DIMENSIONS
+
+Important dimensions:
+
+```text
+Completeness
+Accuracy
+Consistency
+Validity
+Uniqueness
+Timeliness
+Integrity
+```
+
+---
+
+# 52. COMPLETENESS
+
+Are expected records present?
+
+Example:
+
+```text
+Source = 60,398
+Target = 60,398
+```
+
+---
+
+# 53. UNIQUENESS
+
+No duplicate business keys.
+
+```sql
+SELECT business_key, COUNT(*)
+FROM fact_sales
+GROUP BY business_key
+HAVING COUNT(*) > 1;
+```
+
+---
+
+# 54. REFERENTIAL INTEGRITY
+
+```sql
+SELECT f.product_key
+FROM fact_sales f
+LEFT JOIN dim_product p
+  ON f.product_key = p.product_key
+WHERE p.product_key IS NULL;
+```
+
+Zero rows indicates no orphan keys.
+
+---
+
+# 55. RECONCILIATION
+
+Compare:
+
+```text
+Source count
+Landing count
+Prepare count
+Normalize count
+Target count
+```
+
+Also compare:
+
+```text
+SUM(sales)
+SUM(tax)
+SUM(cost)
+```
+
+This is stronger than checking only whether a SQL job succeeded.
+
+---
+
+# PART 12 — IDEMPOTENCY
+
+# 56. WHAT IS IDEMPOTENCY?
+
+An operation is idempotent if repeating it produces the same correct result.
+
+Example:
+
+```text
+Process file A
+Process file A again
+```
+
+should not create duplicate business records.
+
+---
+
+# 57. HOW DO YOU MAKE A PIPELINE IDEMPOTENT?
+
+Techniques:
+
+* MERGE
+* unique business keys
+* processed-file tracking
+* deterministic identifiers
+* checkpointing
+* transactional writes
+* overwrite partition
+* deduplication
+
+---
+
+# 58. IDEMPOTENCY SCENARIO
+
+Suppose:
+
+```text
+Batch 100
+```
+
+loads 10,000 rows.
+
+The task fails after Snowflake receives them.
+
+The task retries.
+
+Without idempotency:
+
+```text
+20,000 rows
+```
+
+With idempotency:
+
+```text
+10,000 correct rows
+```
+
+---
+
+# PART 13 — AIRFLOW
+
+# 59. WHAT IS AIRFLOW?
+
+Airflow is a workflow orchestration platform.
+
+It manages:
+
+* scheduling
+* dependencies
+* retries
+* task execution
+* monitoring
+* workflow history
+
+---
+
+# 60. AIRFLOW DAG
+
+A DAG is a Directed Acyclic Graph.
+
+Example:
+
+```text
+extract
+   ↓
+validate
+   ↓
+land
+   ↓
+load
+   ↓
+dbt
+   ↓
+quality_check
+   ↓
+publish
+```
+
+---
+
+# 61. AIRFLOW TASK
+
+A task is a unit of execution.
+
+Examples:
+
+```text
+Python task
+Bash task
+SQL task
+sensor
+custom operator
+```
+
+---
+
+# 62. AIRFLOW OPERATOR
+
+An operator defines what a task does.
+
+Examples:
+
+```text
+PythonOperator
+BashOperator
+BranchPythonOperator
+Kubernetes-related operators
+Cloud operators
+```
+
+---
+
+# 63. XCOM
+
+XCom allows tasks to exchange small pieces of information.
+
+Good:
+
+```text
+file_path
+batch_id
+watermark
+status
+```
+
+Bad:
+
+```text
+10 GB dataset
+```
+
+Large data should move through storage, not XCom.
+
+---
+
+# 64. AIRFLOW RETRIES
+
+Retries are appropriate for transient errors.
+
+Example:
+
+```text
+network timeout
+temporary API failure
+temporary database connection
+```
+
+Not appropriate for:
+
+```text
+invalid SQL
+invalid credentials
+bad schema
+```
+
+---
+
+# 65. AIRFLOW TASK FAILURE
+
+A robust DAG should consider:
+
+```text
+retry
+timeout
+alert
+logging
+cleanup
+idempotency
+downstream behavior
+```
+
+---
+
+# 66. AIRFLOW CATCHUP
+
+Catchup means Airflow can create historical scheduled runs for intervals that were missed.
+
+This must be understood carefully because catchup can unintentionally trigger large numbers of historical runs.
+
+---
+
+# 67. AIRFLOW SCHEDULE
+
+A schedule defines when a DAG should run.
+
+Examples:
+
+```text
+@daily
+0 7 * * *
+```
+
+---
+
+# 68. AIRFLOW BACKFILL
+
+Backfill intentionally runs historical periods.
+
+Use cases:
+
+* recovering missed processing
+* rebuilding historical data
+* testing historical logic
+
+---
+
+# 69. AIRFLOW SENSORS
+
+A sensor waits for a condition.
+
+Example:
+
+```text
+Wait for file
+ ↓
+Process file
+```
+
+Potential problem:
+
+A poorly configured sensor can consume resources for a long time.
+
+Deferrable operators can reduce worker resource usage for long waits.
+
+---
+
+# 70. AIRFLOW IDEMPOTENCY
+
+Airflow may retry a task.
+
+Therefore:
+
+```text
+Task executes
+ ↓
+fails
+ ↓
+retry
+```
+
+Task logic should tolerate repeated execution.
+
+---
+
+# 71. AIRFLOW DEPLOYMENT
+
+Our controlled deployment pattern is:
+
+```text
+Git
+ ↓
+Azure Pipeline
+ ↓
+Changed DAG detection
+ ↓
+GCS TEST
+ ↓
+Airflow runtime
+```
+
+For rename:
+
+```text
+Old DAG
+ ↓
+DELETE
+
+New DAG
+ ↓
+UPLOAD
+```
+
+This is important because simply uploading the new file would leave the old DAG behind.
+
+---
+
+# PART 14 — MESSAGING
+
+# 72. PUB/SUB
+
+Pub/Sub is an asynchronous messaging service.
+
+```text
+Producer
+   ↓
+Topic
+   ↓
+Subscription
+   ↓
+Consumer
+```
+
+Benefits:
+
+* decoupling
+* scalability
+* asynchronous processing
+* event-driven architecture
+
+---
+
+# 73. TOPIC VS SUBSCRIPTION
+
+Topic:
+
+```text
+where messages are published
+```
+
+Subscription:
+
+```text
+how a consumer receives messages from the topic
+```
+
+---
+
+# 74. ACKNOWLEDGEMENT
+
+A consumer acknowledges successful processing.
+
+If a message isn't acknowledged, depending on configuration it can be redelivered.
+
+Therefore consumers should be idempotent.
+
+---
+
+# 75. DEAD LETTER QUEUE
+
+Messages that repeatedly fail processing can be routed to a dead-letter mechanism.
+
+This prevents poison messages from repeatedly blocking the normal pipeline.
+
+---
+
+# PART 15 — TERRAFORM
+
+# 76. WHY TERRAFORM?
+
+Terraform provides declarative Infrastructure as Code.
+
+Instead of:
+
+```text
+Click console
+Create resource
+Configure resource
+Repeat
+```
+
+we define:
+
+```hcl
+resource "..." "..." {
+}
+```
+
+Benefits:
+
+* repeatability
+* version control
+* review
+* automation
+* consistency
+
+---
+
+# 77. TERRAFORM STATE
+
+State maps Terraform configuration to real resources.
+
+```text
+Terraform configuration
+        │
+        ▼
+      State
+        │
+        ▼
+Actual infrastructure
+```
+
+---
+
+# 78. REMOTE STATE
+
+Remote state allows CI/CD and teams to work from centralized state.
+
+Our project uses GCS-backed state with environment-specific separation.
+
+---
+
+# 79. STATE IS NOT JUST A BACKUP
+
+State is operational metadata.
+
+Terraform uses it to determine:
+
+```text
+What exists?
+What changed?
+What should change?
+```
+
+Therefore state must be protected.
+
+---
+
+# 80. TERRAFORM PLAN
+
+```text
+Configuration
+      +
+State
+      +
+Provider refresh
+      ↓
+Terraform Plan
+      ↓
+Proposed changes
+```
+
+---
+
+# 81. TERRAFORM APPLY
+
+Apply executes the planned infrastructure changes.
+
+Production pipelines should generally introduce approval/control between plan and apply.
+
+---
+
+# 82. TERRAFORM MODULES
+
+Modules package reusable infrastructure.
+
+Example:
+
+```text
+modules/
+  snowflake_database/
+  snowflake_warehouse/
+  gcs_bucket/
+```
+
+Then environments consume them.
+
+---
+
+# 83. TERRAFORM VARIABLES
+
+Variables prevent hardcoding environment-specific values.
+
+Example:
+
+```hcl
+variable "environment" {
+  type = string
+}
+```
+
+---
+
+# 84. TERRAFORM LOCALS
+
+Locals simplify reusable expressions.
+
+```hcl
+locals {
+  database_name = "ADVWORKS_${var.environment}"
+}
+```
+
+---
+
+# 85. TERRAFORM OUTPUTS
+
+Outputs expose useful values.
+
+```hcl
+output "warehouse_name" {
+  value = snowflake_warehouse.etl.name
+}
+```
+
+---
+
+# 86. TERRAFORM DRIFT
+
+Drift occurs when actual infrastructure changes outside Terraform.
+
+Example:
+
+```text
+Terraform:
+XSMALL
+
+Manual:
+SMALL
+```
+
+A subsequent plan can expose the difference.
+
+---
+
+# 87. TERRAFORM IMPORT
+
+If infrastructure already exists outside Terraform, it may be imported into state rather than recreated.
+
+---
+
+# 88. TERRAFORM STATE LOCKING
+
+Multiple CI jobs must not modify the same state concurrently.
+
+State locking prevents conflicting operations where supported by the backend.
+
+---
+
+# PART 16 — CI/CD
+
+# 89. CI
+
+Continuous Integration means changes are automatically validated.
+
+Example:
+
+```text
+Git commit
+ ↓
+Python tests
+ ↓
+dbt validation
+ ↓
+Terraform fmt/validate
+```
+
+---
+
+# 90. CD
+
+Continuous Delivery/Deployment moves validated changes through environments.
+
+```text
+DEV
+ ↓
+TEST
+ ↓
+PRE-PROD
+ ↓
+PROD
+```
+
+with appropriate approvals and controls.
+
+---
+
+# 91. OUR PIPELINE
+
+```text
+GitHub
+   ↓
+Azure DevOps
+   ↓
+Checkout
+   ↓
+Validation
+   ├── Python
+   ├── dbt
+   └── Terraform
+   ↓
+Deployment
+   ↓
+Terraform Plan
+   ↓
+Approval
+   ↓
+Terraform Apply
+```
+
+For Airflow DAG deployment:
+
+```text
+Git
+ ↓
+Azure Pipeline
+ ↓
+git diff
+ ↓
+Detect A/M/D/R
+ ↓
+GCS TEST
+ ↓
+GCS PROD
+```
+
+---
+
+# 92. WHY GIT DIFF?
+
+Instead of uploading every DAG on every deployment:
+
+```bash
+git diff --name-status -M HEAD~1 HEAD
+```
+
+can identify:
+
+```text
+A = Added
+M = Modified
+D = Deleted
+R = Renamed
+```
+
+This makes deployment more controlled.
+
+---
+
+# 93. RENAME HANDLING
+
+Example:
+
+```text
+old.py
+ ↓
+rename
+ ↓
+new.py
+```
+
+Git can report:
+
+```text
+R100 old.py new.py
+```
+
+Deployment must:
+
+```text
+DELETE old.py
+UPLOAD new.py
+```
+
+Otherwise Airflow may see both DAGs.
+
+---
+
+# 94. PR VS MAIN PIPELINE
+
+A useful design is:
+
+```text
+PR
+ ↓
+Unit tests / validation
+ ↓
+Merge
+ ↓
+main
+ ↓
+Deploy
+```
+
+The main branch represents the deployable version.
+
+---
+
+# PART 17 — WORKLOAD IDENTITY FEDERATION
+
+# 95. WHY WIF?
+
+Long-lived service-account keys are risky.
+
+WIF allows an external identity provider to exchange a trusted identity token for short-lived Google credentials.
+
+---
+
+# 96. WIF FLOW
+
+```text
+Azure DevOps
+     │
+     │ OIDC token
+     ▼
+Google Workload Identity Provider
+     │
+     │ validate claims
+     ▼
+IAM authorization
+     │
+     ▼
+Service Account
+     │
+     ▼
+Temporary credentials
+     │
+     ▼
+GCP resources
+```
+
+---
+
+# 97. OIDC
+
+OIDC is an identity layer built on OAuth 2.0.
+
+It provides identity information through signed tokens.
+
+Important claims can include:
+
+```text
+issuer
+subject
+audience
+repository/project identity
+pipeline identity
+```
+
+---
+
+# 98. LEAST PRIVILEGE
+
+A pipeline should receive only the permissions it requires.
+
+Example:
+
+```text
+Terraform job
+ ↓
+specific service account
+ ↓
+required GCP permissions
+```
+
+Not:
+
+```text
+Owner
+```
+
+unless genuinely required.
+
+---
+
+# PART 18 — SECURITY
+
+# 99. SECRET MANAGEMENT
+
+Never commit:
+
+```text
+password
+private key
+API token
+service-account JSON
+database credential
+```
+
+to Git.
+
+Use:
+
+* secret managers
+* secure files
+* secret variables
+* workload identity
+* managed identities
+
+---
+
+# 100. SECRET INCIDENT RESPONSE
+
+If a secret is committed:
+
+```text
+1. Revoke
+2. Rotate
+3. Remove from repository
+4. Remove from history where necessary
+5. Check logs
+6. Check downstream exposure
+7. Add preventive controls
+```
+
+The most important action is **rotation/revocation**, not merely deleting the file.
+
+---
+
+# PART 19 — SCHEMA EVOLUTION
+
+# 101. WHAT IS SCHEMA EVOLUTION?
+
+Source structure changes over time.
+
+Example:
+
+```text
+Customer
+ ├── id
+ ├── name
+ └── email
+```
+
+becomes:
+
+```text
+Customer
+ ├── id
+ ├── name
+ ├── email
+ └── phone
+```
+
+---
+
+# 102. TYPES OF SCHEMA CHANGES
+
+Additive:
+
+```text
+new nullable column
+```
+
+Potentially breaking:
+
+```text
+rename column
+delete column
+change datatype
+change semantics
+```
+
+---
+
+# 103. HOW SHOULD PIPELINES HANDLE SCHEMA EVOLUTION?
+
+Use:
+
+* schema validation
+* contracts
+* compatibility rules
+* versioning
+* alerting
+* migration strategy
+* downstream impact analysis
+
+---
+
+# PART 20 — DATA CONTRACTS
+
+# 104. WHAT IS A DATA CONTRACT?
+
+An explicit agreement between producer and consumer about:
+
+```text
+schema
+types
+meaning
+quality
+availability
+SLAs
+ownership
+```
+
+Example:
+
+```text
+customer_id: integer
+email: string
+updated_at: timestamp
+```
+
+---
+
+# PART 21 — OBSERVABILITY
+
+# 105. THREE PILLARS
+
+```text
+Logs
+Metrics
+Traces
+```
+
+For data platforms, also monitor:
+
+```text
+data quality
+freshness
+volume
+schema
+lineage
+```
+
+---
+
+# 106. DATA FRESHNESS
+
+Example:
+
+```text
+Expected:
+data available by 08:00
+
+Actual:
+08:47
+```
+
+Freshness SLA has been violated.
+
+---
+
+# 107. DATA VOLUME MONITORING
+
+If today's records suddenly drop:
+
+```text
+Yesterday: 10 million
+Today: 100,000
+```
+
+the pipeline may technically succeed while the data is wrong.
+
+Therefore monitoring must include business/data metrics, not just job status.
+
+---
+
+# 108. PIPELINE ALERTING
+
+Alert on:
+
+* task failure
+* SLA miss
+* freshness failure
+* row-count anomaly
+* schema change
+* duplicate increase
+* warehouse cost anomaly
+
+---
+
+# PART 22 — ERROR HANDLING
+
+# 109. TRANSIENT VS PERMANENT ERRORS
+
+Transient:
+
+```text
+timeout
+temporary network failure
+temporary service unavailable
+```
+
+Retry.
+
+Permanent:
+
+```text
+invalid SQL
+invalid credentials
+missing table
+schema incompatibility
+```
+
+Fix the problem instead of blindly retrying.
+
+---
+
+# 110. EXPONENTIAL BACKOFF
+
+Instead of:
+
+```text
+retry every 1 second
+```
+
+use:
+
+```text
+1 sec
+2 sec
+4 sec
+8 sec
+16 sec
+```
+
+with jitter where appropriate.
+
+This prevents many clients from retrying simultaneously.
+
+---
+
+# PART 23 — DATA LAKE / LAKEHOUSE / WAREHOUSE
+
+# 111. DATA LAKE
+
+Object storage-based system capable of storing raw structured and unstructured data.
+
+---
+
+# 112. DATA WAREHOUSE
+
+Structured analytical platform optimized for SQL analytics.
+
+---
+
+# 113. LAKEHOUSE
+
+Combines characteristics of:
+
+```text
+Data Lake
++
+Data Warehouse
+```
+
+with table formats and analytical capabilities.
+
+Examples in industry include architectures built around:
+
+* Delta Lake
+* Apache Iceberg
+* Apache Hudi
+
+---
+
+# PART 24 — BATCH VS STREAMING
+
+# 114. BATCH
+
+```text
+Every hour/day
+ ↓
+process accumulated data
+```
+
+Good for:
+
+* reports
+* daily loads
+* periodic processing
+
+---
+
+# 115. STREAMING
+
+```text
+Event
+ ↓
+Broker
+ ↓
+Consumer
+ ↓
+Processing
+ ↓
+Destination
+```
+
+Good for:
+
+* fraud
+* telemetry
+* operational monitoring
+* real-time applications
+
+---
+
+# 116. MICRO-BATCH
+
+Processes events in small frequent batches.
+
+It sits between traditional batch and record-by-record streaming.
+
+---
+
+# PART 25 — EXACTLY ONCE
+
+# 117. IS EXACTLY-ONCE EASY?
+
+No.
+
+Distributed systems often provide:
+
+```text
+at-most-once
+at-least-once
+```
+
+Exactly-once semantics usually require careful coordination.
+
+In practical systems, engineers frequently combine:
+
+```text
+at-least-once delivery
++
+idempotent processing
++
+deduplication
+```
+
+to achieve effectively-once business results.
+
+---
+
+# PART 26 — SQL INTERVIEW MASTER SET
+
+# 118. WHERE VS HAVING
+
+```sql
+SELECT customer_id, COUNT(*)
+FROM sales
+WHERE order_date >= '2026-01-01'
+GROUP BY customer_id
+HAVING COUNT(*) > 10;
+```
+
+`WHERE` filters rows before aggregation.
+
+`HAVING` filters groups after aggregation.
+
+---
+
+# 119. ROW_NUMBER
+
+```sql
+ROW_NUMBER() OVER (
+    PARTITION BY customer_id
+    ORDER BY updated_at DESC
+)
+```
+
+Useful for latest-record selection.
+
+---
+
+# 120. RANK VS DENSE_RANK
+
+```text
+Values:
+100
+100
+90
+```
+
+RANK:
+
+```text
+1
+1
+3
+```
+
+DENSE_RANK:
+
+```text
+1
+1
+2
+```
+
+ROW_NUMBER:
+
+```text
+1
+2
+3
+```
+
+---
+
+# 121. LATEST RECORD
+
+```sql
+WITH ranked AS (
+    SELECT
+        *,
+        ROW_NUMBER() OVER (
+            PARTITION BY customer_id
+            ORDER BY updated_at DESC
+        ) AS rn
+    FROM customer
+)
+SELECT *
+FROM ranked
+WHERE rn = 1;
+```
+
+---
+
+# 122. DUPLICATES
+
+```sql
+SELECT
+    business_key,
+    COUNT(*) AS cnt
+FROM customer
+GROUP BY business_key
+HAVING COUNT(*) > 1;
+```
+
+---
+
+# 123. RUNNING TOTAL
+
+```sql
+SUM(sales_amount) OVER (
+    ORDER BY order_date
+    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+)
+```
+
+---
+
+# 124. LAG
+
+```sql
+LAG(sales_amount) OVER (
+    ORDER BY month
+)
+```
+
+Useful for month-over-month calculations.
+
+---
+
+# 125. CUSTOMERS WITHOUT ORDERS
+
+```sql
+SELECT c.customer_id
+FROM customers c
+LEFT JOIN orders o
+    ON c.customer_id = o.customer_id
+WHERE o.customer_id IS NULL;
+```
+
+---
+
+# 126. TOP N PER GROUP
+
+```sql
+WITH ranked AS (
+    SELECT *,
+           ROW_NUMBER() OVER (
+               PARTITION BY department
+               ORDER BY salary DESC
+           ) rn
+    FROM employees
+)
+SELECT *
+FROM ranked
+WHERE rn <= 3;
+```
+
+---
+
+# PART 27 — PYTHON INTERVIEW MASTER SET
+
+# 127. GENERATOR
+
+```python
+def read_batches(cursor, batch_size):
+    while True:
+        rows = cursor.fetchmany(batch_size)
+
+        if not rows:
+            break
+
+        yield rows
+```
+
+Generators avoid loading the entire dataset into memory.
+
+---
+
+# 128. RETRY
+
+```python
+import time
+
+for attempt in range(3):
+    try:
+        process()
+        break
+    except TimeoutError:
+        if attempt == 2:
+            raise
+
+        time.sleep(2 ** attempt)
+```
+
+Production implementations should distinguish retryable and non-retryable exceptions.
+
+---
+
+# 129. LOGGING
+
+Prefer structured logging:
+
+```python
+logger.info(
+    "Batch completed",
+    extra={
+        "batch_id": batch_id,
+        "rows": row_count
+    }
+)
+```
+
+Logs should answer:
+
+```text
+What happened?
+When?
+Where?
+Which batch?
+How many records?
+Why did it fail?
+```
+
+---
+
+# 130. EXCEPTION HANDLING
+
+Bad:
+
+```python
+try:
+    process()
+except:
+    pass
+```
+
+Good:
+
+```python
+try:
+    process()
+except ConnectionError as exc:
+    logger.exception("Source connection failed")
+    raise
+```
+
+Never silently swallow important failures.
+
+---
+
+# PART 28 — PERFORMANCE
+
+# 131. SQL PERFORMANCE
+
+Check:
+
+* execution plan
+* indexes
+* partition pruning
+* joins
+* filtering
+* unnecessary columns
+* data volume
+* statistics
+* clustering where applicable
+
+---
+
+# 132. PYTHON PERFORMANCE
+
+Use:
+
+* batching
+* generators
+* efficient serialization
+* connection reuse
+* vectorization where applicable
+* multiprocessing only when appropriate
+
+---
+
+# 133. SNOWFLAKE PERFORMANCE
+
+Investigate:
+
+```text
+query profile
+warehouse size
+queueing
+bytes scanned
+partitions scanned
+joins
+spill
+clustering
+```
+
+Do not increase warehouse size blindly.
+
+---
+
+# PART 29 — COST OPTIMIZATION
+
+# 134. DATA PLATFORM COST
+
+Control:
+
+```text
+compute
+storage
+data transfer
+query volume
+warehouse runtime
+unnecessary duplication
+```
+
+---
+
+# 135. SNOWFLAKE COST CONTROLS
+
+Use:
+
+* auto-suspend
+* auto-resume
+* warehouse sizing
+* resource monitors
+* workload separation
+* query optimization
+
+---
+
+# PART 30 — DISASTER RECOVERY
+
+# 136. RPO VS RTO
+
+RPO:
+
+> How much data can we afford to lose?
+
+RTO:
+
+> How quickly must the system recover?
+
+Example:
+
+```text
+RPO = 15 minutes
+RTO = 1 hour
+```
+
+---
+
+# 137. BACKUP VS REPLICATION
+
+Backup:
+
+```text
+copy retained for recovery
+```
+
+Replication:
+
+```text
+data continuously/periodically copied to another location
+```
+
+They solve related but different problems.
+
+---
+
+# PART 31 — DATA LINEAGE
+
+# 138. WHAT IS DATA LINEAGE?
+
+Lineage answers:
+
+```text
+Where did this column come from?
+What transformations happened?
+Which dashboard consumes it?
+```
+
+Example:
+
+```text
+SQL Server
+ ↓
+GCS
+ ↓
+Snowflake LANDING
+ ↓
+dbt
+ ↓
+MARKETPLACE
+ ↓
+Tableau
+```
+
+---
+
+# PART 32 — DATA GOVERNANCE
+
+# 139. DATA OWNERSHIP
+
+Every important dataset should have:
+
+```text
+owner
+steward
+classification
+SLA
+quality expectations
+```
+
+---
+
+# 140. PII
+
+Examples:
+
+* email
+* phone
+* address
+* government identifiers
+
+Protection may include:
+
+* masking
+* encryption
+* access control
+* tokenization
+* row/column policies
+
+---
+
+# PART 33 — IAM
+
+# 141. AUTHENTICATION VS AUTHORIZATION
+
+Authentication:
+
+> Who are you?
+
+Authorization:
+
+> What are you allowed to do?
+
+---
+
+# 142. IAM LEAST PRIVILEGE
+
+Grant only the permissions required.
+
+Example:
+
+```text
+Pipeline
+ ↓
+Service account
+ ↓
+GCS object read/write
+```
+
+rather than unrestricted project administration.
+
+---
+
+# PART 34 — SYSTEM DESIGN
+
+# 143. DESIGN A 1 TB/DAY PIPELINE
+
+Requirements:
+
+```text
+1 TB/day
+multiple source systems
+incremental ingestion
+analytics
+high availability
+```
+
+Architecture:
+
+```text
+Sources
+   ↓
+CDC / Incremental Extraction
+   ↓
+Object Storage
+   ↓
+Event Notification
+   ↓
+Message Broker
+   ↓
+Warehouse/Lakehouse
+   ↓
+Transformation
+   ↓
+Data Quality
+   ↓
+Data Products
+   ↓
+BI
+```
+
+Supporting:
+
+```text
+Airflow
+CI/CD
+Terraform
+IAM
+Monitoring
+Alerting
+Lineage
+Governance
+```
+
+---
+
+# 144. DESIGN FOR 100 MILLION ROWS/DAY
+
+Consider:
+
+* parallel extraction
+* partitioned source queries
+* distributed processing
+* columnar formats
+* partitioning
+* incremental ingestion
+* warehouse sizing
+* workload isolation
+* backpressure
+* retries
+* deduplication
+
+---
+
+# 145. DESIGN AN API PIPELINE
+
+```text
+API
+ ↓
+Authentication
+ ↓
+Pagination
+ ↓
+Rate-limit handling
+ ↓
+Retry/backoff
+ ↓
+Raw JSON
+ ↓
+Object Storage
+ ↓
+Validation
+ ↓
+Warehouse
+ ↓
+dbt
+ ↓
+Data Product
+```
+
+---
+
+# 146. DESIGN A CDC PIPELINE
+
+```text
+OLTP
+ ↓
+Transaction Log / CDC
+ ↓
+CDC Connector
+ ↓
+Kafka / PubSub
+ ↓
+Raw Event Storage
+ ↓
+Streaming/Batched Processing
+ ↓
+Warehouse
+ ↓
+MERGE / SCD
+ ↓
+Analytics
+```
+
+---
+
+# PART 35 — PRODUCTION INCIDENT QUESTIONS
+
+# 147. PIPELINE SUCCESSFUL BUT DATA IS WRONG
+
+Do not assume successful task status means successful data.
+
+Check:
+
+```text
+source count
+landing count
+target count
+duplicates
+nulls
+referential integrity
+business totals
+freshness
+schema
+```
+
+Find the first layer where the anomaly appeared.
+
+---
+
+# 148. PIPELINE FAILS HALFWAY
+
+Ask:
+
+```text
+What completed?
+What failed?
+Was data partially written?
+Is the operation idempotent?
+Can the failed stage safely retry?
+Do I need cleanup?
+```
+
+Then resume from a known checkpoint.
+
+---
+
+# 149. DATA SUDDENLY DROPS 90%
+
+Investigate:
+
+```text
+source availability
+source filters
+watermark
+CDC position
+schema changes
+permissions
+partition selection
+upstream failures
+duplicate removal
+late data
+```
+
+---
+
+# 150. DUPLICATES APPEAR
+
+Investigate:
+
+```text
+source duplicates
+replayed messages
+pipeline retry
+missing unique key
+incorrect MERGE
+join multiplication
+CDC replay
+```
+
+---
+
+# 151. SCHEMA CHANGED WITHOUT WARNING
+
+Immediate actions:
+
+```text
+identify change
+stop unsafe downstream processing
+compare old/new schema
+assess impact
+update contract/transformation
+test
+deploy
+```
+
+---
+
+# PART 36 — BEHAVIORAL / EXPERIENCE QUESTIONS
+
+# 152. TELL ME ABOUT A DIFFICULT PROBLEM
+
+Use:
+
+```text
+Situation
+ ↓
+Problem
+ ↓
+Investigation
+ ↓
+Root cause
+ ↓
+Implementation
+ ↓
+Validation
+ ↓
+Lesson
+```
+
+---
+
+# 153. SECURITY INCIDENT STORY
+
+A strong project story:
+
+A credential/passphrase was accidentally committed.
+
+I treated it as compromised rather than assuming deletion was sufficient.
+
+I removed the secret from source control/history, moved secret handling into secure storage and added preventive controls such as ignore rules and better secret management.
+
+The important lesson was that:
+
+```text
+Deleting a secret from the latest commit
+≠
+Secret no longer exists
+```
+
+Git history must also be considered.
+
+---
+
+# 154. WIF TROUBLESHOOTING STORY
+
+A WIF authentication issue occurred because the expected identity claim/configuration did not align with the actual token claims.
+
+I investigated the token claims, corrected the identity-provider configuration and validated the complete chain:
+
+```text
+Azure
+ ↓
+OIDC
+ ↓
+WIF
+ ↓
+Service Account
+ ↓
+GCP
+```
+
+This demonstrates cloud IAM troubleshooting rather than just configuration knowledge.
+
+---
+
+# 155. ENVIRONMENT ISOLATION STORY
+
+DEV and TEST should not accidentally share mutable infrastructure state.
+
+Therefore:
+
+```text
+DEV
+ ↓
+terraform/state/dev
+
+TEST
+ ↓
+terraform/state/test
+```
+
+This reduces the risk of one environment modifying another's infrastructure.
+
+---
+
+# 156. AIRFLOW DEPLOYMENT STORY
+
+I implemented controlled DAG deployment rather than blindly syncing the entire repository.
+
+The pipeline calculates changed files and handles:
+
+```text
+Added
+Modified
+Deleted
+Renamed
+```
+
+For a rename:
+
+```text
+old DAG
+ ↓
+delete from GCS
+ ↓
+upload new DAG
+```
+
+This prevents stale DAG files from remaining in the deployment environment.
+
+---
+
+# PART 37 — ADVANCED CONCEPTS
+
+# 157. BACKPRESSURE
+
+When producers generate data faster than consumers can process it:
+
+```text
+Producer
+  ↓↓↓↓↓
+Consumer
+  ↓
+slower
+```
+
+the system needs buffering/backpressure.
+
+Solutions:
+
+* queue
+* partitioning
+* autoscaling
+* rate limiting
+* consumer scaling
+
+---
+
+# 158. FAN-IN / FAN-OUT
+
+Fan-out:
+
+```text
+One source
+ ↓
+multiple consumers
+```
+
+Fan-in:
+
+```text
+multiple sources
+ ↓
+one processing system
+```
+
+---
+
+# 159. HOT PARTITION
+
+If too much traffic goes to one partition/key:
+
+```text
+Partition A = 1 million events
+Partition B = 1,000
+Partition C = 1,000
+```
+
+Partition A becomes a bottleneck.
+
+Solution may involve better key distribution.
+
+---
+
+# 160. DATA SKEW
+
+Data skew occurs when work is unevenly distributed.
+
+This affects distributed processing and joins.
+
+---
+
+# 161. EVENT TIME VS PROCESSING TIME
+
+Event time:
+
+```text
+When the event actually happened
+```
+
+Processing time:
+
+```text
+When the system processed it
+```
+
+These are not always the same.
+
+Late-arriving events make this distinction important.
+
+---
+
+# 162. LATE-ARRIVING DATA
+
+Example:
+
+```text
+Event date:
+September 20
+
+Arrives:
+September 26
+```
+
+The pipeline must decide how to update historical data.
+
+Possible techniques:
+
+* watermark adjustments
+* reprocessing windows
+* MERGE
+* partition overwrite
+* late-data queues
+
+---
+
+# 163. EXACTLY-ONCE BUSINESS RESULT
+
+Instead of insisting every infrastructure layer provides exactly-once delivery, design the business operation to be idempotent.
+
+Example:
+
+```text
+event_id = ABC123
+```
+
+Store/process based on:
+
+```text
+event_id
+```
+
+so repeated delivery does not create another business transaction.
+
+---
+
+# PART 38 — MOST IMPORTANT SENIOR QUESTIONS
+
+## Q163. How do you make a pipeline production-grade?
+
+Answer:
+
+I consider the complete lifecycle:
+
+```text
+Reliability
+Security
+Scalability
+Observability
+Data Quality
+Idempotency
+Recoverability
+Cost
+Performance
+Governance
+CI/CD
+```
+
+A pipeline that merely moves data successfully once is not necessarily production-ready.
+
+---
+
+## Q164. How do you decide between batch and streaming?
+
+Consider:
+
+* latency requirement
+* source capabilities
+* volume
+* cost
+* complexity
+* business requirement
+* operational maturity
+
+If the business only needs daily reporting, streaming may add unnecessary complexity.
+
+---
+
+## Q165. How do you decide between full load and incremental?
+
+Consider:
+
+```text
+data volume
+change frequency
+source capabilities
+delete requirements
+historical requirements
+cost
+runtime
+```
+
+---
+
+## Q166. How do you make pipelines recoverable?
+
+Use:
+
+```text
+checkpoints
+watermarks
+idempotency
+audit metadata
+raw retention
+retries
+dead-letter handling
+reprocessing strategy
+```
+
+---
+
+## Q167. What makes a good data platform?
+
+A good platform is not just:
+
+```text
+Source → Warehouse
+```
+
+It provides:
+
+```text
+Reliable ingestion
++
+Governed storage
++
+Transformations
++
+Quality
++
+Security
++
+Orchestration
++
+Observability
++
+CI/CD
++
+Cost control
++
+Recovery
++
+Consumer access
+```
+
+---
+
+# PART 39 — CODING CHECKLIST
+
+## SQL
+
+Master:
+
+```text
+joins
+CTEs
+subqueries
+window functions
+ROW_NUMBER
+RANK
+DENSE_RANK
+LAG
+LEAD
+aggregations
+HAVING
+CASE
+COALESCE
+NULL handling
+deduplication
+latest-record logic
+SCD
+MERGE
+running totals
+rolling averages
+top N
+gaps and islands
+date logic
+incremental logic
+data-quality queries
+```
+
+---
+
+## Python
+
+Master:
+
+```text
+lists
+dicts
+sets
+tuples
+functions
+classes
+generators
+iterators
+decorators
+exceptions
+logging
+JSON
+CSV
+API
+pagination
+retry
+backoff
+database connectivity
+batch extraction
+file processing
+testing
+mocking
+parallelism basics
+```
+
+---
+
+## dbt
+
+Master:
+
+```text
+models
+sources
+ref
+tests
+custom tests
+macros
+Jinja
+snapshots
+incremental models
+seeds
+exposures
+materializations
+hooks
+packages
+selectors
+DAG
+documentation
+lineage
+CI
+```
+
+---
+
+## Terraform
+
+Master:
+
+```text
+providers
+resources
+variables
+locals
+outputs
+modules
+state
+remote state
+backend
+plan
+apply
+destroy
+import
+refresh
+drift
+dependencies
+for_each
+count
+dynamic blocks
+lifecycle
+secrets
+environment isolation
+```
+
+---
+
+## Airflow
+
+Master:
+
+```text
+DAG
+task
+operator
+scheduler
+worker
+webserver
+triggerer
+executor
+XCom
+connections
+variables
+pools
+sensors
+deferrable operators
+retries
+timeouts
+SLA/deadline concepts
+catchup
+backfill
+task dependencies
+dynamic task mapping
+DAG deployment
+logging
+monitoring
+idempotency
+```
+
+---
+
+## Cloud / GCP
+
+Master:
+
+```text
+GCS
+IAM
+service accounts
+WIF
+OIDC
+Pub/Sub
+GKE basics
+Cloud SQL
+Artifact Registry
+Secret Manager
+logging
+monitoring
+networking basics
+```
+
+---
+
+## Snowflake
+
+Master:
+
+```text
+database
+schema
+warehouse
+role
+user
+grants
+RBAC
+stages
+file formats
+COPY
+Snowpipe
+streams
+tasks
+dynamic tables
+clustering
+micro-partitions
+Time Travel
+zero-copy cloning
+resource monitors
+warehouse sizing
+semi-structured data
+VARIANT
+JSON
+MERGE
+transactions
+query profile
+cost optimization
+```
+
+---
+
+# PART 40 — SNOWFLAKE STREAMS AND TASKS
+
+## Q168. What is a Snowflake Stream?
+
+A Stream tracks changes to table data.
+
+Conceptually:
+
+```text
+Source table
+    ↓
+Stream
+    ↓
+Changed records
+```
+
+It can support incremental processing.
+
+---
+
+## Q169. What is a Snowflake Task?
+
+A Task schedules SQL or procedural work.
+
+Example:
+
+```text
+Task
+ ↓
+MERGE changed records
+```
+
+Tasks can be chained into workflows.
+
+---
+
+## Q170. Stream + Task pattern
+
+```text
+Source
+ ↓
+Stream
+ ↓
+Task
+ ↓
+MERGE
+ ↓
+Target
+```
+
+This is useful for incremental processing within Snowflake.
+
+---
+
+# PART 41 — SNOWFLAKE SECURITY
+
+## Q171. Explain Snowflake RBAC.
+
+Users receive roles.
+
+Roles receive privileges.
+
+Privileges are granted on objects.
+
+Conceptually:
+
+```text
+User
+ ↓
+Role
+ ↓
+Privilege
+ ↓
+Database / Schema / Table
+```
+
+Use role hierarchy where appropriate.
+
+---
+
+# PART 42 — SNOWFLAKE SEMI-STRUCTURED DATA
+
+Snowflake supports semi-structured data using types such as:
+
+```text
+VARIANT
+OBJECT
+ARRAY
+```
+
+Example:
+
+```sql
+SELECT
+    RAW_DATA:"CustomerKey"::NUMBER
+FROM landing_table;
+```
+
+This allows raw JSON to be retained while typed fields are extracted downstream.
+
+---
+
+# PART 43 — SNOWFLAKE MICRO-PARTITIONS
+
+Snowflake automatically stores table data in micro-partitions.
+
+Query pruning can reduce unnecessary scanning.
+
+Good filtering patterns can therefore improve performance.
+
+---
+
+# PART 44 — DATA PRODUCT
+
+## Q172. What is a data product?
+
+A data product is a governed, reusable dataset or analytical capability designed for consumers.
+
+It should have:
+
+```text
+owner
+documentation
+quality expectations
+freshness SLA
+business definition
+access controls
+lineage
+```
+
+---
+
+# PART 45 — REPORTING LAYER
+
+A dashboard should not necessarily query raw tables directly.
+
+Preferred pattern:
+
+```text
+Raw
+ ↓
+Transform
+ ↓
+Business model
+ ↓
+Data product
+ ↓
+BI
+```
+
+This separates technical ingestion from business semantics.
+
+---
+
+# PART 46 — BI QUESTIONS
+
+## Q173. Why shouldn't every dashboard calculate business logic independently?
+
+Because different dashboards may produce different definitions of the same KPI.
+
+Instead:
+
+```text
+Centralized business logic
+ ↓
+Certified data product
+ ↓
+BI
+```
+
+This improves consistency.
+
+---
+
+# PART 47 — END-TO-END FAILURE SCENARIOS
+
+## Q174. GCS file arrives but Snowpipe doesn't load it.
+
+Investigate:
+
+```text
+file exists
+ ↓
+event generated?
+ ↓
+Pub/Sub message?
+ ↓
+subscription?
+ ↓
+integration?
+ ↓
+stage?
+ ↓
+file format?
+ ↓
+COPY/Snowpipe error?
+```
+
+---
+
+## Q175. Airflow task says success but Snowflake has no data.
+
+Check:
+
+```text
+task logs
+file existence
+file size
+stage
+COPY history
+Snowpipe history
+permissions
+warehouse
+target table
+```
+
+---
+
+## Q176. dbt succeeds but dashboard is wrong.
+
+Check:
+
+```text
+source
+model SQL
+joins
+grain
+filters
+incremental logic
+tests
+business definitions
+dashboard calculations
+```
+
+---
+
+## Q177. Terraform apply succeeds but application cannot access GCS.
+
+Check:
+
+```text
+service account
+IAM role
+resource scope
+bucket permissions
+identity
+runtime identity
+credential chain
+```
+
+---
+
+# PART 48 — INTERVIEW ANSWER FRAMEWORK
+
+For every technical question:
+
+### Definition
+
+What is it?
+
+### Purpose
+
+Why do we need it?
+
+### Implementation
+
+How does it work?
+
+### Project
+
+How did I use it?
+
+### Failure
+
+What can go wrong?
+
+### Scale
+
+How would I scale it?
+
+### Security
+
+How would I protect it?
+
+### Trade-off
+
+When would I not use it?
+
+Example:
+
+> "Why use Airflow?"
+
+Weak:
+
+> Airflow is a workflow scheduler.
+
+Strong:
+
+> Airflow is a workflow orchestration platform. I use it to define dependencies, schedule processing and handle retries and monitoring. In my architecture, Airflow coordinates extraction, ingestion and transformation stages, while the actual datasets remain in GCS/Snowflake rather than being passed through XCom. I design tasks to be idempotent because retries can execute the same task more than once.
+
+---
+
+# PART 49 — 30 QUESTIONS I MUST ANSWER PERFECTLY
+
+1. Explain your complete architecture.
+2. Explain one record's journey from source to dashboard.
+3. Full vs incremental load?
+4. CDC?
+5. Watermark?
+6. Idempotency?
+7. Batch vs streaming?
+8. How do you handle duplicates?
+9. How do you handle deletes?
+10. What is data quality?
+11. What is grain?
+12. Fact vs dimension?
+13. SCD Type 1 vs Type 2?
+14. Why Snowflake?
+15. How does Snowflake separate compute/storage?
+16. Why dbt?
+17. What does `ref()` do?
+18. Incremental dbt model?
+19. Snapshot?
+20. Macro?
+21. Airflow DAG?
+22. XCom?
+23. Airflow retry?
+24. Terraform state?
+25. Terraform drift?
+26. CI/CD?
+27. WIF/OIDC?
+28. How do you secure secrets?
+29. How do you make a pipeline production-ready?
+30. Design a 1 TB/day pipeline.
+
+---
+
+# PART 50 — MY PROJECT VALIDATION STORY
+
+My implementation is supported by concrete validation.
+
+Examples include:
+
+```text
+DimCustomer:
+18,484 rows
+
+DimProduct:
+606 rows
+
+FactInternetSales:
+60,398 rows
+```
+
+Fact reconciliation:
+
+```text
+TOTAL_SALES:
+29,358,677.2207
+
+TOTAL_PRODUCT_COST:
+17,277,793.5757
+
+TOTAL_TAX:
+2,348,694.2301
+
+TOTAL_FREIGHT:
+733,969.6091
+```
+
+Validation included:
+
+```text
+source/target counts
+duplicate business keys
+referential integrity
+business totals
+dbt tests
+transformation outputs
+```
+
+The important interview message is:
+
+> I didn't stop at "the pipeline ran successfully." I validated whether the resulting data was correct.
+
+---
+
+# PART 51 — CURRENT PROJECT EXPERIENCE
+
+I can now describe hands-on work across:
+
+```text
+SQL
+Python
+GCS
+Snowflake
+dbt
+Terraform
+Airflow
+Pub/Sub
+Snowpipe
+GitHub
+Azure DevOps
+GCP IAM
+WIF
+OIDC
+CI/CD
+Data Quality
+Data Modeling
+Infrastructure Automation
+Deployment Automation
+```
+
+The project demonstrates not just individual tools, but their integration.
+
+---
+
+# PART 52 — THE COMPLETE SENIOR DATA ENGINEER MENTAL MODEL
+
+When given any pipeline problem, think in this order:
+
+```text
+1. SOURCE
+   ↓
+2. EXTRACTION
+   ↓
+3. SERIALIZATION
+   ↓
+4. LANDING
+   ↓
+5. INGESTION
+   ↓
+6. RAW STORAGE
+   ↓
+7. TRANSFORMATION
+   ↓
+8. MODELING
+   ↓
+9. DATA QUALITY
+   ↓
+10. DATA PRODUCT
+   ↓
+11. CONSUMPTION
+```
+
+Then ask across every layer:
+
+```text
+Reliability?
+Security?
+Scalability?
+Performance?
+Cost?
+Observability?
+Data quality?
+Idempotency?
+Recovery?
+Governance?
+CI/CD?
+```
+
+This is the mental model I should carry into system-design interviews.
+
+---
+
+# PART 53 — FINAL INTERVIEW CHECKLIST
+
+## Source
+
+[ ] OLTP
+[ ] OLAP
+[ ] API
+[ ] Files
+[ ] CDC
+[ ] Change Tracking
+[ ] Transaction logs
+[ ] Incremental extraction
+[ ] Full extraction
+[ ] Watermarks
+[ ] Checkpoints
+[ ] Pagination
+
+## Ingestion
+
+[ ] Batch
+[ ] Streaming
+[ ] Micro-batch
+[ ] Serialization
+[ ] JSON
+[ ] JSONL
+[ ] CSV
+[ ] Parquet
+[ ] Avro
+[ ] Pub/Sub
+[ ] Kafka concepts
+[ ] Snowpipe
+
+## Storage
+
+[ ] Object storage
+[ ] Partitioning
+[ ] File naming
+[ ] Metadata
+[ ] Schema evolution
+[ ] Retention
+[ ] Replay
+
+## Warehouse
+
+[ ] Snowflake
+[ ] Warehouses
+[ ] Storage/compute
+[ ] Micro-partitions
+[ ] Query pruning
+[ ] RBAC
+[ ] Stages
+[ ] COPY
+[ ] Snowpipe
+[ ] Streams
+[ ] Tasks
+[ ] MERGE
+[ ] VARIANT
+[ ] Cost optimization
+
+## Modeling
+
+[ ] Grain
+[ ] Facts
+[ ] Dimensions
+[ ] Star schema
+[ ] Snowflake schema
+[ ] Surrogate keys
+[ ] Natural keys
+[ ] SCD 0
+[ ] SCD 1
+[ ] SCD 2
+[ ] Snapshots
+[ ] Data products
+
+## dbt
+
+[ ] Models
+[ ] ref
+[ ] source
+[ ] tests
+[ ] custom tests
+[ ] macros
+[ ] Jinja
+[ ] incremental
+[ ] snapshots
+[ ] seeds
+[ ] exposures
+[ ] hooks
+[ ] packages
+[ ] selectors
+[ ] lineage
+[ ] materializations
+
+## Airflow
+
+[ ] DAG
+[ ] Task
+[ ] Operator
+[ ] Scheduler
+[ ] Worker
+[ ] Triggerer
+[ ] Executor
+[ ] XCom
+[ ] Retry
+[ ] Timeout
+[ ] Sensor
+[ ] Deferrable operator
+[ ] Catchup
+[ ] Backfill
+[ ] Dynamic task mapping
+[ ] Idempotency
+[ ] DAG deployment
+
+## Infrastructure
+
+[ ] Terraform
+[ ] Provider
+[ ] Resource
+[ ] Variable
+[ ] Local
+[ ] Output
+[ ] Module
+[ ] Backend
+[ ] State
+[ ] Remote state
+[ ] State locking
+[ ] Plan
+[ ] Apply
+[ ] Destroy
+[ ] Import
+[ ] Drift
+[ ] Environment isolation
+
+## CI/CD
+
+[ ] Git
+[ ] Branching
+[ ] Pull request
+[ ] Unit tests
+[ ] CI
+[ ] CD
+[ ] Artifacts
+[ ] Deployment stages
+[ ] Approvals
+[ ] Promotion
+[ ] Rollback
+[ ] Changed-file deployment
+[ ] Rename handling
+
+## Security
+
+[ ] Authentication
+[ ] Authorization
+[ ] IAM
+[ ] RBAC
+[ ] Least privilege
+[ ] Secrets
+[ ] Secret rotation
+[ ] Service accounts
+[ ] OIDC
+[ ] WIF
+[ ] Temporary credentials
+[ ] Encryption
+[ ] PII
+[ ] Data masking
+
+## Reliability
+
+[ ] Retry
+[ ] Backoff
+[ ] Dead-letter queue
+[ ] Idempotency
+[ ] Checkpoints
+[ ] Watermarks
+[ ] Transactions
+[ ] Replay
+[ ] Recovery
+[ ] RPO
+[ ] RTO
+
+## Observability
+
+[ ] Logs
+[ ] Metrics
+[ ] Traces
+[ ] Data freshness
+[ ] Data volume
+[ ] Quality checks
+[ ] SLA
+[ ] Alerts
+[ ] Lineage
+[ ] Audit metadata
+
+## Performance
+
+[ ] SQL optimization
+[ ] Query plans
+[ ] Partitioning
+[ ] Clustering
+[ ] Batch sizing
+[ ] Parallelism
+[ ] Warehouse sizing
+[ ] Caching
+[ ] File formats
+[ ] Data pruning
+
+## Architecture
+
+[ ] Batch architecture
+[ ] Streaming architecture
+[ ] Lambda architecture concepts
+[ ] Kappa architecture concepts
+[ ] Data lake
+[ ] Data warehouse
+[ ] Lakehouse
+[ ] Distributed systems
+[ ] Event-driven architecture
+[ ] Data mesh concepts
+[ ] Data contracts
+
+---
+
+# PART 54 — GOLDEN RULE
+
+Never answer only with a textbook definition.
+
+Instead:
+
+```text
+Definition
+    ↓
+Why
+    ↓
+How
+    ↓
+My implementation
+    ↓
+Code/example
+    ↓
+Failure scenario
+    ↓
+Production consideration
+    ↓
+Trade-off
+```
+
+For example:
+
+Instead of:
+
+> "Terraform is Infrastructure as Code."
+
+Say:
+
+> "Terraform is a declarative Infrastructure as Code tool. In my project I used it to manage infrastructure and Snowflake resources, kept the state remotely in GCS, separated DEV and TEST state, validated changes through Azure DevOps and used plan/apply stages with deployment controls. The important production consideration is protecting state because it represents Terraform's understanding of the real infrastructure."
+
+That answer demonstrates:
+
+```text
+Concept
++
+Implementation
++
+Architecture
++
+Security
++
+CI/CD
++
+Production thinking
+```
+
