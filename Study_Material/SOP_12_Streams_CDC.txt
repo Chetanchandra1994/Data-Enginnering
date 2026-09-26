@@ -1,0 +1,1682 @@
+
+
+SOP 12 — Snowflake Streams & CDC
+
+Covers:
+
+    CDC fundamentals
+    Stream terminology
+    Stream offsets and consumption
+    METADATA$ACTION
+    METADATA$ISUPDATE
+    METADATA$ROW_ID
+    The critical UPDATE = DELETE + INSERT behavior
+    Real DELETE vs UPDATE-delete
+    Creating streams
+    Reading streams
+    INSERT/UPDATE/DELETE examples
+    Stream consumption
+    SYSTEM$STREAM_HAS_DATA
+    Snowflake Tasks
+    Scheduled vs triggered Tasks
+    MERGE implementation
+    Correct DELETE handling
+    Idempotency
+    Duplicate CDC events
+    Multiple updates for the same key
+    Stream staleness
+    Multiple consumers
+    CDC audit tables
+    Reconciliation
+    Retry/replay
+    Task monitoring
+    Task graphs
+    CDC + Snowpipe
+    CDC + dbt
+    CDC + SCD2
+    Streams vs Dynamic Tables
+    When not to use Streams
+    Production monitoring
+    Failure scenarios
+    Advanced production architecture
+    Complete implementation examples from our project
+    20+ interview questions
+    Senior-level CDC design scenario
+    Production checklist
+
+SOP 12 --- Snowflake Streams & CDC: End-to-End Learning & Implementation Bible
+
+Purpose: A practical reference for Snowflake Streams, CDC patterns,
+Tasks, MERGE processing, real-world design, limitations,
+troubleshooting, and interview preparation.
+
+Project context: AdventureWorks + Snowflake + dbt + GCS/Snowpipe.
+
+1. What problem does CDC solve?
+
+CDC means Change Data Capture.
+
+Instead of repeatedly processing the complete table:
+
+10 million rows
+    |
+    v
+process all 10 million
+
+CDC tries to process only:
+
+10 million rows
+       |
+       | changed since last processing point
+       v
+20,000 changed rows
+
+Typical changes:
+
+INSERT
+UPDATE
+DELETE
+
+2. What is a Snowflake Stream?
+
+A Snowflake stream records the change information for a source object
+between transactional offsets.
+
+Think:
+
+SOURCE TABLE
+    |
+    | INSERT / UPDATE / DELETE
+    v
+STREAM
+    |
+    | changed rows + metadata
+    v
+CDC PROCESSING
+
+A stream is not the destination table.
+
+A stream is not a scheduler.
+
+A stream is a CDC/change-tracking object.
+
+3. Core stream terminology
+
+Stream
+
+Snowflake object exposing changes to a source object.
+
+Offset
+
+The stream's position in the source table's transactional history.
+
+Change data
+
+Rows that changed since the stream's current offset.
+
+METADATA$ACTION
+
+Indicates:
+
+INSERT
+DELETE
+
+METADATA$ISUPDATE
+
+Indicates whether the operation came from an UPDATE.
+
+METADATA$ROW_ID
+
+Identifier associated with the changed row.
+
+Stream consumption
+
+A DML operation against the stream advances its offset.
+
+Stream staleness
+
+A stream can become stale if its required source history is no longer
+available.
+
+Task
+
+Executes SQL or procedures on a schedule or trigger.
+
+Triggered task
+
+A task that runs when a stream has data.
+
+MERGE
+
+SQL operation commonly used to apply CDC into a target table.
+
+4. Important: UPDATE is represented as DELETE + INSERT
+
+This is one of the most important Snowflake Stream interview concepts.
+
+Suppose:
+
+11000 | income = 95000
+
+is updated to:
+
+11000 | income = 100000
+
+The stream can expose:
+
+CUSTOMER_KEY | INCOME | ACTION | ISUPDATE
+11000        | 95000  | DELETE | TRUE
+11000        | 100000 | INSERT | TRUE
+
+This means:
+
+UPDATE
+  |
+  +--> DELETE old version
+  |
+  +--> INSERT new version
+
+A real DELETE is different:
+
+11001 | 60000 | DELETE | FALSE
+
+This distinction is critical when writing a CDC MERGE.
+
+Snowflake documents METADATA$ACTION, METADATA$ISUPDATE, and
+METADATA$ROW_ID for streams. citeturn0search6
+
+5. Stream architecture
+
+For the practice project:
+
+NORMALIZE.DIM_CUSTOMER_NORMALIZE
+                  |
+                  v
+       DIM_CUSTOMER_CDC_STREAM
+                  |
+                  v
+        Snowflake Task
+                  |
+                  v
+       SCHEMATIZE.DIM_CUSTOMER_CDC
+
+Full architecture:
+
+SQL Server
+    |
+    v
+Airflow / Python
+    |
+    v
+GCS
+    |
+    v
+Snowpipe
+    |
+    v
+LANDING
+    |
+    v
+dbt PREPARE
+    |
+    v
+dbt NORMALIZE
+    |
+    v
+Snowflake Stream
+    |
+    v
+Snowflake Task
+    |
+    v
+CDC Target / Serving Table
+
+Snowflake explicitly describes streams as row-level change data between
+transactional points and tasks as executable processing units that can
+be combined with streams for continuous pipelines. citeturn0search8
+
+6. Create a target table
+
+For the practice project:
+
+CREATE OR REPLACE TABLE ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC
+LIKE ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_NORMALIZE;
+
+Validate:
+
+SELECT COUNT(*)
+FROM ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC;
+
+7. Create the stream
+
+CREATE OR REPLACE STREAM ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC_STREAM
+ON TABLE ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_NORMALIZE;
+
+Check it:
+
+SHOW STREAMS LIKE 'DIM_CUSTOMER_CDC_STREAM'
+IN SCHEMA ADVWORKS_DEV.SCHEMATIZE;
+
+8. Read a stream
+
+SELECT *
+FROM ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC_STREAM;
+
+The result has source columns plus metadata columns.
+
+Typical metadata:
+
+METADATA$ACTION
+METADATA$ISUPDATE
+METADATA$ROW_ID
+
+9. INSERT test
+
+Insert a new source row.
+
+INSERT INTO ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_NORMALIZE
+(
+    CUSTOMER_KEY,
+    FIRST_NAME,
+    LAST_NAME,
+    YEARLY_INCOME,
+    LOAD_TIMESTAMP,
+    CREATED_TIMESTAMP,
+    UPDATED_TIMESTAMP
+)
+VALUES
+(
+    999999,
+    'CDC',
+    'Test',
+    50000,
+    CURRENT_TIMESTAMP(),
+    CURRENT_TIMESTAMP(),
+    CURRENT_TIMESTAMP()
+);
+
+Then:
+
+SELECT
+    CUSTOMER_KEY,
+    YEARLY_INCOME,
+    METADATA$ACTION,
+    METADATA$ISUPDATE,
+    METADATA$ROW_ID
+FROM ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC_STREAM;
+
+Expected:
+
+999999 | 50000 | INSERT | FALSE | ...
+
+10. UPDATE test
+
+UPDATE ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_NORMALIZE
+SET YEARLY_INCOME = 55000,
+    UPDATED_TIMESTAMP = CURRENT_TIMESTAMP()
+WHERE CUSTOMER_KEY = 999999;
+
+Read the stream.
+
+Expected conceptually:
+
+999999 | 50000 | DELETE | TRUE
+999999 | 55000 | INSERT | TRUE
+
+11. DELETE test
+
+DELETE FROM ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_NORMALIZE
+WHERE CUSTOMER_KEY = 999999;
+
+Expected:
+
+999999 | 55000 | DELETE | FALSE
+
+This lets you distinguish:
+
+UPDATE:
+DELETE + ISUPDATE TRUE
+INSERT + ISUPDATE TRUE
+
+REAL DELETE:
+DELETE + ISUPDATE FALSE
+
+12. Consuming a stream
+
+A stream is consumed when its change data is used in a DML operation.
+
+Example:
+
+INSERT INTO target_table
+SELECT *
+FROM source_stream;
+
+After successful consumption:
+
+SELECT SYSTEM$STREAM_HAS_DATA(
+    'ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC_STREAM'
+);
+
+can return:
+
+FALSE
+
+Snowflake documents SYSTEM$STREAM_HAS_DATA as a function for checking
+whether a stream contains CDC records; it is commonly used in task
+WHEN conditions. citeturn0search0
+
+13. Stream is not a permanent CDC history table
+
+This is a critical distinction.
+
+Do not think:
+
+STREAM = permanent audit table
+
+Think:
+
+STREAM = change window / processing interface
+
+If you need permanent audit history:
+
+STREAM
+   |
+   v
+CDC_ARCHIVE table
+
+14. Why use a Task?
+
+A stream identifies changes.
+
+A task executes processing.
+
+Together:
+
+STREAM
+  |
+  | "new changes exist"
+  v
+TASK
+  |
+  | MERGE
+  v
+TARGET
+
+15. Scheduled Task
+
+Example:
+
+CREATE OR REPLACE TASK ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC_TASK
+WAREHOUSE = ETL_WH_DEV
+SCHEDULE = 'USING CRON * * * * * UTC'
+WHEN SYSTEM$STREAM_HAS_DATA(
+    'ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC_STREAM'
+)
+AS
+MERGE INTO ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC AS TARGET
+USING (
+    SELECT *
+    FROM ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC_STREAM
+) AS SOURCE
+ON TARGET.CUSTOMER_KEY = SOURCE.CUSTOMER_KEY
+...
+;
+
+A scheduled task plus SYSTEM$STREAM_HAS_DATA lets Snowflake check
+periodically and skip execution when there is no change. Snowflake also
+supports directly triggered tasks. citeturn0search1turn0search2
+
+16. Resume/suspend a task
+
+Create:
+
+CREATE TASK ...
+
+does not mean it is automatically running in the way you may expect for
+a production pipeline.
+
+Use:
+
+ALTER TASK ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC_TASK RESUME;
+
+Suspend:
+
+ALTER TASK ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC_TASK SUSPEND;
+
+Manual execution:
+
+EXECUTE TASK ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC_TASK;
+
+17. Correct CDC MERGE logic
+
+The basic mapping is:
+
+INSERT + ISUPDATE FALSE
+        |
+        v
+INSERT target row
+
+INSERT + ISUPDATE TRUE
+        |
+        v
+UPDATE target row
+
+DELETE + ISUPDATE FALSE
+        |
+        v
+DELETE target row
+
+DELETE + ISUPDATE TRUE
+        |
+        v
+Ignore as UPDATE's old-row representation
+
+This is the conceptual model to remember.
+
+18. Production-style MERGE
+
+MERGE INTO ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC AS TARGET
+
+USING (
+    SELECT *
+    FROM ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC_STREAM
+    WHERE METADATA$ACTION = 'INSERT'
+       OR (
+            METADATA$ACTION = 'DELETE'
+            AND METADATA$ISUPDATE = FALSE
+          )
+) AS SOURCE
+
+ON TARGET.CUSTOMER_KEY = SOURCE.CUSTOMER_KEY
+
+WHEN MATCHED
+     AND SOURCE.METADATA$ACTION = 'DELETE'
+     AND SOURCE.METADATA$ISUPDATE = FALSE
+THEN DELETE
+
+WHEN MATCHED
+     AND SOURCE.METADATA$ACTION = 'INSERT'
+THEN UPDATE SET
+    TARGET.FIRST_NAME = SOURCE.FIRST_NAME,
+    TARGET.LAST_NAME = SOURCE.LAST_NAME,
+    TARGET.YEARLY_INCOME = SOURCE.YEARLY_INCOME,
+    TARGET.UPDATED_TIMESTAMP = SOURCE.UPDATED_TIMESTAMP
+
+WHEN NOT MATCHED
+     AND SOURCE.METADATA$ACTION = 'INSERT'
+THEN INSERT
+(
+    CUSTOMER_KEY,
+    FIRST_NAME,
+    LAST_NAME,
+    YEARLY_INCOME,
+    LOAD_TIMESTAMP,
+    CREATED_TIMESTAMP,
+    UPDATED_TIMESTAMP
+)
+VALUES
+(
+    SOURCE.CUSTOMER_KEY,
+    SOURCE.FIRST_NAME,
+    SOURCE.LAST_NAME,
+    SOURCE.YEARLY_INCOME,
+    SOURCE.LOAD_TIMESTAMP,
+    SOURCE.CREATED_TIMESTAMP,
+    SOURCE.UPDATED_TIMESTAMP
+);
+
+Snowflake's own continuous-pipeline examples use streams with MERGE
+and distinguish update/delete metadata in this pattern.
+citeturn0search11
+
+19. Why filter DELETE + ISUPDATE FALSE?
+
+Because an UPDATE produces:
+
+DELETE old | TRUE
+INSERT new | TRUE
+
+If you treated every DELETE as a real delete:
+
+DELETE old | TRUE
+
+you would accidentally delete the target row during a normal update.
+
+Therefore:
+
+METADATA$ACTION = 'DELETE'
+AND METADATA$ISUPDATE = FALSE
+
+means:
+
+This is a genuine delete.
+
+20. Why process INSERT for updates?
+
+Because the INSERT half of an UPDATE contains the new state.
+
+Example:
+
+DELETE | old salary | ISUPDATE TRUE
+INSERT | new salary | ISUPDATE TRUE
+
+The INSERT row is the row you want to apply as the new current state.
+
+21. SYSTEM$STREAM_HAS_DATA
+
+Typical task condition:
+
+WHEN SYSTEM$STREAM_HAS_DATA(
+    'ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC_STREAM'
+)
+
+Benefits:
+
+Avoids running transformation logic when no CDC exists.
+
+Useful for event-driven pipelines.
+
+Can reduce unnecessary warehouse work.
+
+Important caveat:
+
+SYSTEM$STREAM_HAS_DATA is designed to avoid false negatives but can
+have false positives. Snowflake notes that a TRUE result does not
+guarantee the stream query will return rows. citeturn0search0
+
+If it returns TRUE but no rows are actually processed, consume the
+stream appropriately so the task does not repeatedly fire.
+
+22. Triggered tasks
+
+Modern pattern:
+
+CREATE TASK triggered_task
+TARGET_COMPLETION_INTERVAL = '15 MINUTES'
+WHEN SYSTEM$STREAM_HAS_DATA('orders_stream')
+AS
+INSERT INTO ...
+SELECT ...
+FROM orders_stream;
+
+Triggered tasks can reduce polling and latency when data arrival is
+unpredictable. Snowflake documents both user-managed and serverless
+triggered-task patterns. citeturn0search2
+
+23. Scheduled vs triggered task
+
+Scheduled + WHEN
+
+Every 1 minute
+    |
+    v
+check stream
+    |
+    +--> no data -> skip
+    |
+    +--> data -> process
+
+Triggered
+
+Stream changes
+      |
+      v
+Task triggered
+      |
+      v
+Process
+
+Use the approach that fits your operational requirements, latency, cost,
+and task graph design.
+
+24. Task history
+
+Monitor:
+
+SELECT *
+FROM TABLE(
+    INFORMATION_SCHEMA.TASK_HISTORY(
+        TASK_NAME => 'DIM_CUSTOMER_CDC_TASK',
+        RESULT_LIMIT => 20
+    )
+)
+ORDER BY SCHEDULED_TIME DESC;
+
+Look for:
+
+STATE
+QUERY_ID
+ERROR_CODE
+ERROR_MESSAGE
+SCHEDULED_TIME
+COMPLETED_TIME
+
+25. Stream status
+
+Use:
+
+SHOW STREAMS
+IN SCHEMA ADVWORKS_DEV.SCHEMATIZE;
+
+Check:
+
+STALE
+STALE_AFTER
+SOURCE_OBJECT
+TYPE
+MODE
+
+26. Stream staleness
+
+Streams depend on historical information in the source object.
+
+If a stream is not consumed and required source history is no longer
+available, the stream can become stale.
+
+Snowflake can temporarily extend source data retention to support an
+unconsumed stream, subject to account/configuration limits; the
+documentation notes a maximum extension governed by
+MAX_DATA_EXTENSION_TIME_IN_DAYS. citeturn0search6
+
+Operational rule:
+
+Never create a production stream and then forget to consume it.
+
+Monitor stale status and retention assumptions.
+
+27. Multiple consumers
+
+Suppose:
+
+LANDING
+   |
+   v
+STREAM_A -> Customer target
+STREAM_B -> Audit target
+STREAM_C -> downstream process
+
+Each consumer may need its own stream because stream consumption
+advances that stream's offset.
+
+Do not assume:
+
+one stream = unlimited independent consumers
+
+Design one stream per processing consumer when independent consumption
+is required.
+
+28. Idempotency
+
+CDC pipelines must be safe around:
+
+retries
+
+task failures
+
+duplicate deliveries
+
+replay
+
+partial processing
+
+A good design uses deterministic keys and transactional operations.
+
+Example:
+
+MERGE ON CUSTOMER_KEY
+
+rather than blindly:
+
+INSERT everything
+
+29. Duplicate CDC records
+
+Suppose one batch contains:
+
+11000 | UPDATE | 95000
+11000 | UPDATE | 100000
+
+A naive MERGE may become ambiguous.
+
+You may need:
+
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY CUSTOMER_KEY
+    ORDER BY UPDATED_TIMESTAMP DESC
+) = 1
+
+Conceptually:
+
+multiple changes for same key
+          |
+          v
+deterministic ordering
+          |
+          v
+latest applicable change
+
+But do not blindly discard changes if every event matters. If event
+history matters, archive the CDC first.
+
+30. CDC current-state vs CDC event history
+
+Current-state CDC
+
+source
+  |
+stream
+  |
+merge
+  |
+current target
+
+Good for:
+
+dimensions
+
+operational serving tables
+
+current customer state
+
+Event-history CDC
+
+source
+  |
+stream
+  |
+archive all events
+  |
+event history
+
+Good for:
+
+audit
+
+replay
+
+forensic analysis
+
+event analytics
+
+31. CDC and SCD2 together
+
+This is an important advanced architecture.
+
+SOURCE
+  |
+  v
+CDC
+  |
+  v
+LANDING
+  |
+  v
+CURRENT STATE
+  |
+  +----------------+
+  |                |
+  v                v
+SCD1/current     SCD2/history
+                 snapshot/history table
+
+CDC answers:
+
+What changed?
+
+SCD2 answers:
+
+What versions existed over time?
+
+They are complementary.
+
+32. CDC vs dbt snapshot
+
+Capability             Snowflake Stream/CDC          dbt Snapshot
+
+Detect row changes     Yes                           Yes, by comparison
+INSERT/UPDATE/DELETE   Yes                           Depends on source/design
+Near real-time         Yes                           Depends on execution schedule
+Event semantics        Strong                        State-history oriented
+Historical state       Not automatically permanent   Yes
+Orchestration          Task/other orchestration      dbt job/orchestrator
+Best for               Continuous processing         SCD2/history
+
+33. CDC vs dbt incremental
+
+CDC:
+"These rows changed."
+
+Incremental:
+"Transform only the necessary subset."
+
+Snapshot:
+"Store historical versions."
+
+They can work together.
+
+34. CDC with Snowpipe
+
+Example:
+
+SQL Server
+    |
+    v
+Airflow
+    |
+    v
+GCS
+    |
+    v
+Snowpipe
+    |
+    v
+LANDING
+    |
+    v
+STREAM
+    |
+    v
+TASK
+    |
+    v
+NORMALIZE / SERVING
+
+Snowpipe loads data.
+
+Stream detects table changes.
+
+Task processes changes.
+
+Do not confuse the responsibilities.
+
+35. CDC with dbt
+
+A common production pattern:
+
+CDC -> LANDING
+         |
+         v
+dbt incremental model
+         |
+         v
+current-state model
+         |
+         v
+snapshot / marts
+
+dbt should generally perform transformation logic rather than being
+forced to behave like a transaction-log CDC engine.
+
+36. Deletes are the hardest part
+
+INSERT is simple.
+
+UPDATE is more complex because of:
+
+DELETE old + INSERT new
+
+DELETE requires knowing:
+
+Is this a real delete?
+Or the DELETE half of an UPDATE?
+
+That is why:
+
+METADATA$ISUPDATE
+
+matters.
+
+37. Stream limitations
+
+1. Not permanent history
+
+Consume into an archive if permanent audit is needed.
+
+2. Staleness risk
+
+Long-unconsumed streams can become stale.
+
+3. Offset semantics
+
+The stream is based on a processing offset, not simply "all history
+forever."
+
+4. Multi-consumer complexity
+
+Independent consumers generally need independent streams.
+
+5. Update semantics require understanding metadata
+
+Naive processing can delete rows incorrectly.
+
+6. Ordering
+
+If business correctness depends on event order, explicitly design for
+ordering.
+
+7. Schema evolution
+
+Adding/removing/changing columns requires testing stream consumers and
+downstream MERGE logic.
+
+8. High-volume event history
+
+A stream itself is not the right permanent event store.
+
+38. When NOT to use Streams
+
+Do not automatically use Streams for every Snowflake table.
+
+Avoid/consider alternatives when:
+
+Full rebuild is cheap.
+
+Data is immutable and append-only and a simpler incremental pattern
+is sufficient.
+
+You need long-term event history rather than a change window.
+
+You need complex transformation semantics better represented by dbt
+incremental models or dynamic tables.
+
+A source CDC platform already provides a better standardized event
+stream.
+
+The operational team cannot monitor stream freshness/consumption.
+
+Snowflake also provides Dynamic Tables for declarative transformation
+and other continuous data-loading options, so architecture should be
+chosen based on latency, transformation complexity, and operational
+needs. citeturn0search8turn0search10
+
+39. Streams vs Dynamic Tables
+
+High-level:
+
+Streams + Tasks:
+"You explicitly define how changes are processed."
+
+Dynamic tables:
+"You define the desired result and Snowflake manages refresh."
+
+Use Streams + Tasks when:
+
+custom DML logic matters
+
+conditional INSERT/UPDATE/DELETE behavior matters
+
+stored procedures are involved
+
+side effects are required
+
+explicit CDC semantics matter
+
+Consider Dynamic Tables when:
+
+the desired output can be expressed declaratively
+
+you want Snowflake-managed incremental refresh
+
+you want to reduce orchestration code
+
+Snowflake's documentation explicitly positions dynamic tables as an
+alternative for many transformation pipelines and shows migrations from
+streams/tasks to dynamic tables. citeturn0search10
+
+40. Production CDC monitoring
+
+Monitor at least:
+
+STREAM
+  - stale?
+  - stale_after?
+  - unexpected backlog?
+
+TASK
+  - succeeded?
+  - failed?
+  - runtime?
+  - skipped?
+  - query id?
+
+TARGET
+  - row counts
+  - insert count
+  - update count
+  - delete count
+
+DATA QUALITY
+  - duplicates
+  - null keys
+  - referential integrity
+
+41. Audit pattern
+
+For mature pipelines:
+
+STREAM
+   |
+   +----> CURRENT TARGET
+   |
+   +----> CDC AUDIT TABLE
+
+Audit columns can include:
+
+CUSTOMER_KEY
+CDC_ACTION
+CDC_IS_UPDATE
+CDC_ROW_ID
+PROCESSED_AT
+PIPELINE_RUN_ID
+TASK_QUERY_ID
+SOURCE_SYSTEM
+
+This makes failures and reconciliation easier.
+
+42. Reconciliation
+
+Suppose:
+
+Source changes = 10,000
+Target changes = 9,998
+
+You need to investigate.
+
+Useful metrics:
+
+source CDC count
+processed CDC count
+target insert count
+target update count
+target delete count
+failed records
+replayed records
+
+Production pipelines should make reconciliation observable.
+
+43. Failure scenario
+
+Task fails halfway.
+
+Question:
+
+Will I lose CDC?
+
+Do not answer blindly.
+
+You must reason about:
+
+transaction boundaries
+
+whether stream-consuming DML committed
+
+task retry
+
+target merge behavior
+
+idempotency
+
+audit logging
+
+A transactional statement should either commit or roll back as a unit,
+but multi-step workflows may require additional design.
+
+44. Retry design
+
+Good pattern:
+
+CDC
+ |
+ v
+validate
+ |
+ v
+MERGE transaction
+ |
+ +--> success -> offset advances
+ |
+ +--> failure -> investigate/retry
+
+Avoid designs that:
+
+consume stream
+    |
+    v
+delete data
+    |
+    v
+crash
+
+without a recovery mechanism.
+
+45. Task graphs
+
+For complex pipelines:
+
+TASK A
+  |
+  v
+TASK B
+  |
+  +------> TASK C
+  |
+  +------> TASK D
+
+Snowflake tasks can be chained into DAG-like task graphs.
+citeturn0search8
+
+Use them when Snowflake-native orchestration is appropriate.
+
+Do not build a huge task graph if Airflow/Azure DevOps already owns
+orchestration.
+
+46. Responsibility boundaries in your project
+
+Your practice architecture:
+
+Airflow
+  |
+  +-- SQL Server -> GCS ingestion
+
+Azure DevOps
+  |
+  +-- CI/CD and deployment control
+
+Snowpipe
+  |
+  +-- GCS -> Snowflake LANDING
+
+dbt
+  |
+  +-- SQL transformations
+
+Snowflake Streams
+  |
+  +-- change detection
+
+Snowflake Tasks
+  |
+  +-- CDC processing/automation
+
+Terraform
+  |
+  +-- infrastructure as code
+
+This separation is interview-important.
+
+47. Your completed CDC implementation
+
+You created:
+
+CREATE OR REPLACE TABLE
+ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC
+LIKE
+ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_NORMALIZE;
+
+Then:
+
+CREATE OR REPLACE STREAM
+ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC_STREAM
+ON TABLE
+ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_NORMALIZE;
+
+Then a Task:
+
+SYSTEM$STREAM_HAS_DATA(...)
+        |
+        v
+MERGE
+        |
+        v
+DIM_CUSTOMER_CDC
+
+You validated:
+
+INSERT
+
+UPDATE
+
+DELETE
+
+UPDATE metadata semantics
+
+real DELETE semantics
+
+Task success
+
+stream consumption
+
+target update/delete behavior
+
+That is a strong foundation.
+
+48. Useful operational SQL
+
+Check stream
+
+SELECT *
+FROM ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC_STREAM;
+
+Check pending data
+
+SELECT SYSTEM$STREAM_HAS_DATA(
+    'ADVWORKS_DEV.SCHEMATIZE.DIM_CUSTOMER_CDC_STREAM'
+);
+
+Show streams
+
+SHOW STREAMS
+IN SCHEMA ADVWORKS_DEV.SCHEMATIZE;
+
+Show tasks
+
+SHOW TASKS
+IN SCHEMA ADVWORKS_DEV.SCHEMATIZE;
+
+Task history
+
+SELECT *
+FROM TABLE(
+    INFORMATION_SCHEMA.TASK_HISTORY(
+        TASK_NAME => 'DIM_CUSTOMER_CDC_TASK',
+        RESULT_LIMIT => 50
+    )
+)
+ORDER BY SCHEDULED_TIME DESC;
+
+49. Interview questions and answers
+
+Q1. What is a Snowflake Stream?
+
+Answer:
+
+A stream is a Snowflake object that exposes row-level change information
+between transactional offsets of a source object. It is commonly used
+for CDC pipelines.
+
+Q2. Is a stream a table?
+
+Answer:
+
+It behaves like a queryable change interface, but conceptually it is a
+change-tracking object rather than a permanent copy of the source data.
+
+Q3. What happens during UPDATE?
+
+Answer:
+
+Snowflake represents an update as a DELETE record and an INSERT record,
+with METADATA$ISUPDATE = TRUE for both.
+
+Q4. How do you identify a real DELETE?
+
+Answer:
+
+Check:
+
+METADATA$ACTION = 'DELETE'
+AND METADATA$ISUPDATE = FALSE
+
+Q5. Why can't I simply delete whenever ACTION=DELETE?
+
+Answer:
+
+Because UPDATE also produces a DELETE record. The ISUPDATE flag
+distinguishes the old-row half of an update from a real delete.
+
+Q6. What is METADATA$ROW_ID?
+
+Answer:
+
+It identifies the underlying row version associated with the change and
+can be useful for tracking changes.
+
+Q7. How is a stream consumed?
+
+Answer:
+
+When stream data is used in a DML transaction such as INSERT, UPDATE,
+DELETE, or MERGE, the stream offset advances.
+
+Q8. What is SYSTEM$STREAM_HAS_DATA?
+
+Answer:
+
+It checks whether a stream contains CDC records and is commonly used in
+a Task's WHEN condition.
+
+Q9. Can SYSTEM$STREAM_HAS_DATA return TRUE when no rows are returned?
+
+Answer:
+
+Yes. Snowflake documents that the function can produce false positives,
+although it is designed to avoid false negatives. citeturn0search0
+
+Q10. What is a Snowflake Task?
+
+Answer:
+
+A task executes SQL or stored procedures on a schedule or trigger. It
+can consume a stream and apply CDC logic.
+
+Q11. Stream vs Task?
+
+Answer:
+
+Stream captures/exposes changes. Task executes processing. They are
+often combined for continuous CDC pipelines.
+
+Q12. Stream vs dbt snapshot?
+
+Answer:
+
+A stream exposes changes for processing. A snapshot stores historical
+state versions. Stream is change processing; snapshot is state history.
+
+Q13. Stream vs Kafka?
+
+Answer:
+
+Kafka is an event-streaming platform. A Snowflake stream is a database
+change-tracking object tied to a Snowflake source object. They solve
+related but different problems.
+
+Q14. What happens if the stream is not consumed?
+
+Answer:
+
+It can eventually become stale if the required source history is no
+longer available.
+
+Q15. Can two processes consume the same stream?
+
+Answer:
+
+They should not be treated as independent consumers of the same offset.
+Create separate streams when independent consumers need independent
+change positions.
+
+Q16. How would you make CDC idempotent?
+
+Answer:
+
+Use deterministic business keys, MERGE semantics, deduplication,
+transaction boundaries, audit records, and a retry/replay strategy.
+
+Q17. How do you process multiple updates for the same key?
+
+Answer:
+
+First decide whether every event matters. If only final state matters,
+deterministically rank changes using a source event/change timestamp and
+process the correct latest state. If every event matters, archive the
+CDC events rather than collapsing them.
+
+Q18. How do you handle schema evolution?
+
+Answer:
+
+Treat source and target schema changes as deployment events. Update
+stream consumers, MERGE column mappings, dbt models, tests, and
+downstream contracts together.
+
+Q19. When would you not use Streams?
+
+Answer:
+
+When full rebuilds are cheap, when a simple append/incremental pattern
+is sufficient, when permanent event history is required, or when another
+CDC platform already provides standardized change events.
+
+Q20. Why use a stream instead of querying the source table with updated_at > max(updated_at)?
+
+Answer:
+
+A stream provides explicit row-level change semantics including inserts,
+updates, and deletes, whereas timestamp filtering depends on a reliable
+timestamp and can miss deletes or changes with problematic timestamps.
+
+50. Senior interview scenario
+
+Question:
+
+A 2-billion-row customer table changes continuously. You need the
+serving table updated within minutes. How would you design it?
+
+Answer:
+
+Source CDC
+   |
+   v
+Landing
+   |
+   v
+Snowflake current-state table
+   |
+   v
+Stream
+   |
+   v
+Triggered Task
+   |
+   v
+MERGE target
+
+Then explain:
+
+Stable business key.
+
+Source CDC/change timestamp.
+
+Stream for row-level deltas.
+
+Task for automation.
+
+MERGE for current state.
+
+Delete handling.
+
+Deduplication/order strategy.
+
+Audit table.
+
+Monitoring and reconciliation.
+
+Retry/replay strategy.
+
+Schema-evolution controls.
+
+Cost/warehouse sizing.
+
+51. Advanced design: CDC archive + current state + SCD2
+
+A mature architecture can be:
+
+                         +--> CDC_ARCHIVE
+                         |
+SOURCE -> LANDING -> STREAM
+                         |
+                         +--> CURRENT_STATE
+                                  |
+                                  +--> SCD2 HISTORY
+                                  |
+                                  +--> MARTS
+
+This gives three distinct concepts:
+
+CDC_ARCHIVE
+"What happened?"
+
+CURRENT_STATE
+"What is true now?"
+
+SCD2
+"What versions were true over time?"
+
+This is a powerful senior-level architecture answer.
+
+52. Final CDC mental model
+
+Remember:
+
+TABLE
+ |
+ | changes
+ v
+STREAM
+ |
+ | exposes INSERT / DELETE + metadata
+ v
+TASK
+ |
+ | MERGE / DML
+ v
+TARGET
+
+And:
+
+UPDATE
+   =
+DELETE + ISUPDATE TRUE
++
+INSERT + ISUPDATE TRUE
+
+Real delete:
+
+DELETE + ISUPDATE FALSE
+
+One sentence to remember
+
+A Snowflake Stream exposes row-level changes from a source object,
+while a Task automates processing of those changes; together they form
+a Snowflake-native CDC pattern.
+
+53. Final comparison cheat sheet
+
+Topic               Snapshot                   Stream + Task
+
+Main question       What versions existed?     What changed?
+Main purpose        SCD2/history               CDC processing
+Output              Historical versions        Processed current/event state
+Real-time           Usually execution-driven   Can be near real-time
+INSERT              Detected                   Explicit
+UPDATE              New historical version     DELETE + INSERT metadata
+DELETE              Needs delete design        Explicit CDC metadata
+Permanent history   Yes                        Not by itself
+Scheduler           dbt/orchestrator           Snowflake Task
+Best fit            Dimensions/history         Continuous pipelines
+Key risk            False/missed versions      Incorrect CDC semantics
+Advanced pairing    Snapshot + incremental     Stream + task + dbt
+
+54. Final project checklist
+
+Before calling CDC production-ready:
+
+Source has defined change semantics.
+
+Business key is stable.
+
+Stream exists.
+
+Stream staleness is monitored.
+
+INSERT tested.
+
+UPDATE tested.
+
+DELETE tested.
+
+METADATA$ISUPDATE understood.
+
+Task condition tested.
+
+MERGE tested.
+
+Multiple changes per key considered.
+
+Idempotency designed.
+
+Retry/replay designed.
+
+Audit table considered.
+
+Reconciliation metrics available.
+
+Schema evolution process defined.
+
+Warehouse/cost reviewed.
+
+Production alerting defined.
+
+55. The combined mental model
+
+Do not confuse these four:
+
+INCREMENTAL
+    |
+    +-- process less data
+
+STREAM / CDC
+    |
+    +-- expose what changed
+
+SNAPSHOT / SCD2
+    |
+    +-- preserve historical states
+
+TASK
+    |
+    +-- automate processing
+
+A senior data engineer chooses the combination based on:
+
+Latency
+Volume
+Change semantics
+History requirements
+Delete requirements
+Cost
+Operational ownership
+Replay requirements
+
+--------------------------------------------------------------------------------------------------------------------------------------
+
+SOP 11 & SOP 12
+
+--------------------------------------------------------------------------------------------------------------------------------------
+
+The most important mental model
+
+Keep these four concepts separate:
+
+INCREMENTAL
+    ↓
+Process only the required/new portion of data
+
+
+STREAM / CDC
+    ↓
+Tell me WHAT CHANGED
+
+
+SNAPSHOT / SCD2
+    ↓
+Tell me WHAT VERSIONS EXISTED OVER TIME
+
+
+TASK
+    ↓
+Automatically PROCESS the changes
+
+And the key distinction:
+
+CDC
+"What happened?"
+
+CURRENT STATE
+"What is true now?"
+
+SNAPSHOT / SCD2
+"What was true over time?"
+
+The SOPs also incorporate the Snowflake documentation's behavior around stream metadata, stream consumption, SYSTEM$STREAM_HAS_DATA, Tasks, and triggered Tasks, plus dbt's documented incremental-model concepts such as is_incremental() and unique_key

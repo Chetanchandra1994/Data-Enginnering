@@ -1,0 +1,1215 @@
+SOP 11 — dbt Snapshots / SCD Type 2
+
+Covers:
+
+    Snapshot fundamentals and terminology
+    SCD0/SCD1/SCD2/SCD3
+    Snapshot architecture and flow
+    unique_key
+    timestamp strategy
+    check strategy
+    DBT_SCD_ID
+    DBT_UPDATED_AT
+    DBT_VALID_FROM
+    DBT_VALID_TO
+    Correct source grain and deduplication
+    Why our PREPARE → NORMALIZE → SNAPSHOT design matters
+    Complete implementation code
+    Initial snapshot
+    Simulating updates
+    Historical point-in-time queries
+    Snapshot + SCD1 architecture
+    Snapshot + incremental architecture
+    Deletes/hard deletes
+    Late-arriving changes
+    Business timestamp vs ingestion timestamp
+    Snapshot limitations
+    When not to use snapshots
+    Production architecture
+    Monitoring and validation SQL
+    CDC vs Snapshot vs Incremental comparison
+    Advanced production scenarios
+    Senior-level architecture
+    Interview questions and answers
+    Senior interview scenario
+    Production checklist
+
+SOP 11 --- dbt Snapshots: End-to-End Learning & Implementation Bible
+
+Purpose: A practical reference for understanding, implementing,
+operating, troubleshooting, and interviewing on dbt Snapshots / SCD Type
+2.
+
+Project context used in examples: AdventureWorks + Snowflake + dbt.
+dbt version in the practice project: 1.12.x.
+Primary target: ADVWORKS_DEV.
+
+1. What problem does a snapshot solve?
+
+A normal table answers:
+
+"What is the customer's value now?"
+
+A snapshot answers:
+
+"What was the customer's value over time, and when did each version
+become active?"
+
+Example:
+
+CUSTOMER_KEY   YEARLY_INCOME VALID_FROM   VALID_TO
+
+       11000           90000 2026-09-09   2026-09-26
+       11000           95000 2026-09-26   NULL
+
+The second row is the current version. The first row is historical.
+
+This is the classic Slowly Changing Dimension Type 2 (SCD2) pattern.
+
+2. Core terminology
+
+Snapshot
+
+A dbt resource that periodically compares the current source/model
+result with the previously snapshotted state and stores historical
+versions.
+
+SCD
+
+Slowly Changing Dimension.
+
+Common types:
+
+SCD0: never change.
+
+SCD1: overwrite the old value; no history.
+
+SCD2: preserve history using multiple versions.
+
+SCD3: preserve limited previous/current values in columns.
+
+Grain
+
+The level represented by one row.
+
+For a customer snapshot:
+
+One version of one customer = one row.
+
+Business key / natural key
+
+The stable identifier of the business entity, e.g. CUSTOMER_KEY.
+
+Surrogate snapshot key
+
+A generated identifier for a specific historical version. dbt creates
+DBT_SCD_ID.
+
+Validity interval
+
+The time during which a historical row represents the entity.
+
+Typical columns:
+
+DBT_VALID_FROM
+
+DBT_VALID_TO
+
+Change detection
+
+The logic used to decide whether a source row changed.
+
+dbt snapshot strategies include:
+
+timestamp
+
+check
+
+timestamp strategy
+
+dbt uses a source timestamp such as UPDATED_AT to identify changes.
+
+check strategy
+
+dbt compares configured columns between the current source state and the
+prior snapshot state.
+
+unique_key
+
+Identifies the entity whose history is being tracked.
+
+updated_at
+
+The timestamp used by the timestamp strategy.
+
+Important: This should normally represent the source business
+change time, not merely the ingestion/load time.
+
+Current version
+
+The historical row whose DBT_VALID_TO is NULL.
+
+3. Why snapshots are not ordinary incremental models
+
+An incremental model generally tries to maintain a current-state table
+efficiently.
+
+A snapshot deliberately preserves previous states.
+
+Conceptually:
+
+SOURCE CURRENT STATE
+        |
+        v
++-------------------+
+| dbt snapshot      |
+| change detection  |
++-------------------+
+        |
+        v
++------------------------------------------+
+| Historical snapshot table                |
+|                                          |
+| Customer 11000:                          |
+| 90000 -> closed version                  |
+| 95000 -> current version                 |
++------------------------------------------+
+
+An incremental model may end with:
+
+11000 | 95000
+
+A snapshot ends with:
+
+11000 | 90000 | old validity interval
+11000 | 95000 | current validity interval
+
+4. Snapshot columns created by dbt
+
+A dbt snapshot normally adds metadata columns such as:
+
+DBT_SCD_ID
+DBT_UPDATED_AT
+DBT_VALID_FROM
+DBT_VALID_TO
+
+DBT_SCD_ID
+
+A unique identifier for the snapshot version.
+
+Think:
+
+Customer 11000
+    |
+    +-- Version 1 -> SCD_ID_A
+    |
+    +-- Version 2 -> SCD_ID_B
+
+It is not the business key.
+
+DBT_UPDATED_AT
+
+The timestamp associated with the detected snapshot version according to
+the snapshot strategy.
+
+DBT_VALID_FROM
+
+When that version became valid.
+
+DBT_VALID_TO
+
+When that version stopped being valid.
+
+For the current row:
+
+DBT_VALID_TO IS NULL
+
+5. End-to-end architecture
+
+For this project:
+
+SQL Server
+    |
+    v
+Python / Airflow
+    |
+    v
+GCS
+    |
+    v
+Snowpipe
+    |
+    v
+SNOWFLAKE.LANDING
+    |
+    v
+dbt PREPARE
+    |
+    v
+dbt NORMALIZE
+    |
+    +----------------------+
+    |                      |
+    v                      v
+Current-state model     Snapshot
+                        |
+                        v
+                  SNAPSHOTS schema
+                        |
+                        v
+                  Historical SCD2
+
+Recommended design:
+
+RAW/LANDING
+   |
+   v
+PREPARE
+   |
+   v
+NORMALIZE  -----> clean, deduplicated, current-state representation
+   |
+   +-----> SCHEMATIZE
+   |
+   +-----> SNAPSHOT
+
+The snapshot should receive a stable, deterministic row grain.
+
+6. Why source grain matters
+
+This was one of the most important lessons from the project.
+
+Suppose PREPARE contains:
+
+CUSTOMER_KEY | INCOME | LOAD_TIMESTAMP
+11000        | 90000  | 10:00
+11000        | 90000  | 11:00
+
+If you snapshot this directly, the snapshot input is not one row per
+customer.
+
+That can produce unexpected versions/duplicates because the snapshot
+expects a stable entity grain.
+
+Better:
+
+PREPARE
+  |
+  | deduplicate
+  v
+NORMALIZE
+  |
+  | one row per CUSTOMER_KEY
+  v
+SNAPSHOT
+
+Validation:
+
+SELECT
+    CUSTOMER_KEY,
+    COUNT(*) AS ROW_COUNT
+FROM ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_NORMALIZE
+GROUP BY CUSTOMER_KEY
+HAVING COUNT(*) > 1;
+
+Expected:
+
+0 rows
+
+Also validate:
+
+SELECT
+    COUNT(*) AS TOTAL_ROWS,
+    COUNT(DISTINCT CUSTOMER_KEY) AS DISTINCT_CUSTOMERS
+FROM ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_NORMALIZE;
+
+For a current-state dimension, these should normally match.
+
+7. Snapshot implementation --- timestamp strategy
+
+Recommended pattern:
+
+{% snapshot dim_customer_snapshot %}
+
+{{
+    config(
+        target_database='ADVWORKS_DEV',
+        target_schema='SNAPSHOTS',
+        unique_key='CUSTOMER_KEY',
+        strategy='timestamp',
+        updated_at='UPDATED_AT'
+    )
+}}
+
+SELECT
+    CUSTOMER_KEY,
+    FIRST_NAME,
+    LAST_NAME,
+    EMAIL_ADDRESS,
+    YEARLY_INCOME,
+    UPDATED_AT
+FROM {{ ref('dim_customer_normalize') }}
+
+{% endsnapshot %}
+
+Run:
+
+dbt snapshot --select dim_customer_snapshot
+
+Then inspect:
+
+SELECT *
+FROM ADVWORKS_DEV.SNAPSHOTS.DIM_CUSTOMER_SNAPSHOT
+WHERE CUSTOMER_KEY = 11000
+ORDER BY DBT_VALID_FROM;
+
+8. Your project version
+
+The practice project used:
+
+{% snapshot dim_customer_snapshot %}
+
+{{
+    config(
+        target_database='ADVWORKS_DEV',
+        target_schema='SNAPSHOTS',
+        unique_key='CUSTOMER_KEY',
+        strategy='timestamp',
+        updated_at='LOAD_TIMESTAMP'
+    )
+}}
+
+SELECT
+    CUSTOMER_KEY,
+    GEOGRAPHY_KEY,
+    CUSTOMER_ALTERNATE_KEY,
+    TITLE,
+    FIRST_NAME,
+    MIDDLE_NAME,
+    LAST_NAME,
+    NAME_STYLE,
+    BIRTH_DATE,
+    MARITAL_STATUS,
+    SUFFIX,
+    GENDER,
+    EMAIL_ADDRESS,
+    YEARLY_INCOME,
+    TOTAL_CHILDREN,
+    NUMBER_CHILDREN_AT_HOME,
+    ENGLISH_EDUCATION,
+    SPANISH_EDUCATION,
+    FRENCH_EDUCATION,
+    ENGLISH_OCCUPATION,
+    SPANISH_OCCUPATION,
+    FRENCH_OCCUPATION,
+    HOUSE_OWNER_FLAG,
+    NUMBER_CARS_OWNED,
+    ADDRESS_LINE_1,
+    ADDRESS_LINE_2,
+    PHONE,
+    DATE_FIRST_PURCHASE,
+    COMMUTE_DISTANCE,
+    LOAD_TIMESTAMP
+FROM {{ ref('dim_customer_normalize') }}
+
+{% endsnapshot %}
+
+This worked for the simulation.
+
+Production warning: LOAD_TIMESTAMP is an ingestion timestamp. If
+an unchanged customer is reloaded and receives a new load timestamp, a
+timestamp snapshot may interpret that as a change.
+
+Prefer:
+
+SOURCE_UPDATED_AT
+
+or a reliable source-system change timestamp.
+
+9. First snapshot run
+
+The first run establishes the baseline.
+
+Source:
+11000 | Jon Yang | 90000
+
+             |
+             v
+
+Snapshot:
+11000 | 90000 | VALID_FROM = T1 | VALID_TO = NULL
+
+There is no historical version yet.
+
+10. Simulating a change
+
+Example:
+
+UPDATE ADVWORKS_DEV.NORMALIZE.DIM_CUSTOMER_NORMALIZE
+SET YEARLY_INCOME = 95000,
+    UPDATED_TIMESTAMP = CURRENT_TIMESTAMP()
+WHERE CUSTOMER_KEY = 11000;
+
+Then:
+
+dbt snapshot --select dim_customer_snapshot
+
+Expected result:
+
+CUSTOMER_KEY | INCOME | VALID_FROM | VALID_TO
+11000        | 90000  | T1         | T2
+11000        | 95000  | T2         | NULL
+
+11. Validate SCD2 correctness
+
+SELECT
+    CUSTOMER_KEY,
+    COUNT(*) AS VERSION_COUNT,
+    COUNT_IF(DBT_VALID_TO IS NULL) AS CURRENT_VERSION_COUNT
+FROM ADVWORKS_DEV.SNAPSHOTS.DIM_CUSTOMER_SNAPSHOT
+WHERE CUSTOMER_KEY = 11000
+GROUP BY CUSTOMER_KEY;
+
+Expected:
+
+VERSION_COUNT = 2
+CURRENT_VERSION_COUNT = 1
+
+A good SCD2 table should normally satisfy:
+
+Each business key
+    |
+    +-- one or more historical versions
+    |
+    +-- exactly one current version
+
+12. Timestamp strategy --- when to use
+
+Use timestamp strategy when the source has a trustworthy modification
+timestamp.
+
+Example:
+
+CUSTOMER_KEY
+UPDATED_AT
+FIRST_NAME
+EMAIL
+
+If:
+
+UPDATED_AT changes
+
+then dbt can identify the new version.
+
+Advantages:
+
+Efficient.
+
+Simple.
+
+Good for large dimensions.
+
+Avoids comparing every tracked column.
+
+Natural for systems with CDC/change timestamps.
+
+Best source columns:
+
+last_modified_at
+updated_at
+change_timestamp
+row_version_timestamp
+
+13. Check strategy
+
+Use check when there is no trustworthy update timestamp.
+
+Example:
+
+{% snapshot dim_customer_snapshot %}
+
+{{
+    config(
+        target_database='ADVWORKS_DEV',
+        target_schema='SNAPSHOTS',
+        unique_key='CUSTOMER_KEY',
+        strategy='check',
+        check_cols=[
+            'FIRST_NAME',
+            'LAST_NAME',
+            'EMAIL_ADDRESS',
+            'YEARLY_INCOME'
+        ]
+    )
+}}
+
+SELECT
+    CUSTOMER_KEY,
+    FIRST_NAME,
+    LAST_NAME,
+    EMAIL_ADDRESS,
+    YEARLY_INCOME
+FROM {{ ref('dim_customer_normalize') }}
+
+{% endsnapshot %}
+
+dbt compares the configured columns.
+
+Conceptually:
+
+Old:
+11000 | Jon | Yang | 90000
+
+New:
+11000 | Jon | Yang | 95000
+
+YEARLY_INCOME changed
+        |
+        v
+Create new SCD2 version
+
+14. Timestamp vs check
+
+Area                    Timestamp               Check
+
+Change detection        Timestamp               Column comparison
+
+Requires updated        Yes                     No
+timestamp
+
+Performance             Usually better          Potentially more
+comparison
+
+Best for                Reliable CDC/update     No reliable timestamp
+timestamp
+
+Columns compared        Timestamp               Configured columns
+
+Interview answer:
+
+I prefer timestamp when the source exposes a reliable business
+modification timestamp. If the source lacks one, I use check strategy
+and explicitly choose the columns whose changes must create history.
+
+15. What should NOT be included in a snapshot
+
+Avoid volatile technical columns unless they represent real business
+change.
+
+Bad candidates:
+
+LOAD_TIMESTAMP
+INGESTION_TIMESTAMP
+PIPELINE_RUN_ID
+FILE_RECEIVED_AT
+PROCESSING_TIME
+
+unless the business meaning genuinely requires them.
+
+Why?
+
+Same customer
+     |
+reloaded twice
+     |
+LOAD_TIMESTAMP changes
+     |
+dbt sees timestamp change
+     |
+FALSE SCD2 VERSION
+
+16. Snapshot + SCD1 together
+
+A common architecture:
+
+LANDING
+   |
+   v
+PREPARE
+   |
+   v
+NORMALIZE
+   |
+   +--------------------+
+   |                    |
+   v                    v
+CURRENT DIMENSION     SNAPSHOT
+SCD1/current state    SCD2/history
+   |                    |
+   v                    v
+BI/reporting         Audit/history
+
+Use SCD1 for:
+
+What is the customer's current state?
+
+Use SCD2 for:
+
+What was the customer's state at a historical point in time?
+
+17. Point-in-time reporting
+
+Suppose:
+
+11000 | income 90000 | valid 2026-01-01 to 2026-09-26
+11000 | income 95000 | valid 2026-09-26 onward
+
+To reproduce state on 2026-09-20:
+
+SELECT *
+FROM ADVWORKS_DEV.SNAPSHOTS.DIM_CUSTOMER_SNAPSHOT
+WHERE CUSTOMER_KEY = 11000
+  AND '2026-09-20' >= DBT_VALID_FROM
+  AND '2026-09-20' < COALESCE(DBT_VALID_TO, '9999-12-31');
+
+This is one of the strongest reasons to implement SCD2.
+
+18. Real-world use cases
+
+Customer dimension
+
+Track:
+
+address
+
+income
+
+marital status
+
+customer segment
+
+Employee dimension
+
+Track:
+
+department
+
+manager
+
+job title
+
+location
+
+Product dimension
+
+Track:
+
+product category
+
+price
+
+supplier
+
+product status
+
+Insurance
+
+Track:
+
+policy status
+
+coverage
+
+premium
+
+Banking
+
+Track:
+
+customer risk segment
+
+address
+
+relationship manager
+
+Healthcare
+
+Track:
+
+provider assignment
+
+insurance details
+
+Finance
+
+Track:
+
+account classification
+
+cost center
+
+legal entity
+
+19. When NOT to use snapshots
+
+Do not use SCD2 just because a table changes.
+
+Avoid it when:
+
+Only current state matters.
+
+The source is append-only events.
+
+The table is enormous and history is unnecessary.
+
+A native CDC platform already stores complete history.
+
+You need event-by-event audit rather than periodic state snapshots.
+
+Source changes are too frequent and snapshots create massive history
+without business value.
+
+For immutable events:
+
+event_id
+event_time
+customer_id
+event_type
+
+store the event itself rather than snapshotting it.
+
+20. Snapshot limitations
+
+1. It is not a real-time CDC engine
+
+Snapshots run when you execute:
+
+dbt snapshot
+
+They are not equivalent to database-log CDC.
+
+2. Deletes require deliberate design
+
+You must understand how deletes are represented by the source and
+configure the snapshot appropriately for your dbt version/project.
+
+3. Bad timestamps create bad history
+
+A load timestamp can create false changes.
+
+4. Source grain must be stable
+
+Duplicate business keys create incorrect history.
+
+5. Large tables can be expensive
+
+Periodic comparison can become expensive.
+
+6. Late-arriving data can complicate history
+
+A record arriving late may have a business timestamp older than the
+latest processed version.
+
+7. Snapshot is state history, not full event history
+
+If a customer changes:
+
+90000 -> 92000 -> 95000
+
+and you run only once after all changes have happened, you may not
+reconstruct every intermediate state unless the source itself preserves
+them.
+
+21. Advanced: hard deletes
+
+A production design must decide what should happen when a source row
+disappears.
+
+Conceptually:
+
+Source before:
+11000 | Jon
+
+Source after:
+11000 absent
+
+Questions to answer:
+
+Should the snapshot close the current version?
+
+Should a deleted record remain queryable historically?
+
+Should a deleted_flag be added?
+
+Does the source provide explicit delete CDC?
+
+Is disappearance from the source really a delete, or just a
+filter/data-quality issue?
+
+Never assume:
+
+row missing = business delete
+
+without understanding the source.
+
+22. Advanced: late-arriving changes
+
+Suppose:
+
+T1: income = 90000
+T2: income = 95000
+
+but the 95000 record arrives at T3.
+
+You need a trustworthy source change timestamp.
+
+Best practice:
+
+BUSINESS_UPDATED_AT
++
+INGESTED_AT
+
+Keep both.
+
+Then you can distinguish:
+
+When business changed
+vs
+When platform received it
+
+23. Advanced: source CDC + snapshot
+
+A mature architecture can look like:
+
+Source DB
+   |
+   v
+CDC / transaction log
+   |
+   v
+Landing
+   |
+   v
+Current-state table
+   |
+   +----> dbt Snapshot
+   |
+   +----> downstream models
+
+CDC captures events.
+
+Snapshot preserves state history.
+
+They solve different problems.
+
+24. Snapshot vs CDC
+
+Capability                   Snapshot              CDC
+
+Historical state             Excellent             Depends on design
+Row-level operations         Indirect              Native
+INSERT/UPDATE/DELETE event   Not primary purpose   Yes
+Real-time                    Usually no            Can be
+Source log dependency        No                    Often
+Implementation simplicity    High                  Higher complexity
+Best use                     SCD2/history          Replication/event processing
+
+25. Snapshot vs incremental model
+
+Incremental:
+"Process only new/changed rows efficiently."
+
+Snapshot:
+"Preserve historical versions of changed entities."
+
+They can be combined.
+
+Example:
+
+CDC/Landing
+     |
+     v
+Incremental current-state model
+     |
+     +----> Snapshot
+
+26. Snapshot operational checklist
+
+Before production:
+
+Source
+
+Stable business key
+
+Reliable update timestamp or correct check columns
+
+Known delete behavior
+
+Stable grain
+
+Model
+
+Deduplicated
+
+Correct timezone
+
+Correct data types
+
+No volatile ingestion timestamp used accidentally
+
+Snapshot
+
+Correct unique_key
+
+Correct strategy
+
+Correct target schema
+
+Correct environment/database
+
+Historical validation query
+
+Monitoring
+
+Current version count
+
+Duplicate version detection
+
+Unexpected version explosion
+
+Snapshot run failures
+
+Source freshness
+
+27. Useful validation SQL
+
+Duplicate business keys
+
+SELECT CUSTOMER_KEY, COUNT(*)
+FROM ADVWORKS_DEV.SNAPSHOTS.DIM_CUSTOMER_SNAPSHOT
+GROUP BY CUSTOMER_KEY
+HAVING COUNT(*) > 100;
+
+The threshold should be business-specific.
+
+More than one current version
+
+SELECT CUSTOMER_KEY
+FROM ADVWORKS_DEV.SNAPSHOTS.DIM_CUSTOMER_SNAPSHOT
+GROUP BY CUSTOMER_KEY
+HAVING COUNT_IF(DBT_VALID_TO IS NULL) <> 1;
+
+Current versions
+
+SELECT COUNT(*)
+FROM ADVWORKS_DEV.SNAPSHOTS.DIM_CUSTOMER_SNAPSHOT
+WHERE DBT_VALID_TO IS NULL;
+
+History for one customer
+
+SELECT
+    CUSTOMER_KEY,
+    YEARLY_INCOME,
+    DBT_VALID_FROM,
+    DBT_VALID_TO,
+    DBT_SCD_ID
+FROM ADVWORKS_DEV.SNAPSHOTS.DIM_CUSTOMER_SNAPSHOT
+WHERE CUSTOMER_KEY = 11000
+ORDER BY DBT_VALID_FROM;
+
+28. Production design pattern
+
+Recommended:
+
+                    +----------------+
+SQL/Oracle/etc ---->| CDC / ingestion|
+                    +-------+--------+
+                            |
+                            v
+                       LANDING
+                            |
+                            v
+                        PREPARE
+                            |
+                            v
+                      NORMALIZE
+                     /          \
+                    /            \
+                   v              v
+            CURRENT DIM       SNAPSHOT
+              SCD1              SCD2
+                |                |
+                v                v
+           BI / serving     audit/history
+
+29. Interview questions and answers
+
+Q1. What is a dbt snapshot?
+
+Answer:
+
+A dbt snapshot tracks changes to records over time and stores historical
+versions. It is commonly used to implement SCD Type 2 dimensions. Each
+business key can have multiple historical rows with validity timestamps.
+
+Q2. Snapshot vs incremental model?
+
+Answer:
+
+An incremental model optimizes transformation by processing only new or
+changed data. A snapshot is specifically designed to preserve historical
+versions of changing records. An incremental model may maintain current
+state; a snapshot maintains history.
+
+Q3. What is SCD2?
+
+Answer:
+
+SCD2 stores multiple versions of a business entity. When an attribute
+changes, the old row is closed with a validity end timestamp and a new
+current row is inserted.
+
+Q4. Timestamp vs check strategy?
+
+Answer:
+
+Timestamp uses a reliable update timestamp to detect changes and is
+usually preferable for scalable pipelines. Check compares configured
+columns and is useful when a reliable update timestamp is unavailable.
+
+Q5. Why did you not snapshot PREPARE directly?
+
+Answer:
+
+Because PREPARE can contain multiple ingestion versions of the same
+business key. Snapshot input needs a stable entity grain. I deduplicate
+in NORMALIZE so there is one current row per customer before
+snapshotting.
+
+Q6. Why is LOAD_TIMESTAMP dangerous as updated_at?
+
+Answer:
+
+Because it represents ingestion time rather than business change time.
+Reprocessing an unchanged record can generate a new load timestamp and
+falsely create a new historical version.
+
+Q7. What is DBT_SCD_ID?
+
+Answer:
+
+It identifies a specific snapshot version. It is different from the
+business key, which identifies the business entity.
+
+Q8. What does DBT_VALID_TO IS NULL mean?
+
+Answer:
+
+The row is currently valid/current.
+
+Q9. Can snapshots capture every event?
+
+Answer:
+
+Not necessarily. Snapshots capture observed state changes when they run.
+If several changes happen between snapshot executions and the source
+does not retain those intermediate states, the intermediate states may
+not be reconstructable.
+
+Q10. How do you handle deletes?
+
+Answer:
+
+First determine whether the source exposes explicit deletes or whether
+missing rows should be interpreted as deletes. Then use the snapshot's
+supported hard-delete behavior and preserve historical records according
+to business requirements.
+
+Q11. What happens if unique_key is wrong?
+
+Answer:
+
+History can be merged across different entities or multiple versions can
+be generated incorrectly. The unique key must represent the true grain
+of the entity being tracked.
+
+Q12. What if source data arrives late?
+
+Answer:
+
+Keep both business change timestamp and ingestion timestamp. Use the
+business timestamp for change semantics and ingestion timestamp for
+pipeline observability.
+
+Q13. When would you choose SCD1 instead?
+
+Answer:
+
+When consumers only need current state and historical attribute values
+are not required.
+
+Q14. How would you monitor snapshots?
+
+Answer:
+
+Monitor job success, row counts, duplicate business keys, number of
+current versions, unusual increases in historical versions, source
+freshness, and changes in snapshot runtime.
+
+Q15. How would you troubleshoot a snapshot creating thousands of versions?
+
+Answer:
+
+Check the updated_at column first. If it is an ingestion timestamp
+that changes on every load, it can create false versions. Then check
+source grain, duplicate keys, timezone conversions, and whether upstream
+models are rewriting rows.
+
+30. Senior interview scenario
+
+Scenario: Customer dimension has 50 million rows and is loaded every
+15 minutes. Business wants 5 years of address history.
+
+Answer structure:
+
+Establish business key.
+
+Obtain reliable source modification timestamp.
+
+Build current-state normalized layer.
+
+Deduplicate to one row per business key.
+
+Use timestamp snapshot for SCD2.
+
+Schedule snapshot appropriately.
+
+Partition/cluster or optimize downstream consumption if needed.
+
+Monitor version growth.
+
+Handle deletes explicitly.
+
+Separate business change timestamp from ingestion timestamp.
+
+Add data-quality tests.
+
+Validate one current version per business key.
+
+31. Final snapshot mental model
+
+Remember:
+
+                 BUSINESS ENTITY
+                       |
+                       v
+                unique_key
+                       |
+             +---------+---------+
+             |                   |
+        unchanged             changed
+             |                   |
+             |             close old row
+             |                   |
+             |             create new row
+             |                   |
+             +---------+---------+
+                       |
+                       v
+                 SCD2 HISTORY
+
+One sentence to remember
+
+A dbt snapshot is a state-history mechanism, usually used for SCD2,
+that records successive versions of an entity based on a business key
+and a change-detection strategy.

@@ -683,3 +683,35 @@ TOTAL_VERSIONS	CURRENT_VERSIONS	HISTORICAL_VERSIONS
 2	                  1	                     1
 */
 
+
+                 Incremental Pipeline
+                        │
+                        ▼
+                       GCS
+                        │
+                        ▼
+                     Snowpipe
+                        │
+                        ▼
+                     LANDING
+                        │
+              ┌─────────┴─────────┐
+              ▼                   ▼
+          SCD Type 1          SCD Type 2
+              │                   │
+              ▼                   ▼
+       UPDATE existing       Expire old
+       current record        + insert new
+              │                   │
+              ▼                   ▼
+        1 current row       Historical rows
+
+What you should remember for interviews
+
+SCD Type 1
+
+Overwrites the existing dimension record. Historical changes are not preserved in the dimension.
+
+SCD Type 2
+
+Preserves historical versions by expiring the previous record and inserting a new version, typically using VALID_FROM, VALID_TO, and IS_CURRENT.

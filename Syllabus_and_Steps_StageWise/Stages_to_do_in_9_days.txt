@@ -1,0 +1,436 @@
+9-Day Execution Plan
+Day	Main focus	Snowflake	Azure DevOps	GCP
+Day 1	dbt Snapshots	⭐⭐⭐⭐⭐	⭐⭐⭐⭐	supporting
+Day 2	Snowflake Streams + Tasks	⭐⭐⭐⭐⭐	⭐⭐⭐	supporting
+Day 3	dbt Advanced	⭐⭐⭐⭐⭐	⭐⭐⭐⭐⭐	—
+Day 4	Snowflake Security	⭐⭐⭐⭐⭐	⭐⭐⭐	—
+Day 5	Snowflake Time Travel + Clone + Schema Evolution	⭐⭐⭐⭐⭐	⭐⭐⭐	—
+Day 6	Data Quality + Audit	⭐⭐⭐⭐	⭐⭐⭐⭐	⭐⭐⭐
+Day 7	CI/CD hardening + artifact promotion	⭐⭐⭐	⭐⭐⭐⭐⭐	⭐⭐⭐
+Day 8	Monitoring + failure scenarios	⭐⭐⭐⭐	⭐⭐⭐⭐	⭐⭐⭐⭐
+Day 9	Final E2E production implementation	⭐⭐⭐⭐⭐	⭐⭐⭐⭐⭐	⭐⭐⭐⭐⭐
+Day 1 — dbt Snapshots
+
+This is where I'd start.
+
+Target architecture
+SQL Server
+    ↓
+Airflow
+    ↓
+GCS
+    ↓
+Pub/Sub
+    ↓
+Snowpipe
+    ↓
+Snowflake LANDING
+    ↓
+dbt Snapshot
+    ↓
+Historical Dimension
+
+We will actually implement:
+
+DIM_CUSTOMER
+     ↓
+SNAPSHOT
+     ↓
+SNAPSHOT_DIM_CUSTOMER
+
+and test:
+
+INSERT
+UPDATE
+DELETE
+
+We'll see exactly how dbt captures the historical versions.
+
+Then connect it to:
+
+Azure DevOps
+    ↓
+PR
+    ↓
+dbt CI
+    ↓
+TEST
+    ↓
+PREPROD
+    ↓
+PROD
+Day 1 deliverables
+snapshots/ structure
+snapshot configuration
+timestamp/check strategy
+snapshot execution
+historical records
+update detection
+delete detection
+snapshot validation
+Azure DevOps pipeline execution
+Snowflake validation
+documentation
+Day 2 — Snowflake Streams + Tasks
+
+After snapshots, we'll implement native Snowflake CDC processing.
+
+LANDING
+   ↓
+STREAM
+   ↓
+TASK
+   ↓
+MERGE
+   ↓
+TARGET
+
+We'll deliberately perform:
+
+INSERT
+UPDATE
+DELETE
+
+and inspect the stream metadata.
+
+Then create a task:
+
+STREAM
+  ↓
+TASK
+  ↓
+MERGE
+
+We'll also understand why you might use:
+
+dbt snapshots vs Snowflake streams/tasks
+
+rather than treating them as interchangeable.
+
+Day 3 — Advanced dbt
+
+We'll expand your existing dbt project instead of creating another project.
+
+Implement
+Sources
+   ↓
+Freshness
+   ↓
+Tests
+   ↓
+Incremental Models
+   ↓
+Macros
+   ↓
+Snapshots
+   ↓
+Documentation
+   ↓
+Exposures
+
+We'll add:
+
+source definitions
+freshness
+generic tests
+custom tests
+incremental model
+macros
+package
+documentation
+lineage
+exposure
+
+And importantly, we'll run it through your existing Azure DevOps pipeline.
+
+Day 4 — Snowflake Security
+
+We'll create a realistic role model.
+
+SECURITYADMIN
+       ↓
+ ┌──────────────┐
+ ↓              ↓
+DEV            PROD
+ ↓              ↓
+Reader        Reader
+Writer        Writer
+Transformer   Transformer
+
+Then implement:
+
+RBAC
+roles
+role hierarchy
+grants
+future grants
+warehouse permissions
+Masking
+
+For example:
+
+EMAIL
+YEARLY_INCOME
+Row access
+
+For example:
+
+Role A → all customers
+Role B → restricted customers
+Secure views
+
+Then test access using different roles.
+
+Day 5 — Advanced Snowflake
+
+We will use the Snowflake trial heavily here.
+
+Time Travel
+
+Perform an actual destructive test:
+
+Table
+ ↓
+DELETE
+ ↓
+Time Travel
+ ↓
+Recover
+Zero-copy clone
+PROD
+ ↓
+DEV CLONE
+Schema evolution
+
+Add a column upstream and follow it through:
+
+Source
+ ↓
+GCS
+ ↓
+Snowpipe
+ ↓
+Snowflake
+
+We'll document what happens at each layer.
+
+Day 6 — Data Quality + Audit Framework
+
+Now we'll build something that makes the project feel much more production-like.
+
+Create something similar to:
+
+PIPELINE_RUN_AUDIT
+
+with:
+
+pipeline_name
+run_id
+source
+target
+start_time
+end_time
+status
+records_read
+records_written
+records_rejected
+error_message
+
+Then implement checks:
+
+Source count
+      ↓
+Landing count
+      ↓
+Target count
+
+plus:
+
+null checks
+uniqueness
+referential integrity
+freshness
+duplicate detection
+reconciliation
+
+The result should be:
+
+Pipeline
+   ↓
+Data Quality
+   ↓
+Audit
+   ↓
+PASS / FAIL
+   ↓
+Azure DevOps
+Day 7 — Azure DevOps Hardening
+
+You've already built the pipelines.
+
+Now we'll make them more production-like.
+
+Current
+PR
+ ↓
+CI
+ ↓
+TEST
+ ↓
+PREPROD
+ ↓
+PROD
+
+We'll strengthen:
+
+PR validation
+approvals
+environments
+artifacts
+secure files
+variable groups
+secret handling
+WIF
+deployment gates
+artifact promotion
+
+And importantly, compare the three pipelines:
+
+Airflow
+dbt
+Terraform
+
+so you understand why each deployment architecture is slightly different.
+
+Day 8 — Monitoring + Failure Engineering
+
+Rather than merely reading about failures, we'll break things intentionally.
+
+Test 1
+
+SQL Server unavailable.
+
+Test 2
+
+Malformed JSON.
+
+Test 3
+
+Duplicate file.
+
+Test 4
+
+Duplicate event.
+
+Test 5
+
+dbt test failure.
+
+Test 6
+
+Terraform plan detects unexpected change.
+
+Test 7
+
+Snowpipe failure.
+
+Test 8
+
+Snowflake task failure.
+
+For each:
+
+Failure
+ ↓
+Detection
+ ↓
+Logging
+ ↓
+Retry
+ ↓
+Recovery
+ ↓
+Validation
+
+We'll record the actual evidence.
+
+Day 9 — Final Production Implementation
+
+Then we bring everything together.
+
+                         AZURE DEVOPS
+                              │
+                  ┌───────────┼───────────┐
+                  │           │           │
+               Airflow       dbt      Terraform
+                  │           │           │
+                  ▼           │           ▼
+SQL Server ────→ GCS          │       Infrastructure
+                  │            │
+                  ▼            │
+                Pub/Sub        │
+                  │            │
+                  ▼            │
+               Snowpipe        │
+                  │            │
+                  ▼            ▼
+              SNOWFLAKE ←──── dbt
+                  │
+       ┌──────────┼───────────┐
+       ▼          ▼           ▼
+    LANDING    SNAPSHOT    STREAM/TASK
+       │
+       ▼
+    PREPARE
+       │
+       ▼
+   NORMALIZE
+       │
+       ▼
+  SCHEMATIZE
+       │
+       ▼
+ MARKETPLACE
+       │
+       ▼
+      BI
+
+Around it:
+
+RBAC
+Masking
+Row Access
+Data Quality
+Audit
+Monitoring
+Retry
+Idempotency
+CI/CD
+TEST → PREPROD → PROD
+What happens after Day 9?
+
+Only then we move into your interview phase.
+
+We'll take every implementation and turn it into:
+
+Concept
+   ↓
+Why
+   ↓
+Architecture
+   ↓
+Implementation
+   ↓
+Code
+   ↓
+Failure scenario
+   ↓
+Production consideration
+   ↓
+Trade-off
+   ↓
+Interview question
+   ↓
+Senior follow-up
+
+That will give you genuine answers based on things you actually implemented, rather than memorized interview material.
