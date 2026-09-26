@@ -53,7 +53,7 @@ stages:
 
   # --- TEST STAGE ---
 - stage: deploy_test
-  displayName: 'Deploy Airflow Files to TEST Environment'
+  displayName: 'Deploy Airflow DAG and Plugins to TEST Environment'
   dependsOn: unit_tests
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   jobs:
@@ -264,7 +264,7 @@ stages:
 
   # --- PRODUCTION STAGE ---
 - stage: deploy_prod
-  displayName: 'Copy Airflow DAGS to PROD Environment'
+  displayName: 'Deploy Airflow DAG and Plugins to PROD Environment'
   dependsOn: deploy_test
   # Only run if we are on the main branch and the test stage succeeded
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))

@@ -1,0 +1,1197 @@
+Yes. At this point, we should **stop adding breadth randomly** and turn the remaining time into a focused **hands-on completion sprint**, especially for **Snowflake + Azure DevOps**, while GCP remains available for integrations.
+
+You have **9 days** on Azure and Snowflake, so I would treat those two as the hard deadline for anything requiring paid/free-trial resources.
+
+## Current status
+
+Already implemented and **do not repeat**:
+
+* SQL Server / AdventureWorks source
+* Python extraction
+* Batch/file ingestion
+* GCS
+* Pub/Sub
+* Snowpipe
+* Snowflake LANDING
+* dbt LANDING → PREPARE → NORMALIZE → SCHEMATIZE → MARKETPLACE
+* Dimensional modeling
+* Terraform
+* Terraform plan/apply pipeline
+* GCP Workload Identity Federation
+* Azure DevOps CI/CD fundamentals
+* Controlled Airflow deployment
+* Airflow changed-file deployment using Git diff
+* Incremental/watermark ingestion
+* CDC concepts/implementation
+* SCD Type 1 / Type 2
+* Basic retry/error handling/idempotency foundation
+* Three major pipelines implemented and tested:
+
+  * Airflow
+  * dbt
+  * Terraform
+
+So we should build **on top of this**, not redo it.
+
+---
+
+# Remaining Data Engineering Practical Roadmap
+
+I would divide everything remaining into **10 areas**.
+
+---
+
+## 1. Snowflake — Advanced Engineering
+
+This should be one of the biggest priorities because your Snowflake trial expires in 9 days.
+
+### 1.1 dbt Snapshots ⭐⭐⭐⭐⭐
+
+Implement a complete snapshot pipeline:
+
+```text
+SQL Server
+   ↓
+GCS
+   ↓
+Snowpipe
+   ↓
+Snowflake LANDING
+   ↓
+dbt Snapshot
+   ↓
+Historical Dimension
+```
+
+Implement:
+
+* dbt snapshot configuration
+* timestamp strategy
+* check strategy
+* `dbt snapshot`
+* snapshot table structure
+* `dbt_valid_from`
+* `dbt_valid_to`
+* `dbt_scd_id`
+* detecting updates
+* detecting deletes
+* historical records
+* querying current vs historical records
+* snapshot tests
+* Azure DevOps execution
+* TEST → PREPROD → PROD
+* Snowflake validation
+
+**This is a major hands-on project.**
+
+---
+
+## 2. Snowflake Data Engineering Features
+
+### 2.1 Streams
+
+Implement:
+
+```text
+LANDING
+   ↓
+STREAM
+   ↓
+Transformation
+   ↓
+TARGET
+```
+
+Learn/implement:
+
+* standard stream
+* append-only stream
+* metadata columns
+* INSERT/UPDATE/DELETE tracking
+* consuming a stream
+* stream becoming stale
+* stream + MERGE
+
+---
+
+### 2.2 Tasks
+
+Implement Snowflake Tasks.
+
+Example:
+
+```text
+Stream
+   ↓
+Task
+   ↓
+MERGE
+   ↓
+Target table
+```
+
+Cover:
+
+* scheduled task
+* dependent tasks
+* task graph
+* task history
+* failure handling
+* retry strategy
+* suspension/resume
+* warehouse/serverless execution
+
+---
+
+### 2.3 Streams + Tasks + dbt
+
+Then combine them:
+
+```text
+SQL Server
+     ↓
+GCS
+     ↓
+Snowpipe
+     ↓
+LANDING
+     ↓
+STREAM
+     ↓
+TASK
+     ↓
+dbt
+     ↓
+SCHEMATIZE
+```
+
+This gives you a very strong real-world Snowflake story.
+
+---
+
+# 3. Snowflake Security
+
+You already have private-key authentication, but security should go deeper.
+
+### 3.1 RBAC
+
+Implement:
+
+```text
+ACCOUNTADMIN
+    ↓
+SECURITYADMIN
+    ↓
+CUSTOM ROLES
+    ↓
+DATABASE
+    ↓
+SCHEMA
+    ↓
+TABLE / VIEW
+```
+
+Create practical roles such as:
+
+```text
+ADVWORKS_DEV_READER
+ADVWORKS_DEV_WRITER
+ADVWORKS_DEV_TRANSFORMER
+ADVWORKS_PROD_READER
+```
+
+Implement:
+
+* role hierarchy
+* database grants
+* schema grants
+* table grants
+* future grants
+* warehouse grants
+* least privilege
+* service-account role
+
+---
+
+### 3.2 Dynamic Data Masking
+
+Implement masking for something like:
+
+```text
+Email
+Phone
+Salary
+```
+
+Learn:
+
+* masking policy
+* role-based masking
+* unmasked vs masked access
+* applying policy to columns
+
+---
+
+### 3.3 Row Access Policy
+
+Implement a practical scenario:
+
+```text
+User / Role
+      ↓
+Row Access Policy
+      ↓
+Only permitted business rows
+```
+
+For example:
+
+```text
+DEV → all rows
+ANALYST → selected rows
+```
+
+---
+
+### 3.4 Secure Views
+
+Implement:
+
+* secure views
+* views vs secure views
+* controlled consumer access
+
+---
+
+# 4. Snowflake Advanced Data Management
+
+### 4.1 Time Travel
+
+Implement and demonstrate:
+
+* querying previous table state
+* `AT`
+* `BEFORE`
+* restoring deleted data
+* retention
+
+---
+
+### 4.2 Zero-Copy Clone
+
+Implement:
+
+```text
+PROD
+ ↓
+DEV CLONE
+```
+
+and understand:
+
+* zero-copy clone
+* storage implications
+* clone independence
+* environment refresh
+
+---
+
+### 4.3 Fail-safe vs Time Travel
+
+Understand practically:
+
+```text
+Current Data
+     ↓
+Time Travel
+     ↓
+Fail-safe
+```
+
+This is an important interview topic.
+
+---
+
+### 4.4 Schema Evolution
+
+Test:
+
+```text
+Source adds column
+       ↓
+GCS
+       ↓
+Snowpipe
+       ↓
+Snowflake
+```
+
+Investigate:
+
+* new columns
+* changed data types
+* missing columns
+* malformed files
+* COPY behaviour
+* schema evolution handling
+
+---
+
+# 5. Snowflake Performance & Cost
+
+Since you specifically want practical experience, don't just read about this.
+
+### 5.1 Query Optimization
+
+Implement examples involving:
+
+* pruning
+* clustering
+* unnecessary scans
+* `SELECT *`
+* large joins
+* filtering
+* joins on poor keys
+
+---
+
+### 5.2 Warehouse Optimization
+
+Experiment with:
+
+* XS warehouse
+* scaling
+* auto-suspend
+* auto-resume
+* warehouse sizing
+* concurrency
+
+---
+
+### 5.3 Query Profile
+
+Learn to identify:
+
+* table scan
+* bytes scanned
+* partitions scanned
+* spilling
+* expensive joins
+* bottlenecks
+
+---
+
+### 5.4 Snowflake Cost Monitoring
+
+Implement/understand:
+
+* warehouse usage
+* storage usage
+* query history
+* resource monitors
+* credit consumption
+* runaway queries
+
+---
+
+# 6. dbt Advanced Engineering
+
+You have the basic dbt pipeline now. Next layer:
+
+### 6.1 dbt Tests
+
+Implement:
+
+```text
+not_null
+unique
+accepted_values
+relationships
+```
+
+Then create custom tests.
+
+---
+
+### 6.2 dbt Sources
+
+Implement:
+
+```text
+sources.yml
+```
+
+with:
+
+* source freshness
+* source tests
+* source documentation
+
+---
+
+### 6.3 dbt Incremental Models
+
+You already understand incremental ingestion at the pipeline level.
+
+Now implement it properly inside dbt:
+
+```text
+LANDING
+   ↓
+incremental dbt model
+   ↓
+TARGET
+```
+
+Cover:
+
+* `is_incremental()`
+* unique key
+* merge strategy
+* full refresh
+* late-arriving records
+
+---
+
+### 6.4 dbt Macros
+
+Implement useful reusable macros.
+
+Examples:
+
+```text
+generate surrogate key
+standardize columns
+audit columns
+date logic
+```
+
+---
+
+### 6.5 dbt Packages
+
+Implement at least one useful package and understand:
+
+* `packages.yml`
+* `dbt deps`
+* package versioning
+
+---
+
+### 6.6 dbt Documentation
+
+Implement:
+
+```text
+dbt docs generate
+dbt docs serve
+```
+
+Understand:
+
+* lineage
+* model documentation
+* source → model relationships
+
+---
+
+### 6.7 dbt Exposures
+
+Add BI exposure:
+
+```text
+dbt model
+    ↓
+Tableau dashboard
+```
+
+Even if Tableau itself is not deployed, understand/document the relationship.
+
+---
+
+# 7. Azure DevOps — Advanced CI/CD
+
+Your three pipelines are now working.
+
+Now we should turn them into **production-grade DevOps experience**.
+
+### 7.1 PR Validation
+
+Implement/validate:
+
+```text
+Developer
+   ↓
+PR
+   ↓
+CI
+   ├── lint
+   ├── tests
+   ├── validation
+   └── compile
+```
+
+---
+
+### 7.2 Environment Approvals
+
+You already use:
+
+```text
+TEST
+PREPROD
+PROD
+```
+
+Now validate the concept of:
+
+```text
+TEST
+ ↓
+Approval
+ ↓
+PREPROD
+ ↓
+Approval
+ ↓
+PROD
+```
+
+Especially important for:
+
+* dbt
+* Terraform
+* Airflow
+
+---
+
+### 7.3 Deployment Artifacts
+
+You already implemented this for Terraform.
+
+Extend the understanding to:
+
+```text
+Build
+ ↓
+Artifact
+ ↓
+Deploy TEST
+ ↓
+Same artifact
+ ↓
+Deploy PROD
+```
+
+Understand why this is safer than rebuilding separately.
+
+---
+
+### 7.4 Variable Groups
+
+You already use them.
+
+Deepen:
+
+* secrets
+* environment-specific variables
+* secure variables
+* variable precedence
+* secret masking
+
+---
+
+### 7.5 Secure Files
+
+You already use:
+
+```text
+dev_dbt.p8
+preprod_dbt.p8
+prod_dbt.p8
+```
+
+Document and understand:
+
+```text
+Azure DevOps Secure File
+        ↓
+Pipeline
+        ↓
+Snowflake authentication
+```
+
+---
+
+### 7.6 Service Connections / WIF
+
+You already implemented GCP WIF.
+
+Now understand the architecture deeply:
+
+```text
+Azure DevOps
+      ↓
+OIDC token
+      ↓
+Google Workload Identity Federation
+      ↓
+GCP Service Account
+      ↓
+GCS / GCP resources
+```
+
+This is an excellent interview topic.
+
+---
+
+# 8. Data Quality & Production Reliability
+
+This is an important gap.
+
+Implement a proper data-quality layer.
+
+### 8.1 Completeness
+
+Check:
+
+```text
+Expected records
+vs
+Received records
+```
+
+---
+
+### 8.2 Uniqueness
+
+Example:
+
+```text
+CustomerKey
+```
+
+must be unique.
+
+---
+
+### 8.3 Null Checks
+
+For required fields.
+
+---
+
+### 8.4 Referential Integrity
+
+Example:
+
+```text
+FactSales.CustomerKey
+       ↓
+DimCustomer.CustomerKey
+```
+
+---
+
+### 8.5 Data Freshness
+
+Example:
+
+```text
+Last successful ingestion
+        ↓
+< threshold?
+        ↓
+ALERT
+```
+
+---
+
+### 8.6 Reconciliation
+
+Implement:
+
+```text
+Source count
+     =
+Landing count
+     =
+Target count
+```
+
+and investigate differences.
+
+---
+
+### 8.7 Audit Framework
+
+Create an audit table such as:
+
+```text
+PIPELINE_RUN_AUDIT
+```
+
+containing:
+
+```text
+pipeline_name
+run_id
+source
+target
+start_time
+end_time
+status
+records_read
+records_written
+records_rejected
+error_message
+```
+
+This is very valuable practical DE experience.
+
+---
+
+# 9. Monitoring / Logging / Alerting
+
+Build a complete monitoring story.
+
+```text
+Pipeline
+   ↓
+Logs
+   ↓
+Metrics
+   ↓
+Audit
+   ↓
+Alert
+```
+
+Implement/validate:
+
+### Airflow
+
+* DAG failures
+* retries
+* task duration
+* logs
+* SLA/freshness concept
+
+### Azure DevOps
+
+* failed builds
+* failed deployments
+* stage failures
+* environment history
+
+### Snowflake
+
+* query history
+* task history
+* pipe status
+* load history
+* warehouse usage
+
+### GCP
+
+* GCS
+* Pub/Sub
+* service account
+* relevant Cloud Logging
+
+---
+
+# 10. Airflow — Finish the Important Practical Concepts
+
+Airflow should remain **last**, as planned.
+
+You don't need to turn this into an Airflow-specialist project.
+
+Implement/understand:
+
+### DAG fundamentals
+
+* DAG
+* DAG Run
+* Task
+* Operator
+* dependency
+* scheduling
+
+### Important operators
+
+* PythonOperator
+* BashOperator
+* SQL-related operator
+* sensors
+* custom operator
+
+### Reliability
+
+* retry
+* retry delay
+* exponential backoff
+* timeout
+* failure callback
+
+### XCom
+
+Understand:
+
+```text
+Task A
+ ↓ XCom
+Task B
+```
+
+and when **not** to use XCom for large data.
+
+### Connections / Variables
+
+Understand secure credential management.
+
+### Dynamic DAGs
+
+Understand metadata-driven DAG generation.
+
+### Backfill / catchup
+
+Very important interview topic.
+
+### TaskFlow API
+
+Implement at least one DAG using it.
+
+### Airflow → GCS
+
+You already have this architecture, so document and demonstrate the final production flow.
+
+---
+
+# 11. Production Architecture
+
+After the individual technologies are complete, we need one final exercise:
+
+## Build the complete production architecture
+
+```text
+                  ┌──────────────────┐
+                  │    SQL Server    │
+                  └────────┬─────────┘
+                           │
+                           ▼
+                     Apache Airflow
+                           │
+                           ▼
+                         GCS
+                           │
+                    Pub/Sub / Event
+                           │
+                           ▼
+                       Snowpipe
+                           │
+                           ▼
+                    Snowflake LANDING
+                           │
+                           ▼
+                         dbt
+                           │
+          ┌────────────────┼────────────────┐
+          ▼                ▼                ▼
+      PREPARE          NORMALIZE       SCHEMATIZE
+                                             │
+                                             ▼
+                                       MARKETPLACE
+                                             │
+                                             ▼
+                                      BI / Tableau
+```
+
+And surrounding it:
+
+```text
+Azure DevOps
+ ├── CI
+ ├── CD
+ ├── TEST
+ ├── PREPROD
+ └── PROD
+
+Terraform
+ └── Infrastructure
+
+Security
+ ├── Snowflake RBAC
+ ├── Key authentication
+ ├── GCP IAM
+ └── WIF
+
+Monitoring
+ ├── Audit
+ ├── Logs
+ ├── Metrics
+ └── Alerts
+```
+
+This becomes your **portfolio architecture**.
+
+---
+
+# 12. Final End-to-End Failure Scenarios
+
+These are extremely important because they turn the project from "I followed a tutorial" into actual engineering experience.
+
+We should deliberately simulate:
+
+### Scenario A — Source failure
+
+```text
+SQL Server unavailable
+       ↓
+Airflow fails
+       ↓
+Retry
+       ↓
+Recovery
+```
+
+### Scenario B — Bad file
+
+```text
+GCS
+ ↓
+Malformed JSON
+ ↓
+Snowpipe failure
+ ↓
+Identify failed file
+ ↓
+Fix/reprocess
+```
+
+### Scenario C — Duplicate file
+
+```text
+Same file arrives twice
+       ↓
+Snowpipe
+       ↓
+No duplicate target records
+```
+
+### Scenario D — Duplicate event
+
+Pub/Sub message delivered again.
+
+Test idempotency.
+
+### Scenario E — dbt model failure
+
+```text
+dbt model
+   ↓
+TEST failure
+   ↓
+Deployment stops
+```
+
+### Scenario F — Terraform failure
+
+```text
+terraform plan
+      ↓
+unexpected change
+      ↓
+do NOT apply
+```
+
+### Scenario G — Production deployment failure
+
+```text
+TEST
+ ↓
+PREPROD
+ ↓
+PROD failure
+ ↓
+rollback/recovery strategy
+```
+
+### Scenario H — Schema change
+
+Source adds a column.
+
+Trace the entire system.
+
+---
+
+# 13. Final Portfolio Project
+
+Once the above is complete, we should make **one final end-to-end production-style implementation**, rather than creating another unrelated project.
+
+For example:
+
+### Customer 360 / Sales Pipeline
+
+```text
+AdventureWorks
+      ↓
+SQL Server
+      ↓
+Airflow
+      ↓
+GCS
+      ↓
+Pub/Sub
+      ↓
+Snowpipe
+      ↓
+Snowflake LANDING
+      ↓
+dbt
+      ↓
+Snapshots
+      ↓
+Incremental models
+      ↓
+SCD
+      ↓
+Dimensional model
+      ↓
+Marketplace
+      ↓
+BI
+```
+
+with:
+
+```text
+Terraform
+Azure DevOps
+RBAC
+Data Quality
+Monitoring
+Audit
+Retry
+Idempotency
+CI/CD
+TEST → PREPROD → PROD
+```
+
+This becomes the **single project you can discuss in detail during interviews**.
+
+---
+
+# 14. Interview Preparation — AFTER implementation
+
+As you requested earlier, we should **not switch into interview preparation yet**.
+
+Once the implementation is finished, we will convert every implementation into interview material:
+
+### For every topic:
+
+**1. What is it?**
+
+**2. Why do we need it?**
+
+**3. How did you implement it?**
+
+**4. Architecture**
+
+**5. Code**
+
+**6. Failure scenarios**
+
+**7. Production considerations**
+
+**8. Alternatives**
+
+**9. Trade-offs**
+
+**10. Interview questions**
+
+**11. Senior-level follow-ups**
+
+**12. Your Canam example**
+
+That will eventually become your **Chetan Data Engineering Interview Bible**.
+
+---
+
+# Master Remaining Checklist
+
+| Area                                   | Remaining |
+| -------------------------------------- | --------- |
+| Snowflake Streams                      | ⬜         |
+| Snowflake Tasks                        | ⬜         |
+| Streams + Tasks                        | ⬜         |
+| dbt Snapshots                          | ⬜         |
+| dbt Tests                              | ⬜         |
+| dbt Sources/Freshness                  | ⬜         |
+| dbt Incremental Models                 | ⬜         |
+| dbt Macros                             | ⬜         |
+| dbt Documentation/Lineage              | ⬜         |
+| dbt Exposures                          | ⬜         |
+| Snowflake RBAC                         | ⬜         |
+| Masking Policies                       | ⬜         |
+| Row Access Policies                    | ⬜         |
+| Secure Views                           | ⬜         |
+| Time Travel                            | ⬜         |
+| Zero-Copy Clone                        | ⬜         |
+| Schema Evolution                       | ⬜         |
+| Snowflake Performance                  | ⬜         |
+| Snowflake Cost Optimization            | ⬜         |
+| Azure DevOps PR validation hardening   | ⬜         |
+| Azure DevOps approvals/environments    | ⬜         |
+| Azure DevOps artifact promotion        | ⬜         |
+| Azure DevOps secrets/secure files      | ⬜         |
+| GCP WIF deep implementation/validation | ⬜         |
+| Data Quality framework                 | ⬜         |
+| Reconciliation                         | ⬜         |
+| Audit framework                        | ⬜         |
+| Monitoring                             | ⬜         |
+| Alerting                               | ⬜         |
+| Airflow reliability                    | ⬜         |
+| Airflow XCom                           | ⬜         |
+| Airflow Sensors                        | ⬜         |
+| Airflow TaskFlow API                   | ⬜         |
+| Airflow catchup/backfill               | ⬜         |
+| Production architecture                | ⬜         |
+| Failure simulations                    | ⬜         |
+| Final end-to-end project               | ⬜         |
+| Interview scenarios                    | ⏸️        |
+| Mock interviews                        | ⏸️        |
+
+### Already complete — don't redo
+
+| Area                            | Status |
+| ------------------------------- | ------ |
+| SQL Server                      | ✅      |
+| Python extraction               | ✅      |
+| GCS                             | ✅      |
+| Pub/Sub                         | ✅      |
+| Snowpipe                        | ✅      |
+| Snowflake Landing               | ✅      |
+| dbt core layers                 | ✅      |
+| Dimensional modeling            | ✅      |
+| Terraform                       | ✅      |
+| WIF                             | ✅      |
+| Incremental/watermark           | ✅      |
+| CDC                             | ✅      |
+| SCD1/SCD2                       | ✅      |
+| Airflow controlled deployment   | ✅      |
+| dbt Azure DevOps pipeline       | ✅      |
+| Terraform Azure DevOps pipeline | ✅      |
+| Airflow Azure DevOps pipeline   | ✅      |
+
+## The important point about the next 9 days
+
+We **should not try to finish everything above using paid resources**.
+
+The sensible sequence is to identify which remaining topics **actually require Snowflake/Azure execution**, finish those while the credits are alive, and use GCP where it adds value because you have much longer runway there.
+
+In particular, **dbt Snapshots + Snowflake Streams/Tasks + Snowflake security + dbt advanced CI/CD + Azure DevOps deployment controls + data-quality/audit implementation** should be treated as the high-value hands-on cluster.
+
+Then the remaining topics can be completed locally or with GCP after the Azure/Snowflake trials expire.
+
+**Next step:** we can now take this master list and create a **9-day execution plan**, ordered by **(1) credit dependency → (2) interview value → (3) implementation dependency**, without repeating anything you've already completed.
